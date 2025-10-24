@@ -4,33 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SmartQ</title>
+  <link rel="stylesheet" href="../static/Admin2/Homepage.css">
 
-  <!-- ✅ Correct path to CSS file -->
-  <link rel="stylesheet" href="../static/admin.css">
 </head>
 <body>
 
 <header>
-  <nav class="navbar">
-    <a href="/" class="logo"><strong>QueueAutomation</strong></a>
-    <ul class="navmenu">
-      <li><a href="/">Home</a></li>
-      <li><a href="/superadmin">Show all Queues</a></li>
-      <li><a href="/login">Login</a></li>
-      <li><a href="#" id="logout">Logout</a></li>
-    </ul>
+  <nav class="HomeNavbar">
+    <a href="/" class="HomeLogo"><strong>QueueAutomation</strong></a>
+<ul class="HomeNavMenu">
+  <li><a href="/">Home</a></li>
+  <li><a href="/createQ">Create Q</a></li>
+  <li><a href="/candidate">Add Candidate</a></li>
+  <li><a href="#" id="logout">Logout</a></li>
+</ul>
+
   </nav>
 </header>
 
-
-
 <div id="home">
   <!-- Section 1 -->
-  <section class="intro-section">
-    <div class="container">
-      <div class="row">
+  <section class="HomeIntroSection">
+    <div class="HomeContainer">
+      <div class="HomeRow">
         <!-- Left side: Text -->
-        <div class="text-content">
+        <div class="HomeTextContent">
           <h2>Virtual Queue System to make it efficient than traditional Queue Method</h2>
           <p>
             SmartQ makes it easy for them and staff to access services efficiently,
@@ -39,8 +37,8 @@
         </div>
 
         <!-- Right side: Image -->
-        <div class="image-content">
-          <img src="/Images/qr.png" alt="queue waiting system" class="image">
+        <div class="HomeImageContent">
+          <img src="/Images/qr.png" alt="queue waiting system" class="HomeImage">
         </div>
       </div>
     </div>
@@ -48,16 +46,16 @@
 </div>
 
 <!-- Section 2 -->
-<section class="how-it-works-section">
-  <div class="container">
-    <div class="row">
+<section class="HomeHowItWorksSection">
+  <div class="HomeContainer">
+    <div class="HomeRow">
       <!-- Left side: Image -->
-      <div class="image-content">
-        <img src="/Images/Automation.png" alt="Automation" class="image">
+      <div class="HomeImageContent">
+        <img src="/Images/Automation.png" alt="Automation" class="HomeImage">
       </div>
 
       <!-- Right side: Text -->
-      <div class="text-content">
+      <div class="HomeTextContent">
         <h3>How SmartQ Works?</h3>
         <ul>
           <li>Users simply scan a QR code on their mobile devices to join the queue.</li>
@@ -71,10 +69,9 @@
   </div>
 </section>
 
-
 <!-- Section 3 -->
-<section class="features-section">
-  <div class="container">
+<section class="HomeFeaturesSection">
+  <div class="HomeContainer">
     <h2>How will SmartQ benefit the students and staff members?</h2>
     <p><strong>Features Highlights</strong></p>
 
@@ -90,10 +87,10 @@
 </section>
 
 <!-- Section 4: Sliding Cards -->
-<section class="how-it-works-slider">
-  <div class="container">
+<section class="HomeHowItWorksSlider">
+  <div class="HomeContainer">
     <h3>How It Works</h3>
-    <div class="steps">
+    <div class="HomeSteps">
       <div>
         <img src="/Images/step-1.png" alt="step 1">
         <p>STEP 1</p>
@@ -106,7 +103,7 @@
       </div>
       <div>
         <img src="/Images/step-3.png" alt="step 3">
-         <p>STEP 1</p>
+        <p>STEP 3</p>
         <p>A notification alert will be sent to them when their turn is next.</p>
       </div>
     </div>
