@@ -15,17 +15,17 @@
         <div>
           <img src="/Images/step-1.png" alt="step 1">
           <p>STEP 1</p>
-          <p>Users will scan the QR Code and fill the details.</p>
+          <p2>Users will scan the QR Code and fill the details.</p2>
         </div>
         <div>
           <img src="/Images/step-2.png" alt="step 2">
           <p>STEP 2</p>
-          <p>He/She is able to track the exact number in the virtual Queue.</p>
+          <p2>He/She is able to track the exact number in the virtual Queue.</p2>
         </div>
         <div>
           <img src="/Images/step-3.png" alt="step 3">
           <p>STEP 3</p>
-          <p>A notification alert will be sent to them when their turn is next.</p>
+          <p2>A notification alert will be sent to them when their turn is next.</p2>
         </div>
       </div>
   </section>
@@ -33,14 +33,23 @@
   <!-- Section 2: Processing of the Papers -->
   <section class="paper-section">
       <form class="paper-form" action="#" method="post">
-        <div class="form-row">
-           <h3>Processing of Documents</h3>
-          <label for="fullname">Full Name</label>
-          <input type="text" id="fullname" name="fullname" required>
-        </div>
+       <div class="form-row">
+  <h3>Registration Form</h3>
+
+  <label for="fullname">Full Name</label>
+  <input type="text" id="fullname" name="fullname" required>
+
+  <div class="name-hint">
+    <span>Last Name,</span>
+    <span>First Name </span>
+    <span>Middle Initial</span>
+    <span>Suffix</span>
+  </div>
+</div>
+
         <div class="form-row">
           <label for="phone">Phone Number</label>
-          <input type="tel" id="phone" name="phone" required>
+          <textarea id="purpose" name="purpose" rows="1" placeholder="09*********"></textarea>
         </div>
           <div class="form-row">
             <label for="purpose">Purpose</label>

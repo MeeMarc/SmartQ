@@ -71,15 +71,23 @@ body {
 
 .steps img {
   width: 400px;   /* original width */
-  height: 600px;  /* original height */
-  margin-bottom: 15px;
+  height: 400px;  /* original height */
+  margin-bottom: 0px;
   object-fit: contain;
 }
 
 .steps p {
   color: #1a1a1a;
-  font-size: 1rem;
+  font-size: 30px;
+  font-weight: bold;
   line-height: 1.5;
+}
+
+.steps p2 {
+
+  color: #1a1a1a;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 /* =========================================================
@@ -176,4 +184,34 @@ body {
   .paper-form {
     padding: 30px 20px;
   }
+}
+
+.form-row {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.name-hint {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.9em;
+  color: #555;
+  font-style: italic;
+}
+
+.name-hint span {
+  flex: 1;
+  text-align: center;
 }
