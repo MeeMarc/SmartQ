@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartQ</title>
+  <link rel="stylesheet" href="../static/User.css">
+</head>
+<body>
+
+  <!-- Section 1: How It Works -->
+  <section class="how-it-works-slider">
+      <h3>How It Works</h3>
+      <div class="steps">
+        <div>
+          <img src="/Images/step-1.png" alt="step 1">
+          <p>STEP 1</p>
+          <p>Users will scan the QR Code and fill the details.</p>
+        </div>
+        <div>
+          <img src="/Images/step-2.png" alt="step 2">
+          <p>STEP 2</p>
+          <p>He/She is able to track the exact number in the virtual Queue.</p>
+        </div>
+        <div>
+          <img src="/Images/step-3.png" alt="step 3">
+          <p>STEP 3</p>
+          <p>A notification alert will be sent to them when their turn is next.</p>
+        </div>
+      </div>
+  </section>
+
+  <!-- Section 2: Processing of the Papers -->
+  <section class="paper-section">
+      <form class="paper-form" action="#" method="post">
+        <div class="form-row">
+           <h3>Processing of Documents</h3>
+          <label for="fullname">Full Name</label>
+          <input type="text" id="fullname" name="fullname" required>
+        </div>
+        <div class="form-row">
+          <label for="phone">Phone Number</label>
+          <input type="tel" id="phone" name="phone" required>
+        </div>
+          <div class="form-row">
+            <label for="purpose">Purpose</label>
+            <textarea id="purpose" name="purpose" rows="4" placeholder="Optional"></textarea>
+          </div>
+        <div>
+          <button type="submit">Submit</button>
+        </div>
+      </form>
+  </section>
+
+
+
+</body>
+</html>

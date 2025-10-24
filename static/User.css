@@ -1,0 +1,179 @@
+/* ======= General ======= */
+body {
+  background-color: #F4F7FB;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  color: #1a1a1a;
+  scroll-behavior: smooth;
+}
+
+/* =========================================================
+   SECTION — HOW IT WORKS
+========================================================= */
+.how-it-works-slider {
+  background-color: #ffffff; /* gray background */
+  text-align: center;
+  min-height: 480px; /* 5 inches */
+  padding: 10px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* start from top to fit images */
+  box-sizing: border-box;
+  overflow-y: auto; /* vertical scroll if needed */
+}
+
+.how-it-works-slider h3 {
+  color: #003366;
+  font-size: 2rem;
+  margin-bottom: 15px;
+  font-weight: 700;
+}
+
+/* Sliding cards */
+.steps {
+  display: flex;
+  gap: 15px;
+  overflow-x: auto;
+  padding: 10px 0;
+  scroll-snap-type: x mandatory;
+  justify-content: center;
+  align-items: flex-start;
+  background-color: #ffffff;
+}
+
+.steps::-webkit-scrollbar {
+  height: 8px;
+}
+
+.steps::-webkit-scrollbar-thumb {
+  background: #003366;
+  border-radius: 4px;
+}
+
+.steps div {
+  flex: 0 0 auto;
+  background: #ffffff;
+  padding: 10px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 4px 8px rgba(0, 51, 102, 0.1);
+  scroll-snap-align: start;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: 2px solid rgb(204, 204, 204);
+}
+
+.steps div:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 14px rgba(0, 51, 102, 0.15);
+  background-color: #e6f0ff;
+}
+
+.steps img {
+  width: 400px;   /* original width */
+  height: 600px;  /* original height */
+  margin-bottom: 15px;
+  object-fit: contain;
+}
+
+.steps p {
+  color: #1a1a1a;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   SECTION — PROCESS OF THE PAPERS
+========================================================= */
+.paper-section {
+  background-color: #f0f0f0;
+  min-height: 100vh; /* full screen height */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 20px; /* slightly reduced top/bottom padding */
+  box-sizing: border-box;
+}
+
+.paper-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px; /* spacing between form elements */
+  width: 100%;
+  max-width: 650px;
+  background-color: #ffffff;
+  padding: 40px 30px; /* balanced padding */
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(0, 51, 102, 0.15);
+  box-sizing: border-box;
+}
+
+.paper-form h3 {
+  text-align: center;
+  color: #003366;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 30px; /* spacing below heading */
+}
+
+.paper-form label {
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 6px;
+  display: block;
+  text-align: left;
+}
+
+.paper-form input,
+.paper-form select,
+.paper-form textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #ccd6e0;
+  border-radius: 10px;
+  font-size: 1rem;
+  background-color: #f9fbff;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.paper-form input:focus,
+.paper-form select:focus,
+.paper-form textarea:focus {
+  border-color: #003366;
+  box-shadow: 0 0 8px rgba(0, 51, 102, 0.2);
+  outline: none;
+  background-color: #ffffff;
+}
+
+.paper-form textarea {
+  resize: none;
+}
+
+.paper-form button {
+  background-color: #003366;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.paper-form button:hover {
+  background-color: #0055aa;
+  transform: translateY(-2px);
+}
+
+/* Responsive for smaller screens */
+@media (max-width: 768px) {
+  .paper-section {
+    padding: 40px 15px;
+  }
+
+  .paper-form {
+    padding: 30px 20px;
+  }
+}
