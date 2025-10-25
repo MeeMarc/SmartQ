@@ -12,7 +12,7 @@
   <nav class="navbar">
     <a href="/" class="logo"><strong>SmartQ</strong></a>
     <ul class="navmenu">
-      <li><a href="User/Waiting.html">Waiting Form</a></li>
+      <li><a href="Waiting.html">Waiting Form</a></li>
 
     </ul>
   </nav>
@@ -53,7 +53,8 @@
 
 
   <!-- Section 2: Processing of the Papers -->
-  <section class="paper-section">
+  <section id="paper-section" class="paper-section">
+
       <form class="paper-form" action="#" method="post">
        <div class="form-row">
   <h3>Registration Form</h3>
@@ -78,7 +79,8 @@
             <textarea id="purpose" name="purpose" rows="4" placeholder="Optional"></textarea>
           </div>
         <div>
-          <button type="submit">Submit</button>
+          <button type="button" onclick="window.location.href='Waiting.html'">Submit</button>
+
         </div>
       </form>
   </section>

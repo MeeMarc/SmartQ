@@ -265,3 +265,7 @@ header {
     max-width: 90%;
   }
 }
+
+html {
+  scroll-behavior: smooth;
+}

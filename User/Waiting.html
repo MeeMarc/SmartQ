@@ -13,8 +13,11 @@
   <nav class="navbar">
     <a href="/" class="logo"><strong>SmartQ</strong></a>
     <ul class="navmenu">
-      <li><a href="/">Fill up Form</a></li>
-      <li><button id="toggleHistoryBtn" class="HistoryBtn">Transactions History</button></li>
+      <a href="User.html#paper-section" class="fill-up-link">Fill up Form</a>
+
+
+      
+      <li><button id="toggleHistoryBtn" class="HistoryBtn">Transaction History</button></li>
     </ul>
   </nav>
 </header>
@@ -42,26 +45,7 @@
 
 
 
-<script>
-  const toggleBtn = document.getElementById('toggleHistoryBtn');
-  const historyContainer = document.getElementById('historyContainer');
 
-  // ✅ Toggle visibility when clicking the History button
-  toggleBtn.addEventListener('click', () => {
-    if (historyContainer.style.display === 'none' || historyContainer.style.display === '') {
-      historyContainer.style.display = 'block';
-    } else {
-      historyContainer.style.display = 'none';
-    }
-  });
-
-  // ✅ Optional: hide when clicking outside of it
-  document.addEventListener('click', (e) => {
-    if (!historyContainer.contains(e.target) && e.target !== toggleBtn) {
-      historyContainer.style.display = 'none';
-    }
-  });
-</script>
 
 </body>
 </html>
