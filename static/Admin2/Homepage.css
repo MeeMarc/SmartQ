@@ -334,6 +334,32 @@ header {
   line-height: 1.5;
 }
 
+/* ======= Next & Prev Buttons ======= */
+.HomeControls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.HomeControls button {
+  background-color: #003366;
+  color: #ffffff;
+  border: none;
+  padding: 10px 25px;
+  border-radius: 30px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+.HomeControls button:hover {
+  background-color: #0055aa;
+  transform: scale(1.05);
+}
+
+
 @media (max-width: 768px) {
   .HomeSteps div {
     flex: 0 0 80%;
