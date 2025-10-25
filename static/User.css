@@ -106,9 +106,7 @@ header {
   }
 }
 
-/* =========================================================
-   SECTION — HOW IT WORKS
-========================================================= */
+
 /* =========================================================
    SECTION — HOW IT WORKS (Auto Animated Card Slider)
 ========================================================= */
@@ -156,6 +154,7 @@ header {
   transform: scale(0.8);
   opacity: 0;
   transition: all 1s ease;
+  border: 1px solid #000000; /* ✅ Fixed line */
 }
 
 .card img {
