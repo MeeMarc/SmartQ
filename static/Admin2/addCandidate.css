@@ -1,0 +1,174 @@
+/* ==============================================
+   GENERAL
+============================================== */
+body {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  background-color: #ffffff;
+}
+
+/* ======= Header / Navbar ======= */
+header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  background: #003366;
+  box-shadow: 0 2px 4px rgba(0, 51, 102, 0.2);
+}
+
+.HomeNavbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 5rem;
+  height: 70px;
+  box-sizing: border-box;
+}
+
+.HomeLogo {
+  display: flex;
+  align-items: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  text-decoration: none;
+  transition: color 0.3s ease;
+  height: 100%;
+}
+
+.HomeLogo:hover {
+  color: #66B2FF;
+}
+
+.HomeNavMenu {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.HomeNavMenu a {
+  position: relative;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.HomeNavMenu a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 2px;
+  background-color: #66B2FF;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease-in-out;
+}
+
+.HomeNavMenu a:hover {
+  color: #66B2FF;
+  transform: translateY(-3px);
+}
+
+.HomeNavMenu a:hover::after {
+  transform: scaleX(1);
+}
+
+@media (max-width: 768px) {
+  .HomeNavbar {
+    flex-direction: column;
+    height: auto;
+    padding: 1rem 2rem;
+  }
+
+  .HomeNavMenu {
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .HomeNavMenu a {
+    font-size: 0.9rem;
+  }
+}
+
+
+/* ==============================================
+   REGISTRATION FORM
+============================================== */
+.RegisterMain {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 20px;
+  background-color: #f4f7fb; /* light background for contrast */
+}
+
+.RegisterContainer {
+  width: 100%;
+  max-width: 600px;
+  background: #ffffff;
+  text-align: center;
+  padding: 40px 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 51, 102, 0.1), 0 6px 20px rgba(0, 51, 102, 0.1);
+}
+
+.RegisterContainer h2 {
+  font-size: 1.6rem;
+  color: #003366;
+  margin-bottom: 30px;
+  font-weight: 600;
+}
+
+.RegisterForm {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.RegisterForm input {
+  width: 95%;
+  padding: 12px;
+  border: 1px solid #ccd6e0;
+  border-radius: 6px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.RegisterForm input:focus {
+  border-color: #66b2ff;
+  box-shadow: 0 0 6px rgba(102, 178, 255, 0.4);
+}
+
+.RegisterNote {
+  color: #000000;
+  font-size: 0.9rem;
+}
+
+.RegisterBtn {
+  background-color: #007bff;
+  color: #ffffff;
+  font-size: 1rem;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.RegisterBtn:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+}

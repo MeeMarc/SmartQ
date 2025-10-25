@@ -1,6 +1,112 @@
 /* =========================================================
    SECTION — DOCUMENT PROCESS AND WAITING (Separated)
 ========================================================= */
+body {
+  background-color: #F4F7FB;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  color: #1a1a1a;
+  scroll-behavior: smooth;
+}
+
+/* ======= Header / Navbar ======= */
+header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  background: #003366;
+  box-shadow: 0 2px 4px rgba(0, 51, 102, 0.2);
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 5rem;
+  height: 70px;
+  box-sizing: border-box;
+}
+
+/* ======= Logo ======= */
+.logo {
+  display: flex;
+  align-items: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  text-decoration: none;
+  transition: color 0.3s ease;
+  height: 100%;
+}
+
+.logo:hover {
+  color: #66B2FF;
+}
+
+/* ======= Navigation Menu ======= */
+.navmenu {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.navmenu a {
+  position: relative;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+/* Underline Animation */
+.navmenu a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 2px;
+  background-color: #66B2FF;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease-in-out;
+}
+
+/* Hover Effects */
+.navmenu a:hover {
+  color: #66B2FF;
+  transform: translateY(-3px);
+}
+
+.navmenu a:hover::after {
+  transform: scaleX(1);
+}
+
+/* ======= Responsive Navbar ======= */
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    height: auto;
+    padding: 1rem 2rem;
+  }
+
+  .navmenu {
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .navmenu a {
+    font-size: 0.9rem;
+  }
+}
 
 /* ---------- Section Wrapper ---------- */
 .document-process-section {
@@ -34,14 +140,18 @@
   background-color: #0055aa;
   transform: translateY(-2px);
 }
-
 #historyContainer {
+  position: absolute;            /* ✅ Make it float */
+  top: 100px;                     /* Position it just below the navbar */
+  right: 20px;                   /* Align to the right side */
   background-color: #ffffff;
-  margin-top: 15px;
   border-radius: 16px;
   box-shadow: 0 6px 16px rgba(0, 51, 102, 0.15);
   padding: 20px;
   box-sizing: border-box;
+  width: 400px;
+  display: none;                 /* Hidden by default */
+  z-index: 999;                  /* ✅ Keeps it above other elements */
 }
 
 #historyContainer ul {
@@ -51,13 +161,13 @@
 }
 
 #historyContainer ul li {
-  background-color: #f9fbff;
+  background-color: #E6EEF8;
   padding: 10px 12px;
   border-radius: 10px;
   margin-bottom: 10px;
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: #1a1a1a;
-  box-shadow: 0 2px 6px rgba(0, 51, 102, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   cursor: pointer;
 }

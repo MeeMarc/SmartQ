@@ -1,0 +1,93 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account</title>
+  <link rel="stylesheet" href="../static/login.css" />
+  <!-- Font Awesome for eye icon -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+  <div class="container">
+    <!-- Left Panel -->
+    <div class="left">
+      <p>Let's Get Started!</p>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right">
+      <h2>Create Account</h2>
+      <form method="POST" action="{{ url_for('register') }}" enctype="multipart/form-data">
+      
+        <!-- Full Name -->
+        <label for="fullname">Full Name</label>
+        <input type="text" id="fullname" name="fullname" placeholder="Enter your full name" required>
+
+        <!-- Email -->
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="Enter your email" required>
+
+        <!-- Password -->
+        <label for="password">Password</label>
+        <div class="input-group">
+          <input type="password" id="password" name="password" placeholder="Create a password" required>
+          <i class="toggle-password fa fa-eye" onclick="togglePassword('password', this)"></i>
+        </div>
+
+        <!-- Confirm Password -->
+        <label for="confirm_password">Confirm Password</label>
+        <div class="input-group">
+          <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required>
+          <i class="toggle-password fa fa-eye" onclick="togglePassword('confirm_password', this)"></i>
+        </div>
+
+        <!-- Terms Checkbox -->
+        <div class="checkbox">
+          <input type="checkbox" id="terms" name="terms" required>
+          <label for="terms">I agree to Terms and Conditions</label>
+        </div>
+
+        <button type="submit">Create Account</button>
+
+        <div class="footer-text">
+          Already have an account? <a href="{{ url_for('login') }}">Log in</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JS for toggle password -->
+  <script>
+    function togglePassword(id, el) {
+      const input = document.getElementById(id);
+      if(input.type === "password") {
+        input.type = "text";
+        el.classList.replace("fa-eye", "fa-eye-slash");
+      } else {
+        input.type = "password";
+        el.classList.replace("fa-eye-slash", "fa-eye");
+      }
+    }
+
+    function toggleRoleInputs() {
+      const role = document.getElementById("role").value;
+      document.getElementById("teacher_number_field").style.display = (role === "teacher") ? "block" : "none";
+      document.getElementById("student_number_field").style.display = (role === "student") ? "block" : "none";
+    }
+
+    document.getElementById("teacher_upload_icon").addEventListener("click", function() {
+      document.getElementById("teacher_id_upload").click();
+    });
+
+    document.getElementById("teacher_id_upload").addEventListener("change", function(event) {
+      if (event.target.files.length > 0) {
+        let fileName = event.target.files[0].name;
+        alert("✅ Teacher ID uploaded: " + fileName);
+      }
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login</title>
+  <link rel="stylesheet" href="../static/login.css" />
+  <!-- Font Awesome for eye icon -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+  <div class="container">
+    <!-- Left Panel -->
+    <div class="left">
+      <p>Welcome Back!</p>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right">
+      <h2>Login</h2>
+      <form method="POST" action="{{ url_for('login') }}">
+        <label for="fullname">Full Name</label>
+        <input type="text" id="fullname" name="fullname" placeholder="Enter your full name" required>
+        <label for="password">Password</label>
+        <div class="input-group">
+          <input type="password" id="password" name="password" placeholder="Enter your password" required>
+          <i class="toggle-password fa fa-eye" onclick="togglePassword('password', this)"></i>
+        </div>
+
+
+
+        <!-- Remember me -->
+        <div class="checkbox">
+          <input type="checkbox" id="remember" name="remember">
+          <label for="remember">Remember Me</label>
+        </div>
+
+        <button type="submit">Log in</button>
+
+        <div class="footer-text">
+          Don’t have an account? <a href="{{ url_for('register') }}">Create account</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JS for toggle password -->
+  <script>
+    function togglePassword(id, el) {
+      const input = document.getElementById(id);
+      if(input.type === "password") {
+        input.type = "text";
+        el.classList.replace("fa-eye", "fa-eye-slash");
+      } else {
+        input.type = "password";
+        el.classList.replace("fa-eye-slash", "fa-eye");
+      }
+    }
+  </script>
+</body>
+</html>

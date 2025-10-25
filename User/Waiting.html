@@ -8,9 +8,19 @@
 </head>
 <body>
 
+
+<header>
+  <nav class="navbar">
+    <a href="/" class="logo"><strong>SmartQ</strong></a>
+    <ul class="navmenu">
+      <li><a href="/">Fill up Form</a></li>
+      <li><button id="toggleHistoryBtn" class="HistoryBtn">Transactions History</button></li>
+    </ul>
+  </nav>
+</header>
+
 <!-- Claim History Section -->
 <section>
-  <button id="toggleHistoryBtn">History</button>
 
   <!-- Hidden container -->
   <div id="historyContainer" hidden>
@@ -30,26 +40,26 @@
   <p>Stay on this page to track your status live. We’ll notify you when it’s your turn 🙌</p>
 </section>
 
-<section class="queue-card turn">
-  <h3>🚀 Your Turn</h3>
-  <p>Your number is being called!</p>
-  <p>Please proceed to the counter ✨</p>
-</section>
-
 
 
 <script>
   const toggleBtn = document.getElementById('toggleHistoryBtn');
   const historyContainer = document.getElementById('historyContainer');
 
-  // Show container on hover over the button
-  toggleBtn.addEventListener('mouseenter', () => {
-    historyContainer.hidden = false;
+  // ✅ Toggle visibility when clicking the History button
+  toggleBtn.addEventListener('click', () => {
+    if (historyContainer.style.display === 'none' || historyContainer.style.display === '') {
+      historyContainer.style.display = 'block';
+    } else {
+      historyContainer.style.display = 'none';
+    }
   });
 
-  // Hide container when mouse leaves the container itself
-  historyContainer.addEventListener('mouseleave', () => {
-    historyContainer.hidden = true;
+  // ✅ Optional: hide when clicking outside of it
+  document.addEventListener('click', (e) => {
+    if (!historyContainer.contains(e.target) && e.target !== toggleBtn) {
+      historyContainer.style.display = 'none';
+    }
   });
 </script>
 

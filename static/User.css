@@ -8,6 +8,104 @@ body {
   scroll-behavior: smooth;
 }
 
+/* ======= Header / Navbar ======= */
+header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  background: #003366;
+  box-shadow: 0 2px 4px rgba(0, 51, 102, 0.2);
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 5rem;
+  height: 70px;
+  box-sizing: border-box;
+}
+
+/* ======= Logo ======= */
+.logo {
+  display: flex;
+  align-items: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  text-decoration: none;
+  transition: color 0.3s ease;
+  height: 100%;
+}
+
+.logo:hover {
+  color: #66B2FF;
+}
+
+/* ======= Navigation Menu ======= */
+.navmenu {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.navmenu a {
+  position: relative;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+/* Underline Animation */
+.navmenu a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 2px;
+  background-color: #66B2FF;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease-in-out;
+}
+
+/* Hover Effects */
+.navmenu a:hover {
+  color: #66B2FF;
+  transform: translateY(-3px);
+}
+
+.navmenu a:hover::after {
+  transform: scaleX(1);
+}
+
+/* ======= Responsive Navbar ======= */
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    height: auto;
+    padding: 1rem 2rem;
+  }
+
+  .navmenu {
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .navmenu a {
+    font-size: 0.9rem;
+  }
+}
+
 /* =========================================================
    SECTION — HOW IT WORKS
 ========================================================= */
@@ -57,16 +155,14 @@ body {
   padding: 10px;
   border-radius: 12px;
   text-align: center;
-  box-shadow: 0 4px 8px rgba(0, 51, 102, 0.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   scroll-snap-align: start;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  border: 2px solid rgb(204, 204, 204);
 }
 
 .steps div:hover {
   transform: translateY(-3px);
   box-shadow: 0 6px 14px rgba(0, 51, 102, 0.15);
-  background-color: #e6f0ff;
 }
 
 .steps img {
@@ -94,7 +190,7 @@ body {
    SECTION — PROCESS OF THE PAPERS
 ========================================================= */
 .paper-section {
-  background-color: #f0f0f0;
+  background-color: #E6EEF8;
   min-height: 100vh; /* full screen height */
   display: flex;
   justify-content: center;

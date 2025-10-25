@@ -240,7 +240,7 @@ header {
   justify-items: center;
   padding: 0;
   margin: 0 auto 60px;
-  max-width: 800px;
+  max-width: 1000px;
 }
 
 .features-section ul li {
@@ -248,7 +248,7 @@ header {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: #f9fbff;
+  background: #E6EEF8;
   border-radius: 10px;
   padding: 15px 20px;
   font-size: 1rem;
@@ -279,9 +279,10 @@ header {
    SECTION 4 — SLIDING FEATURE BOXES (HOW IT WORKS)
 ========================================================= */
 .how-it-works-slider {
-  background-color: #F4F7FB;
   text-align: center;
-  padding: 80px 20px;
+  background: #E6EEF8;
+  padding: 100px 20px;
+  border-bottom: 1px solid #ccd6e0;
 }
 
 .how-it-works-slider .container {
@@ -306,7 +307,7 @@ header {
   padding: 20px 10px;
   scroll-snap-type: x mandatory;
   justify-content: center;
-  background-color: #F4F7FB;
+  background-color: #E6EEF8;
   scroll-behavior: smooth;
 }
 
@@ -335,7 +336,6 @@ header {
 .steps div:hover {
   transform: translateY(-5px);
   box-shadow: 0 6px 14px rgba(0, 51, 102, 0.15);
-  background-color: #e6f0ff;
 }
 
 .steps img {
