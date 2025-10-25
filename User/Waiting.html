@@ -13,20 +13,16 @@
   <nav class="navbar">
     <a href="User.html" class="logo"><strong>SmartQ</strong></a>
     <ul class="navmenu">
-      <a href="User.html#paper-section" class="fill-up-link">Fill up Form</a>
-
-
-      
-      <li><button id="toggleHistoryBtn" class="HistoryBtn">Transaction History</button></li>
+      <li><a href="User.html#paper-section" class="fill-up-link">Fill up Form</a></li>
+      <li><button id="toggleHistoryBtn">Transaction History</button></li>
     </ul>
   </nav>
 </header>
 
-<!-- Claim History Section -->
-<section>
+<section class="document-process-section">
 
-  <!-- Hidden container -->
-  <div id="historyContainer" hidden>
+
+  <div id="historyContainer">
     <ul>
       <li>2025-10-20 - Transcript of Records</li>
       <li>2025-10-21 - Certificate of Enrollment</li>
@@ -44,6 +40,19 @@
 </section>
 
 
+<script>
+  const toggleBtn = document.getElementById('toggleHistoryBtn');
+  const historyContainer = document.getElementById('historyContainer');
+
+  toggleBtn.addEventListener('click', () => {
+    // Toggle between hidden and visible
+    if (historyContainer.style.display === 'none' || historyContainer.style.display === '') {
+      historyContainer.style.display = 'block';
+    } else {
+      historyContainer.style.display = 'none';
+    }
+  });
+</script>
 
 
 
