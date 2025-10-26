@@ -11,12 +11,20 @@
 <header>
   <nav class="navbar">
     <a href="User.html" class="logo"><strong>SmartQ</strong></a>
-    <ul class="navmenu">
-      <li><a href="Waiting.html">Waiting Form</a></li>
 
+    <!-- Mobile Menu Toggle Button -->
+    <div class="menu-toggle" id="menu-toggle">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+    <ul class="navmenu" id="navmenu">
+      <li><a href="Waiting.html">Waiting Form</a></li>
     </ul>
   </nav>
 </header>
+
 
 <!-- Section 1: How It Works -->
 <section class="how-it-works-slider">
@@ -108,6 +116,16 @@ function autoSlide() {
 
 updateCards();
 setInterval(autoSlide, 5000); // change every 3 seconds
+</script>
+
+<script>
+  const menuToggle = document.getElementById('menu-toggle');
+  const navMenu = document.getElementById('navmenu');
+
+  menuToggle.addEventListener('click', () => {
+    menuToggle.classList.toggle('active');
+    navMenu.classList.toggle('active');
+  });
 </script>
 
 
