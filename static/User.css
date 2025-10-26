@@ -52,6 +52,7 @@ header {
   list-style: none;
   margin: 0;
   padding: 0;
+  order: 2; /* menu stays before hamburger */
 }
 
 .navmenu a {
@@ -96,7 +97,8 @@ header {
   cursor: pointer;
   width: 30px;
   height: 25px;
-  margin-left: auto; /* pushes it to the right */
+  order: 3; /* puts it at the far right */
+  margin-left: 1rem;
 }
 
 .menu-toggle span {
@@ -123,19 +125,18 @@ header {
 /* ======= Responsive Navbar ======= */
 @media (max-width: 768px) {
   .navbar {
-    flex-direction: row;
+    flex-wrap: wrap;
     justify-content: space-between;
     padding: 1rem 2rem;
     height: auto;
   }
 
-  /* Hamburger appears on the right side */
+  /* Show hamburger on mobile (right side) */
   .menu-toggle {
     display: flex;
-    order: 2; /* ensures it stays to the far right */
   }
 
-  /* Move navmenu below logo and toggle */
+  /* Hide nav menu until toggled */
   .navmenu {
     flex-direction: column;
     align-items: flex-start;
@@ -147,12 +148,11 @@ header {
     max-height: 0;
     overflow: hidden;
     transition: max-height 0.4s ease-in-out, padding 0.3s ease;
-    order: 3;
   }
 
   .navmenu.active {
     display: flex;
-    max-height: 300px;
+    max-height: 300px; /* enough to show items */
     padding: 1rem 0;
   }
 
@@ -162,7 +162,6 @@ header {
     padding: 0.5rem 2rem;
   }
 }
-
 
 
 /* =========================================================
