@@ -91,8 +91,8 @@ header {
 .menu-toggle {
   display: none;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  justify-content: right;
+  align-items: right;
   cursor: pointer;
   width: 30px;
   height: 25px;
