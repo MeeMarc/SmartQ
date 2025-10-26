@@ -8,7 +8,21 @@ body {
   scroll-behavior: smooth;
 }
 
-/* ======= Header / Navbar ======= */
+/* =========================================================
+   SECTION — DOCUMENT PROCESS AND WAITING (Separated)
+========================================================= */
+body {
+  background-color: #F4F7FB;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  color: #1a1a1a;
+  scroll-behavior: smooth;
+}
+
+/* =========================================================
+   HEADER / NAVBAR (Unified with Reference Design)
+========================================================= */
 header {
   position: sticky;
   top: 0;
@@ -16,16 +30,19 @@ header {
   width: 100%;
   z-index: 1000;
   background: #003366;
-  box-shadow: 0 2px 4px rgba(0, 51, 102, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); /* softer shadow to remove blue bar effect */
+  margin: 0;
+  padding: 0;
 }
 
 .navbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 1rem 5rem;
   height: 70px;
   box-sizing: border-box;
+  position: relative;
 }
 
 /* ======= Logo ======= */
@@ -52,19 +69,23 @@ header {
   list-style: none;
   margin: 0;
   padding: 0;
-  order: 2; /* menu stays before hamburger */
+  margin-left: auto;
 }
 
-.navmenu a {
+.navmenu a,
+.navmenu button {
   position: relative;
   color: #ffffff;
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
   text-decoration: none;
   transition: color 0.3s ease, transform 0.3s ease;
 }
 
-/* Underline Animation */
+/* Underline animation for links */
 .navmenu a::after {
   content: "";
   position: absolute;
@@ -78,8 +99,8 @@ header {
   transition: transform 0.3s ease-in-out;
 }
 
-/* Hover Effects */
-.navmenu a:hover {
+.navmenu a:hover,
+.navmenu button:hover {
   color: #66B2FF;
   transform: translateY(-3px);
 }
@@ -88,7 +109,7 @@ header {
   transform: scaleX(1);
 }
 
-/* ======= Mobile Menu Button ======= */
+/* ======= Hamburger / Menu Toggle ======= */
 .menu-toggle {
   display: none;
   flex-direction: column;
@@ -97,8 +118,11 @@ header {
   cursor: pointer;
   width: 30px;
   height: 25px;
-  order: 3; /* puts it at the far right */
-  margin-left: 1rem;
+  position: absolute;
+  right: 2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1100;
 }
 
 .menu-toggle span {
@@ -109,7 +133,7 @@ header {
   transition: all 0.3s ease;
 }
 
-/* Toggle active state animation */
+/* Toggle active animation */
 .menu-toggle.active span:nth-child(1) {
   transform: translateY(7px) rotate(45deg);
 }
@@ -125,47 +149,223 @@ header {
 /* ======= Responsive Navbar ======= */
 @media (max-width: 768px) {
   .navbar {
-    flex-wrap: wrap;
-    justify-content: space-between;
     padding: 1rem 2rem;
-    height: auto;
+    height: 70px;
   }
 
-  /* Show hamburger on mobile (right side) */
+  /* Show hamburger */
   .menu-toggle {
     display: flex;
   }
 
-  /* Hide nav menu until toggled */
+  /* Hide nav menu by default */
   .navmenu {
     flex-direction: column;
     align-items: flex-start;
-    width: 100%;
     background-color: #003366;
+    position: absolute;
+    top: 70px;
+    right: 2rem;
+    width: 200px;
+    border: 1px solid #66B2FF;
+    border-radius: 4px;
     padding: 0;
-    margin-top: 0.5rem;
+    margin: 0;
     gap: 1rem;
     max-height: 0;
     overflow: hidden;
     transition: max-height 0.4s ease-in-out, padding 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    z-index: 1050;
   }
 
+  /* Show nav menu when active */
   .navmenu.active {
-    display: flex;
-    max-height: 300px; /* enough to show items */
-    padding: 1rem 0;
+    max-height: 500px;
+    padding: 1rem;
   }
 
-  .navmenu a {
+  .navmenu a,
+  .navmenu button {
     font-size: 1rem;
     width: 100%;
-    padding: 0.5rem 2rem;
+    padding: 0.5rem 1rem;
   }
 }
 
+/* =========================================================
+   DOCUMENT PROCESS SECTION
+========================================================= */
+.document-process-section {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 40px;
+  padding: 40px 20px 80px; /* reduced top padding from 80px → 40px to remove blue gap */
+  background-color: #E6EEF8;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+}
 
 /* =========================================================
-   SECTION — HOW IT WORKS (Auto Animated Card Slider)
+   TRANSACTION HISTORY BUTTON
+========================================================= */
+#toggleHistoryBtn {
+  padding: 12px 15px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: #003366;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+#toggleHistoryBtn:hover {
+  background-color: #0055aa;
+  transform: translateY(-2px);
+}
+
+/* =========================================================
+   HISTORY CONTAINER DROPDOWN
+========================================================= */
+#historyContainer {
+  position: absolute;
+  top: 70px;
+  right: 5rem;
+  background-color: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(0, 51, 102, 0.15);
+  padding: 20px;
+  width: 400px;
+  display: none;
+  z-index: 1100;
+  box-sizing: border-box;
+}
+
+#historyContainer ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#historyContainer ul li {
+  background-color: #E6EEF8;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  color: #1a1a1a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+#historyContainer ul li:hover {
+  background-color: #e6f0ff;
+  transform: translateY(-2px);
+}
+
+/* ======= Mobile Responsive History Container ======= */
+@media (max-width: 768px) {
+  #historyContainer {
+    position: fixed;
+    top: 70px;
+    right: 1rem;
+    width: calc(100% - 2rem);
+    max-width: 400px;
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 6px 16px rgba(0, 51, 102, 0.25);
+  }
+}
+
+/* =========================================================
+   QUEUE CARD DESIGN
+========================================================= */
+.queue-card {
+  max-width: 350px;
+  border-radius: 20px;
+  box-shadow: 0px 8px 20px rgba(0,0,0,0.3);
+  overflow: hidden;
+  text-align: center;
+  margin: 40px auto;
+  padding: 20px;
+  color: #fff;
+  background: linear-gradient(135deg, #11998e, #38ef7d);
+  animation: fadeIn 1s ease-in-out;
+  box-sizing: border-box;
+}
+
+.queue-card.waiting {
+  background: linear-gradient(135deg, #11998e, #38ef7d);
+}
+
+.queue-card.turn {
+  background: linear-gradient(135deg, #00c6ff, #0072ff);
+}
+
+.queue-card h3 {
+  font-weight: bold;
+  font-size: 1.3rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 15px;
+}
+
+.queue-card .number {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 2px 2px 6px rgba(0,0,0,0.4);
+  margin: 15px 0;
+}
+
+.queue-card p {
+  font-size: 1rem;
+  line-height: 1.4;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+/* Fade-in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* =========================================================
+   RESPONSIVE RULES
+========================================================= */
+@media (max-width: 768px) {
+  .document-process-section {
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    padding: 30px 15px 60px;
+  }
+
+  .transactions-container,
+  .waiting-container {
+    max-width: 90%;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+
+
+/* =========================================================
+   SECTION — HOW IT WORKS (Animated Card Slider)
 ========================================================= */
 .how-it-works-slider {
   background-color: #ffffff;
@@ -190,13 +390,13 @@ header {
 .slider {
   position: relative;
   width: 100%;
-  max-width: 850px;
+  max-width: 950px;
   height: 450px;
   margin: 0 auto;
   display: flex;
   justify-content: center;
   align-items: center;
-  perspective: 1000px; /* 3D depth effect */
+  perspective: 1000px;
 }
 
 /* === Individual Cards === */
@@ -211,7 +411,8 @@ header {
   transform: scale(0.8);
   opacity: 0;
   transition: all 1s ease;
-  border: 1px solid #000000; /* ✅ Fixed line */
+  border: 1px solid #000000;
+  text-align: center;
 }
 
 .card img {
@@ -223,38 +424,57 @@ header {
 
 .card p {
   color: #1a1a1a;
-  font-size: 1.6rem;
+  font-size: 1.5em;
   font-weight: bold;
-  line-height: 1.3;
   margin: 10px 0 5px;
 }
 
-.card p2 {
-  color: #1a1a1a;
-  font-size: 1rem;
-  line-height: 1;
+.card strong {
+  color: #003366;
+  display: block;
+  font-size: 1.2rem;
+  margin-bottom: 5px;
 }
 
-/* Active (center card) */
 .card.active {
   opacity: 1;
   transform: scale(1) translateX(0);
   z-index: 3;
 }
 
-/* Previous (left card) */
 .card.prev {
   opacity: 0.5;
   transform: scale(0.85) translateX(-250px) rotateY(15deg);
   z-index: 2;
 }
 
-/* Next (right card) */
 .card.next {
   opacity: 0.5;
   transform: scale(0.85) translateX(250px) rotateY(-15deg);
   z-index: 2;
 }
+
+/* === Buttons === */
+.slider-controls {
+  margin-top: 40px;
+}
+
+.slider-controls button {
+  background: #003366;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.3s;
+  margin: 0 10px;
+}
+
+.slider-controls button:hover {
+  background: #0055cc;
+}
+
 
 
 /* =========================================================

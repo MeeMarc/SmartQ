@@ -12,17 +12,20 @@
   <nav class="navbar">
     <a href="User.html" class="logo"><strong>SmartQ</strong></a>
 
-    <div class="menu-toggle" id="menu-toggle">
-      <span></span>
-      <span></span>
-      <span></span>
-    </div>
+    <div class="menu-wrapper">
+      <div class="menu-toggle" id="menu-toggle">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
 
-    <ul class="navmenu" id="navmenu">
-      <li><a href="Waiting.html">Waiting Form</a></li>
-    </ul>
+      <ul class="navmenu" id="navmenu">
+        <li><a href="Waiting.html">Waiting Form</a></li>
+      </ul>
+    </div>
   </nav>
 </header>
+
 
 
 
@@ -30,33 +33,38 @@
 <section class="how-it-works-slider">
   <h3>How It Works</h3>
 
-  <div class="slider">
+  <div class="slider" id="carousel">
     <div class="card active">
       <img src="/Images/step-1.png" alt="step 1">
-      <p>STEP 1</p>
+      <p><strong>STEP 1</strong></p>
       <p2>Scan the QR code.</p2>
     </div>
 
     <div class="card">
       <img src="/Images/step2.png" alt="step 2">
-      <p>STEP 2</p>
+      <p><strong>STEP 2</strong></p>
       <p2>Fill out the registration form.</p2>
     </div>
 
     <div class="card">
       <img src="/Images/step3.png" alt="step 3">
-      <p>STEP 3</p>
+      <p><strong>STEP 3</strong></p>
       <p2>Wait for a notification when your turn is near.</p2>
     </div>
 
     <div class="card">
       <img src="/Images/step4.png" alt="step 4">
-      <p>STEP 4</p>
+      <p><strong>STEP 4</strong></p>
       <p2>Proceed to the counter when notified.</p2>
     </div>
   </div>
-</section>
 
+  <!-- ✅ Navigation Buttons -->
+  <div class="slider-controls">
+    <button id="prevBtn">❮ Prev</button>
+    <button id="nextBtn">Next ❯</button>
+  </div>
+</section>
 
 
 
@@ -94,29 +102,41 @@
   </section>
 
 <script>
-const cards = document.querySelectorAll('.card');
-let index = 0;
+  const cards = document.querySelectorAll('.card');
+  const nextBtn = document.getElementById('nextBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  let current = 0;
 
-function updateCards() {
-  cards.forEach(card => card.classList.remove('active', 'prev', 'next'));
+  function updateCards() {
+    cards.forEach(card => card.classList.remove('active', 'prev', 'next'));
+    
+    const prevIndex = (current - 1 + cards.length) % cards.length;
+    const nextIndex = (current + 1) % cards.length;
 
-  const total = cards.length;
-  const prevIndex = (index - 1 + total) % total;
-  const nextIndex = (index + 1) % total;
+    cards[current].classList.add('active');
+    cards[prevIndex].classList.add('prev');
+    cards[nextIndex].classList.add('next');
+  }
 
-  cards[prevIndex].classList.add('prev');
-  cards[index].classList.add('active');
-  cards[nextIndex].classList.add('next');
-}
+  nextBtn.addEventListener('click', () => {
+    current = (current + 1) % cards.length;
+    updateCards();
+  });
 
-function autoSlide() {
-  index = (index + 1) % cards.length;
+  prevBtn.addEventListener('click', () => {
+    current = (current - 1 + cards.length) % cards.length;
+    updateCards();
+  });
+
+  // Auto slide every 3 seconds
+  setInterval(() => {
+    current = (current + 1) % cards.length;
+    updateCards();
+  }, 3000);
+
   updateCards();
-}
-
-updateCards();
-setInterval(autoSlide, 3000); // change every 3 seconds
 </script>
+
 
 <script>
   const menuToggle = document.getElementById('menu-toggle');

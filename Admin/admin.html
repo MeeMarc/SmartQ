@@ -93,35 +93,79 @@
 <section class="how-it-works-slider">
   <div class="container">
     <h3>How It Works</h3>
-    <div class="steps">
-      
-      <div>
+
+    <!-- Slider -->
+    <div class="slider" id="carousel">
+      <div class="card active">
         <img src="/Images/step-1.png" alt="Step 1">
         <p><strong>STEP 1</strong></p>
         <p>Scan the QR code.</p>
       </div>
 
-      <div>
+      <div class="card">
         <img src="/Images/step2.png" alt="Step 2">
         <p><strong>STEP 2</strong></p>
         <p>Fill out the registration form.</p>
       </div>
 
-      <div>
+      <div class="card">
         <img src="/Images/step3.png" alt="Step 3">
         <p><strong>STEP 3</strong></p>
         <p>Wait for a notification when your turn is near.</p>
       </div>
 
-      <div>
+      <div class="card">
         <img src="/Images/step4.png" alt="Step 4">
         <p><strong>STEP 4</strong></p>
         <p>Proceed to the counter when notified.</p>
       </div>
+    </div>
 
+    <!-- ✅ Navigation Buttons -->
+    <div class="slider-controls">
+      <button id="prevBtn">❮ Prev</button>
+      <button id="nextBtn">Next ❯</button>
     </div>
   </div>
 </section>
+
+
+<script>
+  const cards = document.querySelectorAll('.card');
+  const nextBtn = document.getElementById('nextBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  let current = 0;
+
+  function updateCards() {
+    cards.forEach(card => card.classList.remove('active', 'prev', 'next'));
+    
+    const prevIndex = (current - 1 + cards.length) % cards.length;
+    const nextIndex = (current + 1) % cards.length;
+
+    cards[current].classList.add('active');
+    cards[prevIndex].classList.add('prev');
+    cards[nextIndex].classList.add('next');
+  }
+
+  nextBtn.addEventListener('click', () => {
+    current = (current + 1) % cards.length;
+    updateCards();
+  });
+
+  prevBtn.addEventListener('click', () => {
+    current = (current - 1 + cards.length) % cards.length;
+    updateCards();
+  });
+
+  // Auto-slide every 3 seconds
+  setInterval(() => {
+    current = (current + 1) % cards.length;
+    updateCards();
+  }, 3000);
+
+  updateCards();
+</script>
+
 
 </body>
 </html>

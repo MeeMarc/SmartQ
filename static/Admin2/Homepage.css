@@ -54,7 +54,7 @@ header {
 .HomeNavMenu a {
   position: relative;
   color: #ffffff;
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 500;
   text-decoration: none;
   transition: color 0.3s ease, transform 0.3s ease;
@@ -266,105 +266,118 @@ header {
   }
 }
 
-/* ======= Sliding Cards Section ======= */
+/* =========================================================
+   SECTION — HOW IT WORKS (Animated Card Slider)
+========================================================= */
 .HomeHowItWorksSlider {
+  background-color: #ffffff;
   text-align: center;
-  background: #E6EEF8;
-  padding: 100px 20px;
-  border-bottom: 1px solid #ccd6e0;
-}
-
-.HomeHowItWorksSlider .HomeContainer {
-  width: 90%;
-  max-width: 1200px;
-  margin: 0 auto;
+  min-height: 550px;
+  padding: 60px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .HomeHowItWorksSlider h3 {
   color: #003366;
   font-size: 2rem;
-  margin-bottom: 30px;
+  margin-bottom: 40px;
   font-weight: 700;
 }
 
+/* === Slider Container === */
 .HomeSteps {
-  display: flex;
-  gap: 20px;
-  overflow-x: auto;
-  padding: 20px 10px;
-  scroll-snap-type: x mandatory;
-  justify-content: center;
-  background-color: #E6EEF8;
-  scroll-behavior: smooth;
-}
-
-.HomeSteps::-webkit-scrollbar {
-  height: 8px;
-}
-
-.HomeSteps::-webkit-scrollbar-thumb {
-  background: #003366;
-  border-radius: 4px;
-}
-
-.HomeSteps div {
-  flex: 0 0 300px;
-  background: #ffffff;
-  padding: 25px;
-  border-radius: 12px;
-  text-align: center;
-  box-shadow: 0 4px 8px rgba(0, 51, 102, 0.1);
-  scroll-snap-align: start;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.HomeSteps div:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 6px 14px rgba(0, 51, 102, 0.15);
-}
-
-.HomeSteps img {
-  width: 100px;
-  margin-bottom: 10px;
-}
-
-.HomeSteps p {
-  color: #1a1a1a;
-  font-size: 1rem;
-  line-height: 1.5;
-}
-
-/* ======= Next & Prev Buttons ======= */
-.HomeControls {
+  position: relative;
+  width: 100%;
+  max-width: 950px;
+  height: 450px;
+  margin: 0 auto;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 15px;
-  margin-bottom: 20px;
+  perspective: 1000px;
+}
+
+/* === Individual Steps (Cards) === */
+.step {
+  position: absolute;
+  width: 400px;
+  height: 420px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  transform: scale(0.8);
+  opacity: 0;
+  transition: all 1s ease;
+  border: 1px solid #000000;
+  text-align: center;
+}
+
+.step img {
+  width: 100%;
+  height: 70%;
+  object-fit: contain;
+  margin-top: 10px;
+}
+
+.step p {
+  color: #1a1a1a;
+  font-size: 1.4rem;
+  font-weight: bold;
+  margin: 10px 0 5px;
+}
+
+.step strong {
+  color: #003366;
+  display: block;
+  font-size: 1.2rem;
+  margin-bottom: 5px;
+}
+
+.step.active {
+  opacity: 1;
+  transform: scale(1) translateX(0);
+  z-index: 3;
+}
+
+.step.prev {
+  opacity: 0.5;
+  transform: scale(0.85) translateX(-250px) rotateY(15deg);
+  z-index: 2;
+}
+
+.step.next {
+  opacity: 0.5;
+  transform: scale(0.85) translateX(250px) rotateY(-15deg);
+  z-index: 2;
+}
+
+/* === Buttons === */
+.HomeControls {
+  margin-top: 40px;
 }
 
 .HomeControls button {
-  background-color: #003366;
-  color: #ffffff;
+  background: #003366;
+  color: white;
   border: none;
-  padding: 10px 25px;
-  border-radius: 30px;
+  padding: 10px 20px;
+  border-radius: 10px;
   font-size: 1rem;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s;
+  transition: 0.3s;
 }
 
 .HomeControls button:hover {
-  background-color: #0055aa;
-  transform: scale(1.05);
+  background: #0055cc;
 }
 
 
-@media (max-width: 768px) {
-  .HomeSteps div {
-    flex: 0 0 80%;
-  }
-}
+
 
 /* ======= Responsive Adjustments ======= */
 @media (max-width: 768px) {

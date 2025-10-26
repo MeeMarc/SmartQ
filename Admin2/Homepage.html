@@ -86,30 +86,26 @@
   </div>
 </section>
 
-<!-- Section 4: Sliding Cards -->
 <section class="HomeHowItWorksSlider">
   <div class="HomeContainer">
     <h3>How It Works</h3>
 
-    <div class="HomeSteps" id="stepsContainer">
+    <div class="HomeSteps" id="carousel">
       <div class="step active">
         <img src="/Images/step-1.png" alt="Step 1">
         <p><strong>STEP 1</strong></p>
         <p>Scan the QR code.</p>
       </div>
-
       <div class="step">
         <img src="/Images/step2.png" alt="Step 2">
         <p><strong>STEP 2</strong></p>
         <p>Fill out the registration form.</p>
       </div>
-
       <div class="step">
         <img src="/Images/step3.png" alt="Step 3">
         <p><strong>STEP 3</strong></p>
-        <p>Wait for a notification when your turn is near.</p>
+        <p>Wait for your turn notification.</p>
       </div>
-
       <div class="step">
         <img src="/Images/step4.png" alt="Step 4">
         <p><strong>STEP 4</strong></p>
@@ -123,6 +119,47 @@
     </div>
   </div>
 </section>
+
+
+
+<script>
+  const steps = document.querySelectorAll('.step');
+  const nextBtn = document.getElementById('nextBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  let current = 0;
+
+  function updateSteps() {
+    steps.forEach((step, i) => {
+      step.classList.remove('active', 'prev', 'next');
+    });
+
+    const prevIndex = (current - 1 + steps.length) % steps.length;
+    const nextIndex = (current + 1) % steps.length;
+
+    steps[current].classList.add('active');
+    steps[prevIndex].classList.add('prev');
+    steps[nextIndex].classList.add('next');
+  }
+
+  nextBtn.addEventListener('click', () => {
+    current = (current + 1) % steps.length;
+    updateSteps();
+  });
+
+  prevBtn.addEventListener('click', () => {
+    current = (current - 1 + steps.length) % steps.length;
+    updateSteps();
+  });
+
+  // Auto animation loop every 3 seconds
+  setInterval(() => {
+    current = (current + 1) % steps.length;
+    updateSteps();
+  }, 3000);
+
+  // Initialize
+  updateSteps();
+</script>
 
 
 
