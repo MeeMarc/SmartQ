@@ -12,12 +12,10 @@
 
 <header>
   <nav class="navbar">
-    <a href="/" class="logo"><strong>SmartQ</strong></a>
+    <a href="admin.html" class="logo"><strong>SmartQ</strong></a>
     <ul class="navmenu">
-      <li><a href="/">Home</a></li>
-      <li><a href="/superadmin">Show all Queues</a></li>
+      <li><a href="admin.html">Home</a></li>
       <li><a href="login.html">Login</a></li>
-      <li><a href="#" id="logout">Logout</a></li>
     </ul>
   </nav>
 </header>
@@ -161,7 +159,7 @@
   setInterval(() => {
     current = (current + 1) % cards.length;
     updateCards();
-  }, 3000);
+  }, 10000);
 
   updateCards();
 </script>

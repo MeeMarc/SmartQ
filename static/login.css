@@ -331,3 +331,48 @@ select:focus {
   max-height: 200px; /* enough space for input */
   opacity: 1;
 }
+
+/* 🔹 SmartQ Logo Styling */
+.left {
+  flex-direction: column; /* Stack logo & text vertically */
+  text-align: center;
+  gap: 10px; /* space between logo and text */
+}
+
+.left .logo-container img {
+  width: 150px;
+  height: auto;
+  display: inline-block;
+  border-radius: 10px; /* optional, for softer edges */
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2); /* optional subtle shadow */
+}
+
+/* ============================= */
+/* LOGO STYLING FOR LOGIN & SIGNUP */
+/* ============================= */
+
+.login-logo {
+ display: block;
+  margin: 30px auto 15px auto;
+  width: 150px;
+  height: auto;
+  border-radius: 10px;         /* optional soft corners */
+  transition: transform 0.3s ease;
+}
+
+.login-logo:hover {
+  transform: scale(1.05);     /* small hover zoom */
+}
+
+.signup-logo {
+  display: block;
+  margin: 30px auto 15px auto;
+  width: 150px;
+  height: auto;
+  border-radius: 10px;         /* optional soft corners */
+  transition: transform 0.3s ease;
+}
+
+.signup-logo:hover {
+  transform: scale(1.05);
+}
