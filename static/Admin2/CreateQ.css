@@ -103,7 +103,7 @@ header {
 }
 
 /* =========================================================
-   MAIN CONTENT LAYOUT
+   MAIN CONTENT LAYOUT (QR LEFT + QUEUE RIGHT)
 ========================================================= */
 .HomeMainContent {
   display: flex;
@@ -115,16 +115,16 @@ header {
 }
 
 /* =========================================================
-   QR CODE CONTAINER
+   QR CODE CONTAINER (LEFT SIDE)
 ========================================================= */
 .HomeQRCodeContainer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex: 1;
+  max-width: 400px;
   background: #ffffff;
   padding: 40px 30px;
   border-radius: 16px;
   box-shadow: 0 4px 8px rgba(0, 51, 102, 0.1);
+  text-align: center;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -133,6 +133,7 @@ header {
   box-shadow: 0 6px 14px rgba(0, 51, 102, 0.15);
 }
 
+/* QR Image */
 .HomeQRCode {
   width: 350px;
   height: 350px;
@@ -140,13 +141,12 @@ header {
   border-radius: 8px;
 }
 
-/* =========================================================
-   BUTTONS BELOW QR
-========================================================= */
+/* Buttons below QR */
 .HomeButtonGroup {
   display: flex;
   gap: 15px;
-  margin-top: 15px;
+  justify-content: center;
+  margin-top: 10px;
 }
 
 .HomeDownloadBtn,
@@ -182,39 +182,54 @@ header {
 }
 
 /* =========================================================
-   QUEUE CARD
+   QUEUE INFO CONTAINER (RIGHT SIDE)
 ========================================================= */
 .HomeQueueInfo {
-  background: #ffffff;
-  padding: 30px 40px;
-  border-radius: 16px;
-  box-shadow: 0 4px 8px rgba(0, 51, 102, 0.1);
-  min-width: 200px;
-  text-align: left;
+  flex: 2;
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   justify-content: flex-start;
+  gap: 30px;
 }
 
+/* Each queue card */
+.HomeCard {
+  background: #ffffff;
+  width: 280px;
+  height: 180px;
+  border-radius: 16px;
+  box-shadow: 0 4px 8px rgba(0, 51, 102, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.HomeCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 51, 102, 0.15);
+}
+
+/* Text inside each card */
 .HomeCard p {
-  margin: 8px 0;
-  font-size: 1.1rem;
+  margin: 6px 0;
+  font-size: 1.05rem;
   color: #000000;
 }
 
+/* Next button inside each card */
 .HomeNextBtn {
   background-color: #ffffff;
   color: #003366;
   border: 2px solid #66B2FF;
   font-weight: 600;
-  border-radius: 3px; /* ✅ fixed (no space) */
+  border-radius: 8px;
   padding: 8px 20px;
   margin-top: 10px;
   cursor: pointer;
   transition: all 0.3s ease;
-  display: flex; /* ✅ added so align-items & justify-content work */
-  align-items: center;
-  justify-content: center;
 }
 
 .HomeNextBtn:hover {
@@ -226,30 +241,23 @@ header {
 /* =========================================================
    RESPONSIVE DESIGN
 ========================================================= */
-@media (max-width: 768px) {
-  .HomeNavbar {
-    flex-direction: column;
-    height: auto;
-    padding: 1rem 2rem;
-  }
-
-  .HomeNavMenu {
-    flex-direction: column;
-    gap: 1rem;
-    margin-top: 0.5rem;
-  }
-
+@media (max-width: 900px) {
   .HomeMainContent {
     flex-direction: column;
     align-items: center;
   }
 
   .HomeQRCode {
-    width: 180px;
-    height: 180px;
+    width: 250px;
+    height: 250px;
   }
 
   .HomeQueueInfo {
-    width: 80%;
+    justify-content: center;
+  }
+
+  .HomeCard {
+    width: 90%;
+    height: auto;
   }
 }
