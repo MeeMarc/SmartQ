@@ -1,14 +1,20 @@
-/* =========================================================
-   SECTION — DOCUMENT PROCESS AND WAITING (Separated)
-========================================================= */
-body {
-  background-color: #F4F7FB;
-  font-family: Arial, sans-serif;
+/* Import Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
+
+* {
   margin: 0;
   padding: 0;
-  color: #1a1a1a;
-  scroll-behavior: smooth;
+  box-sizing: border-box;
+  font-family: 'Montserrat', sans-serif;
 }
+
+body {
+  background: #f5f7fb;
+  min-height: 100vh;
+  color: #333;
+  overflow-x: hidden; /* ✅ Prevents horizontal scroll */
+}
+
 
 /* =========================================================
    HEADER / NAVBAR (Unified with Reference Design)
@@ -350,4 +356,9 @@ header {
 
 html {
   scroll-behavior: smooth;
+}
+
+h4 {
+  color: #fff;
+  opacity: 0
 }

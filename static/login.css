@@ -1,4 +1,4 @@
-/* Import Montserrat font */
+/* Import Google Font */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
 
 * {
@@ -9,13 +9,12 @@
 }
 
 body {
-  background-color: #7987C2;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  background: #f5f7fb;
   min-height: 100vh;
-  padding: 10px; /* moderate space around the container */
+  color: #333;
+  overflow-x: hidden; /* ✅ Prevents horizontal scroll */
 }
+
 
 .container {
   background: #fff;

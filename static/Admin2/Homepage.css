@@ -1,10 +1,18 @@
-/* ======= General ======= */
-body {
-  background-color: #F4F7FB;
-  font-family: Arial, sans-serif;
+/* Import Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
+
+* {
   margin: 0;
   padding: 0;
-  color: #1a1a1a;
+  box-sizing: border-box;
+  font-family: 'Montserrat', sans-serif;
+}
+
+body {
+  background: #f5f7fb;
+  min-height: 100vh;
+  color: #333;
+  overflow-x: hidden; /* ✅ Prevents horizontal scroll */
 }
 
 /* ======= Header / Navbar ======= */
@@ -275,20 +283,17 @@ header {
 .HomeHowItWorksSlider {
   background-color: #E6EEF8;
   text-align: center;
-  min-height: 550px;
-  padding: 60px 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+  min-height: 650px;
+  padding: 80px 20px 120px; /* space for controls */
   box-sizing: border-box;
   overflow: hidden;
-  max-height: 100vh;
+  position: relative;
 }
 
 .HomeHowItWorksSlider h3 {
   color: #003366;
   font-size: 2rem;
-  margin-bottom: 40px;
+  margin-bottom: 50px;
   font-weight: 700;
 }
 
@@ -305,7 +310,7 @@ header {
   perspective: 1000px;
 }
 
-/* === Individual Steps (Cards) === */
+/* === Individual Cards === */
 .step {
   position: absolute;
   width: 400px;
@@ -342,6 +347,7 @@ header {
   margin-bottom: 5px;
 }
 
+/* === Animation States === */
 .step.active {
   opacity: 1;
   transform: scale(1) translateX(0);
@@ -360,26 +366,60 @@ header {
   z-index: 2;
 }
 
-/* === Buttons === */
+/* === Controls BELOW the container === */
 .HomeControls {
-  margin-top: 40px;
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
 }
 
 .HomeControls button {
   background: #003366;
   color: white;
   border: none;
-  padding: 10px 20px;
+  padding: 12px 25px;
   border-radius: 10px;
   font-size: 1rem;
   cursor: pointer;
-  transition: 0.3s;
+  transition: all 0.3s ease;
 }
 
+.Homecontrols button:active {
+  transform: scale(0.97);
+}
 .HomeControls button:hover {
   background: #0055cc;
+  transform: translateY(-2px);
 }
 
+/* === Responsive Fixes === */
+@media (max-width: 768px) {
+  .HomeSteps {
+    height: 380px;
+  }
+
+  .step {
+    width: 90%;
+    height: 360px;
+  }
+
+  .HomeControls {
+    bottom: 30px;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .HomeControls button {
+    width: 80%;
+    max-width: 280px;
+    font-size: 0.95rem;
+  }
+}
 
 
 

@@ -1,10 +1,18 @@
-/* ======= General ======= */
-body {
-  background-color: #F4F7FB;
-  font-family: Arial, sans-serif;
+/* Import Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
+
+* {
   margin: 0;
   padding: 0;
-  color: #1a1a1a;
+  box-sizing: border-box;
+  font-family: 'Montserrat', sans-serif;
+}
+
+body {
+  background: #f5f7fb;
+  min-height: 100vh;
+  color: #333;
+  overflow-x: hidden; /* ✅ Prevents horizontal scroll */
 }
 
 /* ======= Header / Navbar ======= */
@@ -276,15 +284,16 @@ header {
 }
 
 /* =========================================================
-   SECTION 4 — HOW IT WORKS (Animated Card Slider)
+   SECTION — HOW IT WORKS (Animated Card Slider)
 ========================================================= */
 .how-it-works-slider {
   background-color: #E6EEF8;
   text-align: center;
-  min-height: 600px;
-  padding: 80px 20px;
+  min-height: 650px;
+  padding: 80px 20px 120px; /* space for controls */
   box-sizing: border-box;
   overflow: hidden;
+  position: relative;
 }
 
 .how-it-works-slider h3 {
@@ -363,9 +372,16 @@ header {
   z-index: 2;
 }
 
-/* === Buttons === */
+/* === Controls BELOW the container === */
 .slider-controls {
-  margin-top: 50px;
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
 }
 
 .slider-controls button {
@@ -376,13 +392,42 @@ header {
   border-radius: 10px;
   font-size: 1rem;
   cursor: pointer;
-  transition: 0.3s;
-  margin: 0 10px;
+  transition: all 0.3s ease;
 }
 
 .slider-controls button:hover {
   background: #0055cc;
+  transform: translateY(-2px);
 }
+
+.slider-controls button:active {
+  transform: scale(0.97);
+}
+
+/* === Responsive Fixes === */
+@media (max-width: 768px) {
+  .slider {
+    height: 380px;
+  }
+
+  .card {
+    width: 90%;
+    height: 360px;
+  }
+
+  .slider-controls {
+    bottom: 30px;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .slider-controls button {
+    width: 80%;
+    max-width: 280px;
+    font-size: 0.95rem;
+  }
+}
+
 
 
 /* ======= Responsive Design ======= */

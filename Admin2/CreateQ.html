@@ -8,47 +8,85 @@
 </head>
 <body>
 
-<header>
-  <nav class="HomeNavbar">
-    <a href="Homepage.html" class="HomeLogo"><strong>SmartQ</strong></a>
-<ul class="HomeNavMenu">
-  <li><a href="Homepage.html">Home</a></li>
-  <li><a href="CreateQ.html">Create Queue</a></li>
-  <li><a href="AddCandidate.html">Add Candidate</a></li>
-  <li><a href="../Admin/login.html" id="logout">Logout</a></li>
-</ul>
+  <!-- ====== NAVBAR ====== -->
+  <header>
+    <nav class="HomeNavbar">
+      <a href="Homepage.html" class="HomeLogo"><strong>SmartQ</strong></a>
+      <ul class="HomeNavMenu">
+        <li><a href="Homepage.html">Home</a></li>
+        <li><a href="CreateQ.html">Create Queue</a></li>
+        <li><a href="AddCandidate.html">Add Candidate</a></li>
+        <li><a href="../Admin/login.html" id="logout">Logout</a></li>
+      </ul>
+    </nav>
+  </header>
 
-  </nav>
-</header>
+  <!-- ====== MAIN CONTENT (QR LEFT + QUEUE RIGHT) ====== -->
+  <main class="HomeMainContent">
 
-<main class="HomeMainContent">
-  <div class="HomeQRCodeContainer">
-    <img src="/images/QR_Code.png" alt="QR Code" class="HomeQRCode" />
-    <div class="HomeButtonGroup">
-      <button class="HomeDownloadBtn">Download</button>
-      <button class="HomeDeleteBtn">Delete List</button>
+    <!-- === QR CODE CONTAINER (LEFT) === -->
+    <div class="HomeQRCodeContainer">
+      <img src="/images/QR_Code.png" alt="QR Code" class="HomeQRCode" />
+      <div class="HomeButtonGroup">
+        <button class="HomeDownloadBtn">Download</button>
+        <button class="HomeDeleteBtn">Delete List</button>
+      </div>
     </div>
-  </div>
 
-<div class="HomeQueueInfo">
-  <div class="HomeCard">
-    <p><strong>1.Marc Vincent Encina</strong></p>
-    <p>09761359232</p>
-    <button class="HomeNextBtn">Next</button>
-  </div>
+    <!-- === QUEUE INFO CONTAINER (RIGHT) === -->
+    <div class="HomeQueueContainer">
 
-  <div class="HomeCard">
-    <p><strong>2.Carl John Maravilla</strong></p>
-    <p>09197889637</p>
-  </div>
+      <!-- Filter Section (Top Right) -->
+      <div class="HomeFilterSection">
+        <label for="scheduleFilter"><strong>Filter Schedule:</strong></label>
+        <select id="scheduleFilter" class="HomeFilterSelect">
+          <option value="all">All</option>
+          <option value="morning">Morning</option>
+          <option value="afternoon">Afternoon</option>
+        </select>
+      </div>
 
-  <div class="HomeCard">
-    <p><strong>3.Vincent Paul Eduagin</strong></p>
-    <p>09306227439</p>
-  </div>
-</div>
+      <!-- Queue Cards -->
+      <div class="HomeQueueInfo">
+        <div class="HomeCard" data-schedule="morning">
+          <p><strong>1.Vincent Paul Eduagin</strong></p>
+          <p>09306227439</p>
+          <p><em>Morning</em></p>
+        <div class="HomeButtonGroup">
+          <button class="HomeNextBtn">Done</button>
+          <button class="HomeNextBtn">ReSchedule</button>
+        </div>
+        </div>
 
-</main>
+        <div class="HomeCard" data-schedule="afternoon">
+          <p><strong>2.Carl John Maravilla</strong></p>
+          <p>09197889637</p>
+          <p><em>Afternoon</em></p>
+        </div>
+
+        <div class="HomeCard" data-schedule="morning">
+          <p><strong>3.Marc Vincent Encina</strong></p>
+          <p>09761359232</p>
+          <p><em>Morning</em></p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- (Optional) JS for Filtering Functionality -->
+  <script>
+    const filterSelect = document.getElementById('scheduleFilter');
+    const cards = document.querySelectorAll('.HomeCard');
+
+    filterSelect.addEventListener('change', () => {
+      const value = filterSelect.value;
+      cards.forEach(card => {
+        const schedule = card.getAttribute('data-schedule');
+        card.style.display = (value === 'all' || schedule === value) ? 'flex' : 'none';
+      });
+    });
+  </script>
 
 </body>
 </html>
