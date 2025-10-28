@@ -68,38 +68,49 @@
 
 
 
-  <!-- Section 2: Processing of the Papers -->
-  <section id="paper-section" class="paper-section">
+<!-- Section 2: Processing of the Papers -->
+<section id="paper-section" class="paper-section">
 
-      <form class="paper-form" action="#" method="post">
-       <div class="form-row">
-  <h3>Registration Form</h3>
+  <form class="paper-form" action="#" method="post">
+    <div class="form-row">
+      <h3>Registration Form</h3>
 
-  <label for="fullname">Full Name</label>
-  <input type="text" id="fullname" name="fullname" required>
+      <label for="fullname">Full Name</label>
+      <input type="text" id="fullname" name="fullname" required>
 
-  <div class="name-hint">
-    <span>Last Name,</span>
-    <span>First Name </span>
-    <span>Middle Initial</span>
-    <span>Suffix</span>
-  </div>
-</div>
+      <div class="name-hint">
+        <span>Last Name,</span>
+        <span>First Name </span>
+        <span>Middle Initial</span>
+        <span>Suffix</span>
+      </div>
+    </div>
 
-        <div class="form-row">
-          <label for="phone">Phone Number</label>
-          <textarea id="purpose" name="purpose" rows="1" placeholder="09*********"></textarea>
-        </div>
-          <div class="form-row">
-            <label for="purpose">Purpose</label>
-            <textarea id="purpose" name="purpose" rows="4" placeholder="Optional"></textarea>
-          </div>
-        <div>
-          <button type="button" onclick="window.location.href='Waiting.html'">Submit</button>
+    <div class="form-row">
+      <label for="phone">Phone Number</label>
+      <textarea id="phone" name="phone" rows="1" placeholder="09*********" required></textarea>
+    </div>
 
-        </div>
-      </form>
-  </section>
+    <!-- 🌅 Morning or Afternoon Selection -->
+    <div class="form-row">
+      <label for="timeslot">Preferred Time</label>
+      <select id="timeslot" name="timeslot" required>
+        <option value="" disabled selected>Select Time</option>
+        <option value="morning">Morning</option>
+        <option value="afternoon">Afternoon</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label for="purpose">Purpose</label>
+      <textarea id="purpose" name="purpose" rows="4" placeholder="Optional"></textarea>
+    </div>
+
+    <div>
+      <button type="button" onclick="window.location.href='Waiting.html'">Submit</button>
+    </div>
+  </form>
+</section>
 
 <script>
   const cards = document.querySelectorAll('.card');
