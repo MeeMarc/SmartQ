@@ -9,7 +9,7 @@
 }
 
 body {
-  background: #f5f7fb;
+  background:#E6EEF8;
   min-height: 100vh;
   color: #333;
   overflow-x: hidden; /* ✅ Prevents horizontal scroll */

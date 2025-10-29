@@ -157,10 +157,10 @@ header {
 .paper-form textarea {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid #ccd6e0;
+  border: 1px solid #000000;
   border-radius: 10px;
   font-size: 1rem;
-  background-color: #f9fbff;
+  background-color: #f5f7fb;
   transition: all 0.3s ease;
   box-sizing: border-box;
 }
