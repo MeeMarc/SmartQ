@@ -3,90 +3,146 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SmartQ</title>
+  <title>Create Queue | SmartQ</title>
   <link rel="stylesheet" href="../static/Admin2/CreateQ.css" />
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+  <style>
+    .qr-container {
+      display: flex;
+      gap: 30px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    .qr-box {
+      text-align: center;
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 10px;
+      width: 250px;
+      background: #f9f9f9;
+    }
+    input {
+      padding: 8px;
+      width: 90%;
+      margin: 5px 0;
+    }
+    button {
+      padding: 8px 12px;
+      margin-top: 5px;
+      background-color: #007BFF;
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      display: block;
+      width: 90%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    button + button {
+      margin-top: 5px;
+    }
+  </style>
 </head>
 <body>
 
-  <!-- ====== NAVBAR ====== -->
-  <header>
-    <nav class="HomeNavbar">
-      <a href="Homepage.html" class="HomeLogo"><strong>SmartQ</strong></a>
-      <ul class="HomeNavMenu">
-        <li><a href="Homepage.html">Home</a></li>
-        <li><a href="CreateQ.html">Create Queue</a></li>
-        <li><a href="AddCandidate.html">Add Candidate</a></li>
-        <li><a href="../Admin/login.html" id="logout">Logout</a></li>
-      </ul>
-    </nav>
-  </header>
+<header>
+  <nav class="HomeNavbar">
+    <a href="Homepage.html" class="HomeLogo"><strong>SmartQ</strong></a>
+    <ul class="HomeNavMenu">
+      <li><a href="Homepage.html">Home</a></li>
+      <li><a href="CreateQ.html">Create Queue</a></li>
+      <li><a href="AddCandidate.html">Add Candidate</a></li>
+      <li><a href="../Admin/login.html" id="logout">Logout</a></li>
+    </ul>
+  </nav>
+</header>
 
-  <!-- ====== MAIN CONTENT (QR LEFT + QUEUE RIGHT) ====== -->
-  <main class="HomeMainContent">
+<main class="HomeMainContent">
+  <h2>Create Queue and Generate QR Codes</h2>
 
-    <!-- === QR CODE CONTAINER (LEFT) === -->
-    <div class="HomeQRCodeContainer">
-      <img src="/images/QR_Code.png" alt="QR Code" class="HomeQRCode" />
-      <div class="HomeButtonGroup">
-        <button class="HomeDownloadBtn">Download</button>
-        <button class="HomeDeleteBtn">Delete List</button>
-      </div>
-    </div>
+  <form id="qrForm">
+    <label for="queueType">Queue Type:</label>
+    <input type="text" id="queueType" placeholder="e.g. Requirements Submission" required>
 
-    <!-- === QUEUE INFO CONTAINER (RIGHT) === -->
-    <div class="HomeQueueContainer">
+    <label for="queuePurpose">Queue Purpose / Description:</label>
+    <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
 
-      <!-- Filter Section (Top Right) -->
-      <div class="HomeFilterSection">
-        <label for="scheduleFilter"><strong>Schedule:</strong></label>
-        <select id="scheduleFilter" class="HomeFilterSelect">
-          <option value="all">All</option>
-          <option value="morning">Morning</option>
-          <option value="afternoon">Afternoon</option>
-        </select>
-      </div>
+    <label for="queueLink">Link or Page URL for this QR:</label>
+    <input type="text" id="queueLink" placeholder="https://example.com/user_form" required>
 
-      <!-- Queue Cards -->
-      <div class="HomeQueueInfo">
-        <div class="HomeCard" data-schedule="morning">
-          <p><strong>Vincent Paul Eduagin</strong></p>
-          <p>09306227439</p>
-          <p><em>Morning</em></p>
-        <div class="HomeButtonGroup">
-          <button class="HomeNextBtn">Done</button>
-          <button class="HomeNextBtn">ReSchedule</button>
-        </div>
-        </div>
+    <button type="submit">Generate QR</button>
+  </form>
 
-        <div class="HomeCard" data-schedule="afternoon">
-          <p><strong>Carl John Maravilla</strong></p>
-          <p>09197889637</p>
-          <p><em>Afternoon</em></p>
-        </div>
+  <div class="qr-container" id="qrContainer"></div>
+</main>
 
-        <div class="HomeCard" data-schedule="morning">
-          <p><strong>Marc Vincent Encina</strong></p>
-          <p>09761359232</p>
-          <p><em>Morning</em></p>
-        </div>
-      </div>
-    </div>
+<script>
+  const form = document.getElementById("qrForm");
+  const container = document.getElementById("qrContainer");
 
-  </main>
+  let qrList = JSON.parse(localStorage.getItem("queues")) || [];
 
-  <!-- (Optional) JS for Filtering Functionality -->
-  <script>
-    const filterSelect = document.getElementById('scheduleFilter');
-    const cards = document.querySelectorAll('.HomeCard');
+  function renderQRs() {
+    container.innerHTML = "";
+    qrList.forEach((item, index) => {
+      const box = document.createElement("div");
+      box.className = "qr-box";
+      box.innerHTML = `
+        <h4>${item.type}</h4>
+        <p>${item.purpose}</p>
+        <div id="qr${index}"></div>
+        <p><small>${item.link}</small></p>
+        <button onclick="downloadQR(${index})">Download QR</button>
+        <button onclick="addCandidate('${item.link}')">Add Candidate</button>
+        <button onclick="deleteQR(${index})">Delete</button>
+      `;
+      container.appendChild(box);
 
-    filterSelect.addEventListener('change', () => {
-      const value = filterSelect.value;
-      cards.forEach(card => {
-        const schedule = card.getAttribute('data-schedule');
-        card.style.display = (value === 'all' || schedule === value) ? 'flex' : 'none';
+      new QRCode(document.getElementById(`qr${index}`), {
+        text: item.link,
+        width: 128,
+        height: 128
       });
     });
-  </script>
+  }
+
+  renderQRs();
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const type = document.getElementById("queueType").value;
+    const purpose = document.getElementById("queuePurpose").value;
+    const link = document.getElementById("queueLink").value;
+
+    const newQR = { type, purpose, link };
+    qrList.push(newQR);
+    localStorage.setItem("queues", JSON.stringify(qrList));
+    renderQRs();
+    form.reset();
+  });
+
+  function deleteQR(index) {
+    qrList.splice(index, 1);
+    localStorage.setItem("queues", JSON.stringify(qrList));
+    renderQRs();
+  }
+
+  function downloadQR(index) {
+    const qrCanvas = document.querySelector(`#qr${index} canvas`);
+    if (!qrCanvas) return;
+    const link = document.createElement('a');
+    link.href = qrCanvas.toDataURL("image/png");
+    link.download = `QR_${qrList[index].type}.png`;
+    link.click();
+  }
+
+  function addCandidate(link) {
+    // Redirect to AddCandidate page with QR link
+    window.location.href = `AddCandidate.html?link=${encodeURIComponent(link)}`;
+  }
+</script>
 
 </body>
 </html>
