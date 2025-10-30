@@ -6,78 +6,52 @@
   <title>Create Queue | SmartQ</title>
   <link rel="stylesheet" href="../static/Admin2/CreateQ.css" />
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
-  <style>
-    .qr-container {
-      display: flex;
-      gap: 30px;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-top: 20px;
-    }
-    .qr-box {
-      text-align: center;
-      border: 1px solid #ccc;
-      padding: 15px;
-      border-radius: 10px;
-      width: 250px;
-      background: #f9f9f9;
-    }
-    input {
-      padding: 8px;
-      width: 90%;
-      margin: 5px 0;
-    }
-    button {
-      padding: 8px 12px;
-      margin-top: 5px;
-      background-color: #007BFF;
-      border: none;
-      color: white;
-      border-radius: 5px;
-      cursor: pointer;
-      display: block;
-      width: 90%;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    button + button {
-      margin-top: 5px;
-    }
-  </style>
 </head>
 <body>
 
+<!-- ================= HEADER / NAV ================= -->
 <header>
   <nav class="HomeNavbar">
     <a href="Homepage.html" class="HomeLogo"><strong>SmartQ</strong></a>
     <ul class="HomeNavMenu">
       <li><a href="Homepage.html">Home</a></li>
-      <li><a href="CreateQ.html">Create Queue</a></li>
+      <li><a href="CreateQ.html" class="active">Create Queue</a></li>
       <li><a href="AddCandidate.html">Add Candidate</a></li>
       <li><a href="../Admin/login.html" id="logout">Logout</a></li>
     </ul>
   </nav>
 </header>
 
+<!-- ================= MAIN CONTENT ================= -->
 <main class="HomeMainContent">
   <h2>Create Queue and Generate QR Codes</h2>
 
-  <form id="qrForm">
-    <label for="queueType">Queue Type:</label>
-    <input type="text" id="queueType" placeholder="e.g. Requirements Submission" required>
+  <div class="HomeTwoContainer">
+    <!-- LEFT: Form -->
+    <div class="HomeRightContainer">
+      <form id="qrForm">
+        <label for="queueType">Queue Type:</label>
+        <input type="text" id="queueType" placeholder="e.g. Requirements Submission" required>
 
-    <label for="queuePurpose">Queue Purpose / Description:</label>
-    <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
+        <label for="queuePurpose">Queue Purpose / Description:</label>
+        <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
 
-    <label for="queueLink">Link or Page URL for this QR:</label>
-    <input type="text" id="queueLink" placeholder="https://example.com/user_form" required>
+        <label for="queueLink">Link or Page URL for this QR:</label>
+        <input type="text" id="queueLink" placeholder="https://example.com/user_form" required>
 
-    <button type="submit">Generate QR</button>
-  </form>
+        <button type="submit">Generate QR</button>
+      </form>
+    </div>
 
-  <div class="qr-container" id="qrContainer"></div>
+    <!-- RIGHT: Generated QRs -->
+    <div class="HomeLeftContainer">
+      <h3>Generated Queues</h3>
+      <div class="qr-container" id="qrContainer"></div>
+    </div>
+  </div>
 </main>
 
+<!-- ================= JAVASCRIPT (unchanged) ================= -->
 <script>
   const form = document.getElementById("qrForm");
   const container = document.getElementById("qrContainer");
@@ -139,7 +113,6 @@
   }
 
   function addCandidate(link) {
-    // Redirect to AddCandidate page with QR link
     window.location.href = `AddCandidate.html?link=${encodeURIComponent(link)}`;
   }
 </script>

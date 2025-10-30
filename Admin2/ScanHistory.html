@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scan History</title>
+    <link rel="stylesheet" href="../static/Admin2/ScanHistory.css">
+</head>
+
+
+  <header>
+    <nav class="HomeNavbar">
+      <a href="#" class="HomeLogo">SmartQ</a>
+      <ul class="HomeNavMenu">
+        <li><a href="#">Home</a></li>
+        <li><a href="#">Dashboard</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="HomeMainContent">
+    <h2>QR Scanner Dashboard</h2>
+
+    <div class="HomeTwoContainer">
+
+      <!-- LEFT SIDE NAVIGATION (BUTTONS) -->
+      <aside class="HomeLeftContainer">
+        <h3>Navigation</h3>
+        <nav class="sidebar-nav">
+          <button class="nav-btn active">Dashboard</button>
+          <button class="nav-btn">Export Data</button>
+          <button class="nav-btn danger">Clear All</button>
+        </nav>
+      </aside>
+
+      <!-- RIGHT SIDE CONTENT (TABLE + FILTERS) -->
+      <section class="HomeRightContainer">
+        <h3>Scanned Users</h3>
+
+          <label for="schedule">Schedule:</label>
+          <select id="schedule" name="schedule" title="Filter by schedule">
+            <option value="all">All</option>
+            <option value="morning">Morning</option>
+            <option value="afternoon">Afternoon</option>
+          </select>
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Number</th>
+              <th>Schedule</th>
+              <th>Time Scanned</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>John Doe</td>
+              <td>09123456789</td>
+              <td>Morning</td>
+              <td>8:30 AM</td>
+            </tr>
+            <tr>
+              <td>Jane Smith</td>
+              <td>09987654321</td>
+              <td>Afternoon</td>
+              <td>1:15 PM</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </div>
+  </main>
+
+</body>
+</html>

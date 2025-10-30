@@ -1,0 +1,226 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Montserrat', sans-serif;
+}
+
+body {
+  background: #f5f7fb;
+  min-height: 100vh;
+  color: #333;
+  overflow-x: hidden;
+}
+
+/* =========================================================
+   HEADER
+========================================================= */
+header {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+  background: #003366;
+  box-shadow: 0 2px 4px rgba(0, 51, 102, 0.2);
+}
+
+.HomeNavbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 5rem;
+  height: 70px;
+}
+
+.HomeLogo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.HomeLogo:hover {
+  color: #66B2FF;
+}
+
+.HomeNavMenu {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  list-style: none;
+}
+
+.HomeNavMenu a {
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.HomeNavMenu a:hover {
+  color: #66B2FF;
+}
+
+/* =========================================================
+   MAIN CONTENT LAYOUT
+========================================================= */
+.HomeMainContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+.HomeMainContent h2 {
+  font-size: 1.8rem;
+  margin-bottom: 40px;
+  color: #003366;
+  text-align: center;
+}
+
+.HomeTwoContainer {
+  display: flex;
+  width: 100%;
+  gap: 40px;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* =========================================================
+   LEFT SIDE - NAVIGATION STYLE
+========================================================= */
+.HomeLeftContainer {
+  background: #ffffff;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(0, 51, 102, 0.1);
+  width: 25%;
+  min-width: 250px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.HomeLeftContainer h3 {
+  color: #003366;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nav-btn {
+  background: #003366;
+  color: #fff;
+  border: none;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.3s ease;
+}
+
+.nav-btn:hover {
+  background: #0056b3;
+  transform: translateX(5px);
+}
+
+.nav-btn.active {
+  background: #0056b3;
+}
+
+.nav-btn.danger {
+  background: #dc3545;
+}
+
+.nav-btn.danger:hover {
+  background: #b32a37;
+}
+
+/* =========================================================
+   RIGHT SIDE - TABLE + FILTERS
+========================================================= */
+.HomeRightContainer {
+  background: #ffffff;
+  padding: 35px 40px;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(0, 51, 102, 0.1);
+  width: 70%;
+  min-width: 480px;
+}
+
+.HomeRightContainer h3 {
+  color: #003366;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.filter-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  gap: 10px;
+}
+
+.filter-section input,
+.filter-section select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  width: 48%;
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.user-table th, .user-table td {
+  padding: 12px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+.user-table th {
+  background-color: #003366;
+  color: #fff;
+}
+
+.user-table tr:hover {
+  background-color: #f2f6fc;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+@media (max-width: 900px) {
+  .HomeTwoContainer {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .HomeLeftContainer, .HomeRightContainer {
+    width: 90%;
+  }
+
+  .filter-section {
+    flex-direction: column;
+  }
+
+  .filter-section input, .filter-section select {
+    width: 100%;
+  }
+}

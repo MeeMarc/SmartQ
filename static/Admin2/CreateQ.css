@@ -12,7 +12,7 @@ body {
   background: #f5f7fb;
   min-height: 100vh;
   color: #333;
-  overflow-x: hidden; /* ✅ Prevents horizontal scroll */
+  overflow-x: hidden;
 }
 
 /* =========================================================
@@ -34,7 +34,6 @@ header {
   align-items: center;
   padding: 1rem 5rem;
   height: 70px;
-  box-sizing: border-box;
 }
 
 .HomeLogo {
@@ -54,30 +53,15 @@ header {
   align-items: center;
   gap: 2rem;
   list-style: none;
-  margin: 0;
-  padding: 0;
 }
 
 .HomeNavMenu a {
   position: relative;
   color: #ffffff;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 500;
   text-decoration: none;
   transition: color 0.3s ease, transform 0.3s ease;
-}
-
-.HomeNavMenu a::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: -4px;
-  width: 100%;
-  height: 2px;
-  background-color: #66B2FF;
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.3s ease-in-out;
 }
 
 .HomeNavMenu a:hover {
@@ -85,257 +69,218 @@ header {
   transform: translateY(-3px);
 }
 
-.HomeNavMenu a:hover::after {
-  transform: scaleX(1);
-}
-
-@media (max-width: 768px) {
-  .HomeNavbar {
-    flex-direction: column;
-    height: auto;
-    padding: 1rem 2rem;
-  }
-
-  .HomeNavMenu {
-    flex-direction: column;
-    gap: 1rem;
-    margin-top: 0.5rem;
-  }
-
-  .HomeNavMenu a {
-    font-size: 0.9rem;
-  }
-}
-
 /* =========================================================
-   MAIN CONTENT (QR LEFT + QUEUE RIGHT)
+   MAIN CONTENT (FORM ON TOP, QR BELOW)
 ========================================================= */
 .HomeMainContent {
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 60px;
-  padding: 80px 20px;
-  flex-wrap: wrap;
-  max-width: 1200px;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px;
+  max-width: 1300px;
   margin: 0 auto;
 }
 
-/* =========================================================
-   QR CODE CONTAINER
-========================================================= */
-.HomeQRCodeContainer {
-  flex: 1;
-  max-width: 400px;
-  background: #ffffff;
-  padding: 40px 30px;
-  border-radius: 16px;
-  box-shadow: 0 4px 8px rgba(0, 51, 102, 0.1);
+.HomeMainContent h2 {
+  font-size: 1.8rem;
+  margin-bottom: 40px;
+  color: #003366;
   text-align: center;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.HomeQRCodeContainer:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 14px rgba(0, 51, 102, 0.15);
-}
-
-.HomeQRCode {
-  width: 350px;
-  height: 350px;
-  margin-bottom: 20px;
-  border-radius: 8px;
-}
-
-.HomeButtonGroup {
+/* ✅ Stacked layout: form first, QR section below */
+.HomeTwoContainer {
   display: flex;
-  gap: 15px;
+  flex-direction: column;
+  gap: 50px;
+  width: 100%;
   justify-content: center;
-  margin-top: 10px;
+  align-items: center;
 }
 
-.HomeDownloadBtn,
-.HomeDeleteBtn {
-  border: none;
+/* =========================================================
+   TOP: FORM CONTAINER
+========================================================= */
+.HomeRightContainer {
+  background: #ffffff;
+  padding: 35px 40px;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(0, 51, 102, 0.1);
+  width: 60%;
+  min-width: 380px;
+  text-align: left;
+}
+
+.HomeRightContainer form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.HomeRightContainer label {
+  font-weight: 600;
+  color: #003366;
+}
+
+.HomeRightContainer input {
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
   outline: none;
-  padding: 10px 24px;
+  transition: border-color 0.3s ease;
+}
+
+.HomeRightContainer input:focus {
+  border-color: #66B2FF;
+}
+
+.HomeRightContainer button {
+  background-color: #003366;
+  color: #ffffff;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
   font-size: 1rem;
   font-weight: 600;
-  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.2s ease;
+  margin-top: 10px;
+  transition: all 0.3s ease;
 }
 
-.HomeDownloadBtn {
-  background-color: #007bff;
-  color: #ffffff;
-}
-
-.HomeDownloadBtn:hover {
+.HomeRightContainer button:hover {
   background-color: #0056b3;
   transform: translateY(-2px);
 }
 
-.HomeDeleteBtn {
-  background-color: #dc3545;
-  color: #ffffff;
-}
-
-.HomeDeleteBtn:hover {
-  background-color: #b32a37;
-  transform: translateY(-2px);
-}
-
 /* =========================================================
-   QUEUE CONTAINER
+   BELOW: QR DISPLAY CONTAINER
 ========================================================= */
-.HomeQueueContainer {
-  flex: 2;
+.HomeLeftContainer {
   background: #ffffff;
+  padding: 30px;
   border-radius: 16px;
-  padding: 30px 40px;
   box-shadow: 0 4px 10px rgba(0, 51, 102, 0.1);
-  position: relative;
-  min-width: 500px;
+  width: 80%;
+  min-width: 480px;
 }
 
-/* Filter Section (Top Right) */
-.HomeFilterSection {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-bottom: 25px;
+.HomeLeftContainer h3 {
+  color: #003366;
+  margin-bottom: 20px;
+  font-size: 1.3rem;
+  text-align: center;
 }
 
-.HomeFilterSection label {
-  font-size: 1rem;
-  color: #000000;
-  font-weight: 600;
-}
-
-.HomeFilterSelect {
-  padding: 10px 14px;
-  border: 0.5px solid #000000;
-  border-radius: 8px;
-  background-color: #ffffff;
-  font-size: 1rem;
-  color: #000000;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  outline: none;
-  box-shadow: 0 3px 6px rgba(0, 51, 102, 0.1);
-}
-
-.HomeFilterSelect:hover {
-  background-color: #f0f7ff;
-}
-
-/* Queue Info Cards */
-.HomeQueueInfo {
+.qr-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 30px;
-  justify-content: flex-start;
+  gap: 25px;
+  justify-content: center; /* Centers all QR boxes horizontally */
+  align-items: center;      /* Centers them vertically if needed */
+  margin-top: 40px;         /* Adds space below the form */
+  text-align: center;
 }
 
-.HomeCard {
+.qr-box {
   background: #ffffff;
-  width: 280px;
-  height: 200px;
-  border-radius: 16px;
+  border: 1px solid #000000;
   box-shadow: 0 4px 8px rgba(0, 51, 102, 0.1);
-  border: 1px solid black;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  border-radius: 12px;
+  padding: 20px;
+  width: 240px;
   text-align: center;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  margin: 0 auto;           /* Ensures each box stays centered */
 }
 
-.HomeCard:hover {
+.qr-box:hover {
   transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 51, 102, 0.15);
+  box-shadow: 0 6px 12px rgba(0, 51, 102, 0.2);
 }
 
-.HomeCard p {
-  margin: 6px 0;
-  font-size: 1.05rem;
+
+.qr-box h4 {
+  color: #003366;
+  margin-bottom: 6px;
+}
+
+.qr-box p {
+  font-size: 1rem;
   color: #000000;
+  margin-bottom: 8px;
 }
 
-.HomeCard em {
-  color: #ff0000;
-  font-weight: 500;
+.qr-box small {
+  color: #888;
 }
 
-/* ✅ Make the two buttons side by side */
-.HomeButtonGroup {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 10px;
+.qr-box img {
+  display: block;
+  margin: 0 auto 10px auto; /* centers horizontally and adds small spacing below */
+  width: 180px;             /* optional: make all QR codes uniform size */
+  height: 180px;            /* optional: consistent square shape */
+  object-fit: contain;      /* keeps proportions if resized */
 }
 
-.HomeNextBtn {
-  background-color: #ffffff;
-  color: #000000;
-  border: 0.5px solid #000000;
-  font-weight: 600;
+
+.qr-box button {
+  margin: 5px 3px;
+  border: none;
   border-radius: 8px;
-  padding: 8px 20px;
+  padding: 8px 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
-/* Hover Effect */
-.HomeNextBtn:hover {
-  background-color: #66B2FF;
-  color: #000000;
+.qr-box button:hover {
   transform: translateY(-2px);
+}
+
+.qr-box button:nth-child(5) {
+  background-color: #007bff;
+  color: #fff;
+}
+
+.qr-box button:nth-child(5):hover {
+  background-color: #0056b3;
+}
+
+.qr-box button:nth-child(6) {
+  background-color: #66B2FF;
+  color: #000;
+}
+
+.qr-box button:nth-child(6):hover {
+  background-color: #3399FF;
+}
+
+.qr-box button:nth-child(7) {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.qr-box button:nth-child(7):hover {
+  background-color: #b32a37;
 }
 
 /* =========================================================
    RESPONSIVE DESIGN
 ========================================================= */
 @media (max-width: 1024px) {
-  .HomeMainContent {
-    flex-direction: column;
-    align-items: center;
-    gap: 40px;
-  }
-
-  .HomeQRCodeContainer {
-    max-width: 100%;
-  }
-
-  .HomeQueueContainer {
-    width: 100%;
-  }
-
-  .HomeFilterSection {
-    justify-content: center;
-  }
-
-  .HomeQueueInfo {
-    justify-content: center;
+  .HomeRightContainer,
+  .HomeLeftContainer {
+    width: 90%;
   }
 }
 
 @media (max-width: 600px) {
-  .HomeQRCode {
-    width: 250px;
-    height: 250px;
-  }
-
-  .HomeCard {
+  .qr-box {
     width: 100%;
-    height: auto;
   }
 
-  .HomeFilterSelect {
-    width: 80%;
+  .HomeRightContainer {
+    padding: 25px;
   }
 }
