@@ -4,73 +4,83 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scan History</title>
-    <link rel="stylesheet" href="../static/Admin2/ScanHistory.css">
+  <link rel="stylesheet" href="../static/Admin2/ScanHistory.css">
 </head>
+<body>
 
+<header>
+  <nav class="HomeNavbar">
+    <a href="#" class="HomeLogo">SmartQ</a>
+    <ul class="HomeNavMenu">
+      <li><a href="#">Home</a></li>
+      <li><a href="#">Dashboard</a></li>
+    </ul>
+  </nav>
+</header>
 
-  <header>
-    <nav class="HomeNavbar">
-      <a href="#" class="HomeLogo">SmartQ</a>
-      <ul class="HomeNavMenu">
-        <li><a href="#">Home</a></li>
-        <li><a href="#">Dashboard</a></li>
-      </ul>
-    </nav>
-  </header>
+<main class="HomeMainContent">
+  <h2>QR Scanner Dashboard</h2>
 
-  <main class="HomeMainContent">
-    <h2>QR Scanner Dashboard</h2>
+  <div class="HomeTwoContainer">
 
-    <div class="HomeTwoContainer">
+    <!-- LEFT SIDE NAVIGATION -->
+    <aside class="HomeLeftContainer">
+      <h3>Navigation</h3>
+      <nav class="sidebar-nav">
+        <button class="nav-btn active">Dashboard</button>
+        <button class="nav-btn">Export Data</button>
+        <button class="nav-btn danger">Clear All</button>
+      </nav>
+    </aside>
 
-      <!-- LEFT SIDE NAVIGATION (BUTTONS) -->
-      <aside class="HomeLeftContainer">
-        <h3>Navigation</h3>
-        <nav class="sidebar-nav">
-          <button class="nav-btn active">Dashboard</button>
-          <button class="nav-btn">Export Data</button>
-          <button class="nav-btn danger">Clear All</button>
-        </nav>
-      </aside>
-
-      <!-- RIGHT SIDE CONTENT (TABLE + FILTERS) -->
-      <section class="HomeRightContainer">
-        <h3>Scanned Users</h3>
-
+    <!-- RIGHT SIDE USER LIST -->
+    <section class="HomeRightContainer">
+      
+      <!-- Filter + Search -->
+      <div class="filter-section">
+        <div class="filter-left">
           <label for="schedule">Schedule:</label>
-          <select id="schedule" name="schedule" title="Filter by schedule">
+          <select id="schedule">
             <option value="all">All</option>
             <option value="morning">Morning</option>
             <option value="afternoon">Afternoon</option>
           </select>
-        <table class="user-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Number</th>
-              <th>Schedule</th>
-              <th>Time Scanned</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>John Doe</td>
-              <td>09123456789</td>
-              <td>Morning</td>
-              <td>8:30 AM</td>
-            </tr>
-            <tr>
-              <td>Jane Smith</td>
-              <td>09987654321</td>
-              <td>Afternoon</td>
-              <td>1:15 PM</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+        </div>
 
-    </div>
-  </main>
+        <div class="filter-right">
+          <label for="search">Search:</label>
+          <input type="text" id="search" placeholder="Search by name">
+        </div>
+      </div>
+
+      <!-- User List -->
+      <div class="user-list">
+        <div class="user-card">
+          <div class="user-info">
+            <h4>Juan Dela Cruz</h4>
+            <p>Mobile: 09123456789</p>
+          </div>
+          <div class="user-meta">
+            <p class="user-schedule">Morning</p>
+            <p class="user-time">08:45 AM</p>
+          </div>
+        </div>
+
+        <div class="user-card">
+          <div class="user-info">
+            <h4>Maria Santos</h4>
+            <p>Mobile: 09987654321</p>
+          </div>
+          <div class="user-meta">
+            <p class="user-schedule">Afternoon</p>
+            <p class="user-time">02:10 PM</p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </div>
+</main>
 
 </body>
 </html>

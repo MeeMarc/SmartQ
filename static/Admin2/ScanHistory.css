@@ -1,3 +1,6 @@
+/* =========================================================
+   FONT & GLOBAL RESET
+========================================================= */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
 
 * {
@@ -39,6 +42,7 @@ header {
   font-weight: bold;
   color: #ffffff;
   text-decoration: none;
+  transition: color 0.3s ease;
 }
 
 .HomeLogo:hover {
@@ -149,7 +153,7 @@ header {
 }
 
 /* =========================================================
-   RIGHT SIDE - TABLE + FILTERS
+   RIGHT SIDE - USER LIST + FILTER
 ========================================================= */
 .HomeRightContainer {
   background: #ffffff;
@@ -158,53 +162,140 @@ header {
   box-shadow: 0 4px 10px rgba(0, 51, 102, 0.1);
   width: 70%;
   min-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.HomeRightContainer h3 {
-  color: #003366;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
+/* Filter section (left: schedule, right: search) */
 .filter-section {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 25px;
-  gap: 10px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-left, .filter-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-section label {
+  font-weight: 600;
+  color: #003366;
 }
 
 .filter-section input,
 .filter-section select {
-  padding: 10px;
-  border: 1px solid #ccc;
+  padding: 10px 14px;
+  border: 1px solid #ccd6e0;
   border-radius: 8px;
-  font-size: 1rem;
-  width: 48%;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.user-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.user-table th, .user-table td {
-  padding: 12px;
-  border: 1px solid #ddd;
-  text-align: center;
-}
-
-.user-table th {
-  background-color: #003366;
-  color: #fff;
-}
-
-.user-table tr:hover {
-  background-color: #f2f6fc;
+.filter-section input:focus,
+.filter-section select:focus {
+  border-color: #66B2FF;
+  box-shadow: 0 0 5px rgba(102, 178, 255, 0.4);
 }
 
 /* =========================================================
-   RESPONSIVE
+   USER LIST (GRID STYLE)
+========================================================= */
+.user-list {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr); /* 5 cards per row */
+  gap: 15px;
+}
+
+.user-card {
+  background: #fdfdfd;
+  border: 1px solid #000000;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 6px rgba(0, 51, 102, 0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.user-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 10px rgba(0, 51, 102, 0.1);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-info h4 {
+  color: #003366;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.user-info p {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.user-schedule {
+  font-weight: 600;
+  color: #007bff;
+  text-transform: capitalize;
+}
+
+.user-time {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+/* =========================================================
+   RESPONSIVE GRID
+========================================================= */
+@media (max-width: 1200px) {
+  .user-list {
+    grid-template-columns: repeat(4, 1fr); /* 4 per row */
+  }
+}
+
+@media (max-width: 992px) {
+  .user-list {
+    grid-template-columns: repeat(3, 1fr); /* 3 per row */
+  }
+}
+
+@media (max-width: 768px) {
+  .user-list {
+    grid-template-columns: repeat(2, 1fr); /* 2 per row */
+  }
+}
+
+@media (max-width: 480px) {
+  .user-list {
+    grid-template-columns: 1fr; /* 1 per row on mobile */
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE DESIGN
 ========================================================= */
 @media (max-width: 900px) {
   .HomeTwoContainer {
@@ -212,15 +303,24 @@ header {
     align-items: center;
   }
 
-  .HomeLeftContainer, .HomeRightContainer {
+  .HomeLeftContainer,
+  .HomeRightContainer {
     width: 90%;
   }
 
   .filter-section {
-    flex-direction: column;
+    justify-content: center;
   }
 
-  .filter-section input, .filter-section select {
-    width: 100%;
+  .user-meta {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 600px) {
+  .user-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 }
