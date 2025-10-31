@@ -235,3 +235,15 @@ button:hover {
     font-size: 15px;
   }
 }
+.flash-messages p {
+    background-color: #f8d7da; /* red-ish for errors */
+    color: #721c24;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+.flash-messages p.success {
+    background-color: #d4edda; /* green-ish for success */
+    color: #155724;
+}
