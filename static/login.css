@@ -1,6 +1,11 @@
-/* Import Montserrat font */
+/* =============================
+   IMPORT FONT
+============================= */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
 
+/* =============================
+   GLOBAL RESET
+============================= */
 * {
   margin: 0;
   padding: 0;
@@ -10,106 +15,160 @@
 
 body {
   background-color: #E6EEF8;
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  padding: 10px; /* moderate space around the container */
+  padding: 20px;
 }
 
+/* =============================
+   MAIN CONTAINER
+============================= */
 .container {
   background: #fff;
   width: 100%;
   max-width: 900px;
   display: flex;
+  flex-direction: row;
   border-radius: 15px;
-  overflow: hidden; /* ✅ no inner scrollbars */
-  box-shadow: 0 8px 25px rgba(0,0,0,0.2);
-  gap: 20px;
-  margin: 20px auto; /* add breathing space */
-  height: auto;      /* ✅ grow with content */
-  max-height: none;  /* ✅ remove height restriction */
+  overflow: hidden;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  margin: 40px auto;
 }
 
+/* =============================
+   LEFT PANEL (LOGO / IMAGE)
+============================= */
 .left {
   flex: 1;
-  background: url("file:///C:/Users/Vincent/Documents/Smart_Schedule_System/picture/download%20(1).jfif") no-repeat center center;
-  background-size: cover;
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
+  color: #fff;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  color: rgb(0, 0, 0);
-  font-size: 2rem;
-  font-weight: bold;
+  padding: 40px 20px;
   text-align: center;
-  padding: 10px;
-  background-color: #E6EEF8;
 }
 
-/* Right Panel */
+.left a {
+  position: absolute;
+  top: 25px;
+  left: 30px;
+  color: #fff;
+  font-size: 0.9rem;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: background 0.3s ease;
+}
+
+.left a:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.left img {
+  width: 140px;
+  margin-bottom: 20px;
+}
+
+.left h2 {
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #f9fafb;
+}
+
+/* =============================
+   RIGHT PANEL (FORM)
+============================= */
 .right {
   flex: 1;
-  padding: 20px;
+  padding: 50px 40px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  overflow: visible; /* ✅ ensure no scrollbar */
-  max-height: none;  /* ✅ remove restriction */
 }
 
-.right h2 {
-  margin-bottom: 15px;
+.right h1 {
   font-size: 1.8rem;
-  color: #000;
+  margin-bottom: 25px;
+  color: #3348A2;
+  text-align: center;
 }
 
-/* Form Inputs */
-form {
-  display: flex;
-  flex-direction: column;
+/* =============================
+   FORM INPUTS
+============================= */
+label {
+  font-weight: 500;
+  margin-bottom: 6px;
+  display: block;
+  color: #333;
 }
 
 input[type="text"],
 input[type="email"],
 input[type="password"],
 select {
-  padding: 12px; /* smaller padding */
-  margin-bottom: 15px; /* less spacing */
+  padding: 12px;
+  margin-bottom: 18px;
   border: 1px solid #BDBDBD;
   border-radius: 8px;
-  outline: none;
   font-size: 16px;
+  width: 100%;
+  outline: none;
+  transition: all 0.2s ease;
 }
 
 input:focus,
 select:focus {
   border-color: #3348A2;
+  box-shadow: 0 0 6px rgba(51,72,162,0.3);
 }
 
-/* Role Dropdown Styling */
-select {
-  appearance: none;
-  background: #fff url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="5"><path fill="gray" d="M0 0l5 5 5-5z"/></svg>') no-repeat right 12px center;
-  background-size: 10px 5px;
-  height: 45px;
-  line-height: 1.2;
+/* =============================
+   INPUT GROUP (PASSWORD ICON)
+============================= */
+.input-group {
+  position: relative;
 }
 
-/* Checkbox */
+.input-group i {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: #777;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.input-group i:hover {
+  color: #3348A2;
+}
+
+/* =============================
+   CHECKBOX AREA
+============================= */
 .checkbox {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
-  font-size: 14px;
+  margin-bottom: 20px;
+  gap: 8px;
 }
 
-.checkbox input {
-  margin-right: 8px;
+.checkbox label {
+  font-size: 0.9rem;
+  color: #444;
 }
 
-/* Button */
+/* =============================
+   BUTTONS
+============================= */
 button {
-  padding: 10px;
+  padding: 12px;
   border: none;
   border-radius: 8px;
   background: #3348A2;
@@ -117,263 +176,60 @@ button {
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  margin-bottom: 15px;
-  transition: background 0.3s ease;
+  transition: all 0.3s ease;
+  width: 100%;
 }
 
 button:hover {
-  background: #3348A2;
+  background: #1d3a91;
+  transform: translateY(-1px);
 }
 
-/* Footer Text Links */
+/* =============================
+   FOOTER TEXT
+============================= */
 .footer-text {
   text-align: center;
-  font-size: 14px;
-  margin-top: 10px;
+  margin-top: 20px;
+  font-size: 0.9rem;
+  color: #555;
 }
 
 .footer-text a {
   color: #3348A2;
+  font-weight: 600;
   text-decoration: none;
-  font-weight: 500;
 }
 
-/* Input Group with Eye Icon */
-.input-group {
-  position: relative;
+.footer-text a:hover {
+  text-decoration: underline;
 }
 
-.input-group input {
-  width: 100%;
-  padding: 12px 40px 12px 12px; /* space for icon */
-  font-size: 16px;
-}
-
-.input-group i.toggle-password {
-  position: absolute;
-  top: 50%;
-  right: 12px;
-  transform: translateY(-50%);
-  cursor: pointer;
-  color: #666;
-  font-size: 18px;
-}
-
-
-/* 🔹 Teacher & Student Number Fields */
-#teacher_number_field,
-#student_number_field {
-  margin-bottom: 15px; /* spacing between fields */
-}
-
-#teacher_number_field label,
-#student_number_field label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-}
-
-#teacher_number_field input,
-#student_number_field input {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #BDBDBD;
-  border-radius: 8px;
-  font-size: 16px;
-  outline: none;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  background-color: #fff;
-}
-
-/* Focus Effect */
-#teacher_number_field input:focus,
-#student_number_field input:focus {
-  border-color: #3348A2;
-  box-shadow: 0 0 5px rgba(51, 72, 162, 0.4);
-}
-
-/* 🔹 Base Input Styles (shared across all fields) */
-input[type="text"],
-input[type="email"],
-input[type="password"],
-select {
-  width: 100%;
-  padding: 12px 40px 12px 12px; /* space for icon if needed */
-  margin-bottom: 15px;
-  border: 1px solid #BDBDBD;
-  border-radius: 8px;
-  outline: none;
-  font-size: 16px;
-  background-color: #fff;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-input:focus,
-select:focus {
-  border-color: #3348A2;
-  box-shadow: 0 0 5px rgba(51, 72, 162, 0.4);
-}
-
-/* 🔹 Teacher & Student Number Wrapper */
-.input-with-icon {
-  position: relative;
-  margin-bottom: 15px;
-}
-
-.input-with-icon label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-}
-
-/* 🔹 Icon Styling */
-.input-with-icon i {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 18px;
-  color: #666;
-  cursor: pointer; /* only useful for teacher upload */
-}
-
-/* 🔹 Student Icon - not clickable (decorative only) */
-#student_number_field i {
-  cursor: default;
-  color: #999;
-}
-
-/* 🔹 Responsive */
+/* =============================
+   RESPONSIVE DESIGN
+============================= */
 @media (max-width: 768px) {
   .container {
     flex-direction: column;
     width: 90%;
-    max-height: unset;
-  }
-
-  .left, .right {
-    flex: unset;
-    width: 100%;
   }
 
   .left {
-    height: 180px;
-    font-size: 1.5rem;
+    height: 200px;
+    padding: 20px;
+    position: relative;
+  }
+
+  .left a {
+    top: 15px;
+    left: 15px;
   }
 
   .right {
-    padding: 15px;
-  }
-
-  input,
-  select {
-    margin-bottom: 12px;
-    padding: 10px 36px 10px 10px; /* adjust for smaller screen */
-  }
-
-  .input-with-icon i {
-    font-size: 16px;
-    right: 10px;
-  }
-}
-
-
-
-/* Responsive */
-@media (max-width: 768px) {
-  .container {
-    flex-direction: column;
-    width: 90%;
-    max-height: unset; /* remove height limit on mobile */
-  }
-
-  .left, .right {
-    flex: unset;
-    width: 100%;
-  }
-
-  .left {
-    height: 180px;
-    font-size: 1.5rem;
-  }
-
-  .right {
-    padding: 15px;
-  }
-
-  input[type="text"],
-  input[type="email"],
-  input[type="password"],
-  select {
-    margin-bottom: 12px;
-    padding: 10px;
+    padding: 30px 20px;
   }
 
   button {
-    padding: 10px;
-    margin-bottom: 12px;
+    font-size: 15px;
   }
-}
-
-/* Wrapper for hidden ID fields */
-.hidden-field {
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition: max-height 0.4s ease, opacity 0.3s ease;
-}
-
-/* When visible */
-.hidden-field.show {
-  max-height: 200px; /* enough space for input */
-  opacity: 1;
-}
-
-/* 🔹 SmartQ Logo Styling */
-.left {
-  flex-direction: column; /* Stack logo & text vertically */
-  text-align: center;
-  gap: 10px; /* space between logo and text */
-}
-
-.left .logo-container img {
-  width: 150px;
-  height: auto;
-  display: inline-block;
-  border-radius: 10px; /* optional, for softer edges */
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2); /* optional subtle shadow */
-}
-
-/* ============================= */
-/* LOGO STYLING FOR LOGIN & SIGNUP */
-/* ============================= */
-
-.login-logo {
- display: block;
-  margin: 30px auto 15px auto;
-  width: 150px;
-  height: auto;
-  border-radius: 10px;         /* optional soft corners */
-  transition: transform 0.3s ease;
-}
-
-.login-logo:hover {
-  transform: scale(1.05);     /* small hover zoom */
-}
-
-.signup-logo {
-  display: block;
-  margin: 30px auto 15px auto;
-  width: 150px;
-  height: auto;
-  border-radius: 10px;         /* optional soft corners */
-  transition: transform 0.3s ease;
-}
-
-.signup-logo:hover {
-  transform: scale(1.05);
 }

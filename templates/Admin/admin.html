@@ -12,10 +12,12 @@
 
 <header>
   <nav class="navbar">
-    <a href="admin.html" class="logo"><strong>SmartQ</strong></a>
+    <a href="{{ url_for('admin') }}" class="logo"><strong>SmartQ</strong></a>
+
     <ul class="navmenu">
-      <li><a href="admin.html">Home</a></li>
-      <li><a href="login.html">Login</a></li>
+      <li><a href="{{ url_for('admin') }}">Home</a></li>
+      <li><a href="{{ url_for('login') }}">Login</a></li>
+
     </ul>
   </nav>
 </header>

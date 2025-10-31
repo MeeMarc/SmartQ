@@ -10,59 +10,51 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 </head>
 <body>
-  <div class="container">
-    <!-- Left Panel -->
-    <div class="left">
-       <a href="admin.html">
- <div class="left">
-  <a href="{{ url_for('admin') }}">
+
+
+<div class="container">
+  <!-- Left Panel -->
+  <div class="left">
     <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmartQ Logo" class="signup-logo">
-  </a>
+    <h1>Lets gets started!</h1>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right">
+    <h2>Create Account</h2>
+    <form method="POST" action="{{ url_for('signup') }}" enctype="multipart/form-data">
+      <label for="fullname">Full Name</label>
+      <input type="text" id="fullname" name="fullname" placeholder="Enter your full name" required>
+
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" placeholder="Enter your email" required>
+
+      <label for="password">Password</label>
+      <div class="input-group">
+        <input type="password" id="password" name="password" placeholder="Create a password" required>
+        <i class="toggle-password fa fa-eye" onclick="togglePassword('password', this)"></i>
+      </div>
+
+      <label for="confirm_password">Confirm Password</label>
+      <div class="input-group">
+        <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required>
+        <i class="toggle-password fa fa-eye" onclick="togglePassword('confirm_password', this)"></i>
+      </div>
+
+      <div class="checkbox">
+        <input type="checkbox" id="terms" name="terms" required>
+        <label for="terms">I agree to Terms and Conditions</label>
+      </div>
+
+      <button type="submit">Create Account</button>
+
+      <div class="footer-text">
+        Already have an account? <a href="{{ url_for('login') }}">Log in</a>
+      </div>
+    </form>
+  </div>
 </div>
 
-
-    <!-- Right Panel -->
-    <div class="right">
-      <h2>Create Account</h2>
-      <form method="POST" action="{{ url_for('signup') }}" enctype="multipart/form-data">
-
-      
-        <!-- Full Name -->
-        <label for="fullname">Full Name</label>
-        <input type="text" id="fullname" name="fullname" placeholder="Enter your full name" required>
-
-        <!-- Email -->
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" placeholder="Enter your email" required>
-
-        <!-- Password -->
-        <label for="password">Password</label>
-        <div class="input-group">
-          <input type="password" id="password" name="password" placeholder="Create a password" required>
-          <i class="toggle-password fa fa-eye" onclick="togglePassword('password', this)"></i>
-        </div>
-
-        <!-- Confirm Password -->
-        <label for="confirm_password">Confirm Password</label>
-        <div class="input-group">
-          <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required>
-          <i class="toggle-password fa fa-eye" onclick="togglePassword('confirm_password', this)"></i>
-        </div>
-
-        <!-- Terms Checkbox -->
-        <div class="checkbox">
-          <input type="checkbox" id="terms" name="terms" required>
-          <label for="terms">I agree to Terms and Conditions</label>
-        </div>
-
-        <button type="submit">Create Account</button>
-
-        <div class="footer-text">
-          Already have an account? <a href="{{ url_for('login') }}">Log in</a>
-        </div>
-      </form>
-    </div>
-  </div>
 
   <!-- JS for toggle password -->
   <script>
