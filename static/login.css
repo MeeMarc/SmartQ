@@ -50,6 +50,7 @@ body {
   align-items: center;
   padding: 40px 20px;
   text-align: center;
+  
 }
 
 .left a {
@@ -72,6 +73,7 @@ body {
 .left img {
   width: 140px;
   margin-bottom: 20px;
+  border-radius: 10px;
 }
 
 .left h2 {
@@ -93,7 +95,7 @@ body {
 
 .right h1 {
   font-size: 1.8rem;
-  margin-bottom: 25px;
+  margin-bottom: 40px;
   color: #3348A2;
   text-align: center;
 }
