@@ -35,7 +35,8 @@
         <label for="remember">Remember Me</label>
       </div>
 
-      <button type="button" onclick="window.location.href='../Admin2/Homepage.html'">Log in</button>
+      <button type="button" onclick="window.location.href='{{ url_for('homepage') }}'">Log in</button>
+
 
       <div class="footer-text">
         Don’t have an account? <a href="{{ url_for('signup') }}">Sign UP</a>

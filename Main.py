@@ -73,6 +73,10 @@ def login():
 def admin():
     return render_template('Admin/admin.html')
 
+@app.route('/homepage')
+def homepage():
+    return render_template('Admin2/Homepage.html')
+
 
 # --- Redirect root to signup ---
 @app.route('/')
