@@ -107,7 +107,6 @@ header {
 .HomeIntroSection {
   background: #ffffff;
   padding: 100px 20px;
-  border-bottom: 1px solid #ccd6e0;
   max-height: 100vh;
 }
 
@@ -157,7 +156,6 @@ header {
 .HomeHowItWorksSection {
   background: #E6EEF8;
   padding: 100px 20px;
-  border-bottom: 1px solid #ccd6e0;
   max-height: 100vh;
 }
 
@@ -208,7 +206,6 @@ header {
   background-color: #ffffff;
   text-align: center;
   padding: 100px 20px;
-  border-bottom: 1px solid #ccd6e0;
   max-height: 100vh;
 }
 
