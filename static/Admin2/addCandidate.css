@@ -12,11 +12,12 @@ body {
   background: #f5f7fb;
   min-height: 100vh;
   color: #333;
-  overflow-x: hidden; /* ✅ Prevents horizontal scroll */
+  overflow-x: hidden;
 }
 
-
-/* ======= Header / Navbar ======= */
+/* =========================================================
+   HEADER / NAVBAR
+========================================================= */
 header {
   position: sticky;
   top: 0;
@@ -33,18 +34,14 @@ header {
   align-items: center;
   padding: 1rem 5rem;
   height: 70px;
-  box-sizing: border-box;
 }
 
 .HomeLogo {
-  display: flex;
-  align-items: center;
   font-size: 1.5rem;
   font-weight: bold;
   color: #ffffff;
   text-decoration: none;
   transition: color 0.3s ease;
-  height: 100%;
 }
 
 .HomeLogo:hover {
@@ -56,14 +53,12 @@ header {
   align-items: center;
   gap: 2rem;
   list-style: none;
-  margin: 0;
-  padding: 0;
 }
 
 .HomeNavMenu a {
   position: relative;
   color: #ffffff;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 500;
   text-decoration: none;
   transition: color 0.3s ease, transform 0.3s ease;
