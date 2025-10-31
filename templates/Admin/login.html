@@ -13,8 +13,8 @@
     <!-- Left Panel -->
  <div class="left">
   <div class="logo-container">
-  <a href="admin.html">
-  <img src="../images/logo.png" alt="SmartQ Logo" class="login-logo">
+  <a href="{{ url_for('admin') }}">Home Page</a>
+  <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmartQ Logo" class="login-logo">
 </a>
 
   </div>
@@ -45,7 +45,7 @@
        <button type="button" onclick="window.location.href='../Admin2/Homepage.html'">Log in</button>
 
         <div class="footer-text">
-          Don’t have an account? <a href="SignUp.html">Create account</a>
+          Don’t have an account? <a href="{{ url_for('signup') }}">Sign UP</a>
         </div>
       </form>
     </div>

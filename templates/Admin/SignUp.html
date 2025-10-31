@@ -14,16 +14,18 @@
     <!-- Left Panel -->
     <div class="left">
        <a href="admin.html">
-  <img src="../images/logo.png" alt="SmartQ Logo" class="signup-logo">
+ <div class="left">
+  <a href="{{ url_for('admin') }}">
+    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmartQ Logo" class="signup-logo">
+  </a>
+</div>
 
-</a>
-      <p>Let's Get Started!</p>
-    </div>
 
     <!-- Right Panel -->
     <div class="right">
       <h2>Create Account</h2>
-      <form method="POST" action="{{ url_for('register') }}" enctype="multipart/form-data">
+      <form method="POST" action="{{ url_for('signup') }}" enctype="multipart/form-data">
+
       
         <!-- Full Name -->
         <label for="fullname">Full Name</label>
@@ -56,7 +58,7 @@
         <button type="submit">Create Account</button>
 
         <div class="footer-text">
-          Already have an account? <a href="login.html">Log in</a>
+          Already have an account? <a href="{{ url_for('login') }}">Log in</a>
         </div>
       </form>
     </div>
