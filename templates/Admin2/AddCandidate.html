@@ -4,25 +4,28 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Add Candidate | SmartQ</title>
-  <link rel="stylesheet" href="../static/Admin2/AddCandidate.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/AddCandidate.css') }}">
 </head>
 <body>
+ 
 
-<header>
-  <nav class="HomeNavbar">
-    <a href="Homepage.html" class="HomeLogo"><strong>SmartQ</strong></a>
-<ul class="HomeNavMenu">
-  <li><a href="Homepage.html">Home</a></li>
-  <li><a href="CreateQ.html">Create Queue</a></li>
-  <li><a href="AddCandidate.html">Add Candidate</a></li>
-  <li><a href="Scantracking.html">Scan Tracker</a></li>
-  <li><a href="../Admin/login.html" id="logout">Logout</a></li>
-</ul>
+<!-- ================= HEADER / NAV ================= -->
+  <header>
+    <nav class="HomeNavbar">
+      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>SmartQ</strong></a>
+      <ul class="HomeNavMenu">
+        <li><a href="{{ url_for('homepage') }}">Home</a></li>
+        <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
+        <li><a href="{{ url_for('addcandidate') }}">Add Candidate</a></li>
+        <li><a href="{{ url_for('scantracking') }}">Scan Tracker</a></li>
+        <li><a href="{{ url_for('admin_settings') }}" class="active">Settings</a></li>
+        <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
 
-  </nav>
-</header>
+      </ul>
+    </nav>
+  </header>
 
-
+<!-- ================= ADD CANDIDATE FORM ================= -->
 <section id="paper-section" class="paper-section">
   <form class="paper-form" id="candidateForm" method="POST">
     <div class="form-row">
@@ -44,7 +47,6 @@
       <input type="text" id="phone" name="phone" placeholder="09*********" required>
     </div>
 
-    <!-- 🌅 Morning or Afternoon Selection -->
     <div class="form-row">
       <label for="timeslot">Preferred Time</label>
       <select id="timeslot" name="timeslot" required>

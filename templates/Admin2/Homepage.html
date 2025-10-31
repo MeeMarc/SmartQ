@@ -4,25 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SmartQ</title>
-  <link rel="stylesheet" href="../static/Admin2/Homepage.css">
-
+  <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/Homepage.css') }}">
 </head>
 <body>
 
-<header>
-  <nav class="HomeNavbar">
-    <a href="Homepage.html" class="HomeLogo"><strong>SmartQ</strong></a>
-<ul class="HomeNavMenu">
-  <li><a href="Homepage.html">Home</a></li>
-  <li><a href="CreateQ.html">Create Queue</a></li>
-  <li><a href="AddCandidate.html">Add Candidate</a></li>
-  <li><a href="Scantracking.html">Scan Tracker</a></li>
-  <li><a href="../Admin/login.html" id="logout">Logout</a></li>
-</ul>
 
-  </nav>
-</header>
+  <header>
+    <nav class="HomeNavbar">
+      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>SmartQ</strong></a>
+      <ul class="HomeNavMenu">
+        <li><a href="{{ url_for('homepage') }}">Home</a></li>
+        <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
+        <li><a href="{{ url_for('addcandidate') }}">Add Candidate</a></li>
+        <li><a href="{{ url_for('scantracking') }}">Scan Tracker</a></li>
+        <li><a href="{{ url_for('admin_settings') }}" class="active">Settings</a></li>
+        <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
 
+      </ul>
+    </nav>
+  </header>
 
 <div id="home">
   <!-- Section 1 -->
@@ -34,13 +34,13 @@
           <h2>Virtual Queue System to make it efficient than traditional Queue Method</h2>
           <p>
             SmartQ makes it easy for them and staff to access services efficiently,
-            ensuring smooth management. test
+            ensuring smooth management.
           </p>
         </div>
 
         <!-- Right side: Image -->
         <div class="HomeImageContent">
-          <img src="../static/images/qr.png" alt="queue waiting system" class="HomeImage">
+          <img src="{{ url_for('static', filename='images/qr.png') }}" alt="queue waiting system" class="HomeImage">
         </div>
       </div>
     </div>
@@ -53,7 +53,7 @@
     <div class="HomeRow">
       <!-- Left side: Image -->
       <div class="HomeImageContent">
-        <img src="../static/images/Automation.png" alt="Automation" class="HomeImage">
+        <img src="{{ url_for('static', filename='images/Automation.png') }}" alt="Automation" class="HomeImage">
       </div>
 
       <!-- Right side: Text -->
@@ -78,12 +78,12 @@
     <p><strong>Features Highlights</strong></p>
 
     <ul>
-      <li><img src="../static/images/better.svg" alt="better"> Better administration</li>
-      <li><img src="../static/images/time.svg" alt="time"> Reduce waiting time</li>
-      <li><img src="../static/images/instruction.svg" alt="instruction"> Clear instructions</li>
-      <li><img src="../static/images/social.svg" alt="social"> Easy and possible with a handheld device</li>
-      <li><img src="../static/images/customer-feedback.svg" alt="feedback"> Improve staff productivity & Performance</li>
-      <li><img src="../static/images/maintain.svg" alt="maintain"> Improves Brand Perception</li>
+      <li><img src="{{ url_for('static', filename='images/better.svg') }}" alt="better"> Better administration</li>
+      <li><img src="{{ url_for('static', filename='images/time.svg') }}" alt="time"> Reduce waiting time</li>
+      <li><img src="{{ url_for('static', filename='images/instruction.svg') }}" alt="instruction"> Clear instructions</li>
+      <li><img src="{{ url_for('static', filename='images/social.svg') }}" alt="social"> Easy and possible with a handheld device</li>
+      <li><img src="{{ url_for('static', filename='images/customer-feedback.svg') }}" alt="feedback"> Improve staff productivity & Performance</li>
+      <li><img src="{{ url_for('static', filename='images/maintain.svg') }}" alt="maintain"> Improves Brand Perception</li>
     </ul>
   </div>
 </section>
@@ -94,22 +94,22 @@
 
     <div class="HomeSteps" id="carousel">
       <div class="step active">
-        <img src="../static/images/step-1.png" alt="Step 1">
+        <img src="{{ url_for('static', filename='images/step-1.png') }}" alt="Step 1">
         <p><strong>STEP 1</strong></p>
         <p>Scan the QR code.</p>
       </div>
       <div class="step">
-        <img src="../static/images/step2.png" alt="Step 2">
+        <img src="{{ url_for('static', filename='images/step2.png') }}" alt="Step 2">
         <p><strong>STEP 2</strong></p>
         <p>Fill out the registration form.</p>
       </div>
       <div class="step">
-        <img src="../static/images/step3.png" alt="Step 3">
+        <img src="{{ url_for('static', filename='images/step3.png') }}" alt="Step 3">
         <p><strong>STEP 3</strong></p>
         <p>Wait for a notification when your turn is near.</p>
       </div>
       <div class="step">
-        <img src="../static/images/step4.png" alt="Step 4">
+        <img src="{{ url_for('static', filename='images/step4.png') }}" alt="Step 4">
         <p><strong>STEP 4</strong></p>
         <p>Proceed to the counter when notified.</p>
       </div>
@@ -122,8 +122,6 @@
     </div>
   </div>
 </section>
-
-
 
 <script>
   const steps = document.querySelectorAll('.step');
@@ -154,17 +152,13 @@
     updateSteps();
   });
 
-  // Auto animation loop every 3 seconds
   setInterval(() => {
     current = (current + 1) % steps.length;
     updateSteps();
   }, 10000);
 
-  // Initialize
   updateSteps();
 </script>
-
-
 
 </body>
 </html>

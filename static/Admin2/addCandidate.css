@@ -234,3 +234,22 @@ input[type="text"] {
 html {
   scroll-behavior: smooth;
 }
+body.dark {
+  background-color: #121212;
+  color: #f0f0f0;
+}
+
+body.dark a {
+  color: #80bfff;
+}
+
+body.dark .HomeNavbar {
+  background-color: #1e1e1e;
+}
+
+body.dark input, 
+body.dark button {
+  background-color: #222;
+  color: #fff;
+  border: 1px solid #444;
+}

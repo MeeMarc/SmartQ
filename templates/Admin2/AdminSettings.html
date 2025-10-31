@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Settings - SmartQ</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <style>
+    .settings-section {
+      max-width: 500px;
+      margin: 50px auto;
+      background: #fff;
+      padding: 20px 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      margin-top: 15px;
+      width: 100%;
+      padding: 10px;
+      background-color: #0078d7;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #005fa3;
+    }
+    .flash {
+      text-align: center;
+      margin-bottom: 10px;
+      color: green;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <nav class="HomeNavbar">
+      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>SmartQ</strong></a>
+      <ul class="HomeNavMenu">
+        <li><a href="{{ url_for('homepage') }}">Home</a></li>
+        <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
+        <li><a href="{{ url_for('addcandidate') }}">Add Candidate</a></li>
+        <li><a href="{{ url_for('scantracking') }}">Scan Tracker</a></li>
+        <li><a href="{{ url_for('admin_settings') }}" class="active">Settings</a></li>
+        <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section class="settings-section">
+      <h2>Admin Settings</h2>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="flash">
+            {% for msg in messages %}
+              <p>{{ msg }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('admin_settings') }}">
+  <label>Full Name:</label>
+  <p>{{ admin[0] if admin else '' }}</p> <!-- display as text -->
+
+  <label>Email:</label>
+  <p>{{ admin[1] if admin else '' }}</p> <!-- display as text -->
+
+  <label>New Password:</label>
+  <input type="password" name="new_password" placeholder="Enter new password">
+
+  <label>Confirm Password:</label>
+  <input type="password" name="confirm_password" placeholder="Confirm new password">
+
+  <button type="submit">Save Changes</button>
+</form>
+
+    </section>
+  </main>
+</body>
+</html>
