@@ -17,7 +17,6 @@
       <ul class="HomeNavMenu">
         <li><a href="{{ url_for('homepage') }}">Home</a></li>
         <li><a href="{{ url_for('createq') }}" class="active">Create Queue</a></li>
-        <li><a href="{{ url_for('addcandidate') }}">Add Candidate</a></li>
         <li><a href="{{ url_for('scantracking') }}">Scan Tracker</a></li>
         <li><a href="{{ url_for('admin_settings') }}">Profile</a></li>
         <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
@@ -73,7 +72,6 @@
         <div id="qr${index}"></div>
         <p><small>${item.link}</small></p>
         <button onclick="downloadQR(${index})">Download QR</button>
-        <button onclick="addCandidate('${item.link}')">Add Candidate</button>
         <button onclick="deleteQR(${index})">Delete</button>
       `;
       container.appendChild(box);

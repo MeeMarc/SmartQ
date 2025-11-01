@@ -155,20 +155,42 @@ p {
   border: 1px solid #ccd6e0;
 }
 
-input[type="password"] {
-  padding: 10px 12px;
-  border-radius: 6px;
-  border: 1px solid #ccd6e0;
-  background-color: #f9fbff;
-  font-size: 1rem;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+.input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-input[type="password"]:focus {
+.input-group input {
+  width: 100%;
+  padding-right: 40px; /* ✅ added missing value for icon spacing */
+  padding: 10px 12px;
+  border: 1px solid #ccd6e0;
+  border-radius: 6px;
+  font-size: 1rem;
+  color: #333;
+  background-color: #f9fbfd;
+  transition: border-color 0.3s ease;
+}
+
+.input-group input:focus {
   border-color: #66B2FF;
-  box-shadow: 0 0 0 2px rgba(102, 178, 255, 0.3);
   outline: none;
 }
+
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  cursor: pointer;
+  color: #666;
+  font-size: 1rem;
+  transition: color 0.3s ease;
+}
+
+.toggle-password:hover {
+  color: #003366;
+}
+
 
 /* ===== Button Styling ===== */
 button {

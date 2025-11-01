@@ -14,7 +14,6 @@
       <ul class="HomeNavMenu">
         <li><a href="{{ url_for('homepage') }}">Home</a></li>
         <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
-        <li><a href="{{ url_for('addcandidate') }}">Add Candidate</a></li>
         <li><a href="{{ url_for('scantracking') }}">Scan Tracker</a></li>
         <li><a href="{{ url_for('admin_settings') }}" class="active">Profile</a></li>
         <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
@@ -70,17 +69,21 @@
 
     </section>
   </main>
-  <script>
-  function togglePassword(id, el) {
-    const input = document.getElementById(id);
-    if (input.type === "password") {
-      input.type = "text";
-      el.classList.replace("fa-eye", "fa-eye-slash");
-    } else {
-      input.type = "password";
-      el.classList.replace("fa-eye-slash", "fa-eye");
-    }
+<script>
+function togglePassword(id, el) {
+  const input = document.getElementById(id);
+
+  if (input.type === "password") {
+    input.type = "text";
+    el.classList.remove("fa-eye-slash");
+    el.classList.add("fa-eye");
+  } else {
+    input.type = "password";
+    el.classList.remove("fa-eye");
+    el.classList.add("fa-eye-slash");
   }
+}
 </script>
+
 </body>
 </html>
