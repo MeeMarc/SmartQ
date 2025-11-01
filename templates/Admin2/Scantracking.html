@@ -1,92 +1,201 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scan History | SmartQ</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/Scantracking.css') }}">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scan History | SmartQ</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='Admin2/Scantracking.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; }
+  .container-flex { display: flex; gap: 10px; }
+  .qr-list { width: 30%; border-right: 1px solid #ccc; padding: 10px; overflow-y: auto; height: 80vh; }
+  .qr-detail { width: 70%; padding: 10px; overflow-y: auto; height: 80vh; position: relative; }
+  .qr-box { border: 1px solid #ddd; padding: 8px; margin-bottom: 10px; border-radius: 4px; }
+  .qr-box button { margin-right: 5px; margin-top: 5px; }
+  .scan-list .scan-card { border-bottom: 1px solid #eee; padding: 5px 0; }
+  #scanSearch { width: 100%; padding: 5px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ccc; }
+  /* Modal styles */
+  .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+           background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+  .modal-content { background: #fff; padding: 20px; border-radius: 6px; width: 400px; max-width: 90%; position: relative; }
+  .modal-content h3 { margin-top: 0; }
+  .close-modal { position: absolute; top: 10px; right: 10px; cursor: pointer; font-weight: bold; }
+  .modal-content input, .modal-content select, .modal-content button { width: 100%; padding: 5px; margin-top: 10px; }
+</style>
 </head>
 <body>
 
-<!-- ================= HEADER / NAV ================= -->
-  <header>
-    <nav class="HomeNavbar">
-      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>SmartQ</strong></a>
-      <ul class="HomeNavMenu">
-        <li><a href="{{ url_for('homepage') }}">Home</a></li>
-        <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
-        <li><a href="{{ url_for('addcandidate') }}">Add Candidate</a></li>
-        <li><a href="{{ url_for('scantracking') }}" class="active">Scan Tracker</a></li>
-        <li><a href="{{ url_for('admin_settings') }}">Profile</a></li>
-        <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
-      </ul>
-    </nav>
-  </header>
+<header>
+  <nav class="HomeNavbar">
+    <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>SmartQ</strong></a>
+    <ul class="HomeNavMenu">
+      <li><a href="{{ url_for('homepage') }}">Home</a></li>
+      <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
+      <li><a href="{{ url_for('scantracking') }}" class="active">Scan Tracker</a></li>
+      <li><a href="{{ url_for('admin_settings') }}">Profile</a></li>
+      <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
+    </ul>
+  </nav>
+</header>
 
-<!-- ================= MAIN CONTENT ================= -->
 <main class="HomeMainContent">
   <h2>QR Scanner Dashboard</h2>
 
-  <div class="HomeTwoContainer">
-
-    <!-- LEFT SIDE NAVIGATION -->
-    <aside class="HomeLeftContainer">
-      <h3>Navigation</h3>
-      <nav class="sidebar-nav">
-        <button class="nav-btn active">Dashboard</button>
-        <button class="nav-btn">Export Data</button>
-        <button class="nav-btn danger">Clear All</button>
-      </nav>
+  <div class="container-flex">
+    <!-- LEFT: QR List -->
+    <aside class="qr-list" id="qrListContainer">
+      <h3>Generated Queues</h3>
+      <!-- QR list injected dynamically -->
     </aside>
 
-    <!-- RIGHT SIDE USER LIST -->
-    <section class="HomeRightContainer">
-      
-      <!-- Filter + Search -->
-      <div class="filter-section">
-        <div class="filter-left">
-          <label for="schedule">Schedule:</label>
-          <select id="schedule">
-            <option value="all">All</option>
-            <option value="morning">Morning</option>
-            <option value="afternoon">Afternoon</option>
-          </select>
-        </div>
-
-        <div class="filter-right">
-          <label for="search">Search:</label>
-          <input type="text" id="search" placeholder="Search by name">
-        </div>
-      </div>
-
-      <!-- User List -->
-      <div class="user-list">
-        <div class="user-card">
-          <div class="user-info">
-            <h4>Juan Dela Cruz</h4>
-            <p>Mobile: 09123456789</p>
-          </div>
-          <div class="user-meta">
-            <p class="user-schedule">Morning</p>
-            <p class="user-time">08:45 AM</p>
-          </div>
-        </div>
-
-        <div class="user-card">
-          <div class="user-info">
-            <h4>Maria Santos</h4>
-            <p>Mobile: 09987654321</p>
-          </div>
-          <div class="user-meta">
-            <p class="user-schedule">Afternoon</p>
-            <p class="user-time">02:10 PM</p>
-          </div>
-        </div>
-      </div>
-
+    <!-- RIGHT: Scan Details -->
+    <section class="qr-detail" id="qrDetailContainer">
+      <h3>Select a QR to see scans</h3>
+      <!-- Scanned users will appear here -->
     </section>
   </div>
 </main>
+
+<!-- Modal for Add Candidate -->
+<div class="modal" id="candidateModal">
+  <div class="modal-content">
+    <span class="close-modal" onclick="closeModal()">×</span>
+    <h3>Add Candidate</h3>
+    <form id="candidateForm">
+      <input type="hidden" id="modalQRLink">
+      <label for="fullname">Full Name:</label>
+      <input type="text" id="fullname" required>
+      <label for="phone">Phone:</label>
+      <input type="text" id="phone" required>
+      <label for="timeslot">Time Slot:</label>
+      <select id="timeslot" required>
+        <option value="morning">Morning</option>
+        <option value="afternoon">Afternoon</option>
+      </select>
+      <button type="submit">Submit</button>
+    </form>
+  </div>
+</div>
+
+<script>
+const qrListContainer = document.getElementById("qrListContainer");
+const qrDetailContainer = document.getElementById("qrDetailContainer");
+const modal = document.getElementById("candidateModal");
+const candidateForm = document.getElementById("candidateForm");
+const modalQRLink = document.getElementById("modalQRLink");
+
+let currentScans = [];
+
+// Fetch QR List
+function fetchQRList() {
+  fetch("/qr_history_data")
+    .then(res => res.json())
+    .then(data => {
+      qrListContainer.innerHTML = "<h3>Generated Queues</h3>";
+      data.forEach(qr => {
+        const box = document.createElement("div");
+        box.className = "qr-box";
+        box.innerHTML = `
+          <h4>${qr.queue_type}</h4>
+          <p>${qr.queue_purpose}</p>
+          <div id="qr${qr.id}"></div>
+          <p><small>${qr.queue_link}</small></p>
+          <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>
+          <button onclick="viewScans(${qr.id})">View Scans</button>
+        `;
+        qrListContainer.appendChild(box);
+
+        new QRCode(document.getElementById(`qr${qr.id}`), {
+          text: qr.queue_link,
+          width: 100,
+          height: 100
+        });
+      });
+    });
+}
+fetchQRList();
+
+// Modal functions
+function openModal(link) {
+  modal.style.display = "flex";
+  modalQRLink.value = link;
+}
+function closeModal() {
+  modal.style.display = "none";
+  candidateForm.reset();
+}
+
+// Handle Add Candidate submission
+candidateForm.addEventListener("submit", function(e) {
+  e.preventDefault();
+  const data = {
+    fullname: document.getElementById("fullname").value,
+    phone: document.getElementById("phone").value,
+    timeslot: document.getElementById("timeslot").value,
+    link: modalQRLink.value
+  };
+
+  fetch("/add_candidate_modal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  })
+  .then(res => res.json())
+  .then(resp => {
+    if(resp.status === "success") {
+      alert("✅ Candidate added successfully!");
+      closeModal();
+      // Refresh scans if currently viewing the QR
+      const displayedQR = document.querySelector(`#qrDetailContainer h3`);
+      if(displayedQR && displayedQR.textContent.includes(data.link)) {
+        viewScans(resp.qr_id);
+      }
+    } else {
+      alert("❌ Error: " + resp.message);
+    }
+  })
+  .catch(err => console.error(err));
+});
+
+// View scans for a specific QR
+function viewScans(qrId) {
+  fetch(`/get_qr_scans/${qrId}`)
+    .then(res => res.json())
+    .then(data => {
+      currentScans = data;
+      qrDetailContainer.innerHTML = `
+        <h3>Scans for QR #${qrId}</h3>
+        <input type="text" id="scanSearch" placeholder="Search by name or email">
+        <div class="scan-list" id="scanList"></div>
+      `;
+      document.getElementById("scanSearch").addEventListener("input", filterScans);
+      renderScans(currentScans);
+    });
+}
+
+// Render scans
+function renderScans(scans) {
+  const scanList = document.getElementById("scanList");
+  scanList.innerHTML = "";
+  if(scans.length === 0) scanList.innerHTML = "<p>No scans found.</p>";
+  scans.forEach(user => {
+    const card = document.createElement("div");
+    card.className = "scan-card";
+    card.innerHTML = `<strong>${user.fullname}</strong> - ${user.email} - ${user.scanned_at}`;
+    scanList.appendChild(card);
+  });
+}
+
+// Filter scans by search
+function filterScans() {
+  const query = document.getElementById("scanSearch").value.toLowerCase();
+  const filtered = currentScans.filter(user =>
+    user.fullname.toLowerCase().includes(query) || user.email.toLowerCase().includes(query)
+  );
+  renderScans(filtered);
+}
+</script>
 
 </body>
 </html>

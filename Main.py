@@ -326,6 +326,75 @@ def clear_temp_qr():
         return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
+    
+# ==============================================================  
+# GET SCANS FOR A SPECIFIC QR
+# ==============================================================
+
+@app.route('/get_qr_scans/<int:qr_id>', methods=['GET'])
+def get_qr_scans(qr_id):
+    """
+    Return a JSON list of users who scanned a specific QR code.
+    Expected columns: fullname, email, scanned_at
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # Assuming you have a table like 'qr_scans' that stores scans
+        # Example schema:
+        # CREATE TABLE qr_scans (
+        #   id SERIAL PRIMARY KEY,
+        #   qr_id INT REFERENCES temp_qr(id),
+        #   fullname VARCHAR(255),
+        #   email VARCHAR(255),
+        #   scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        # );
+        cur.execute("""
+            SELECT fullname, email, scanned_at
+            FROM qr_scans
+            WHERE qr_id = %s
+            ORDER BY scanned_at DESC
+        """, (qr_id,))
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        scans = []
+        for row in rows:
+            scans.append({
+                "fullname": row[0],
+                "email": row[1],
+                "scanned_at": row[2].strftime("%Y-%m-%d %H:%M:%S")
+            })
+        return jsonify(scans)
+
+    except Exception as e:
+        print(f"Error fetching QR scans: {e}")
+        return jsonify([])
+
+@app.route('/add_candidate_modal', methods=['POST'])
+def add_candidate_modal():
+    data = request.get_json()
+    fullname = data.get('fullname')
+    phone = data.get('phone')
+    timeslot = data.get('timeslot')
+    qr_link = data.get('link')
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # Save candidate and link to QR
+        cur.execute("INSERT INTO candidates (fullname, phone, timeslot, purpose, qr_link) VALUES (%s,%s,%s,%s,%s)",
+                    (fullname, phone, timeslot, f"Linked to QR", qr_link))
+        conn.commit()
+        cur.execute("SELECT id FROM temp_qr WHERE queue_link=%s", (qr_link,))
+        qr_id = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return jsonify({"status": "success", "qr_id": qr_id})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
 
 
 @app.route('/')
