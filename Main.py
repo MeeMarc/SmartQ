@@ -154,6 +154,7 @@ def scantracking():
 
 
 @app.route('/admin_settings', methods=['GET', 'POST'])
+@app.route('/admin_settings', methods=['GET', 'POST'])
 def admin_settings():
     if 'user_email' not in session:
         flash("Please log in first.")
@@ -163,18 +164,24 @@ def admin_settings():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # ✅ Correct column name
-    cur.execute("SELECT fullname, email FROM users WHERE email = %s", (email,))
+    # ✅ Fetch fullname, email, and password for verification
+    cur.execute("SELECT fullname, email, password FROM users WHERE email = %s", (email,))
     admin = cur.fetchone()
 
     if request.method == 'POST':
-        fullname = request.form['fullname']
-        new_password = request.form['new_password']
-        confirm_password = request.form['confirm_password']
+        fullname = request.form.get('fullname', admin[0])
+        old_password = request.form.get('old_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
 
+        current_hashed_pw = admin[2]  # stored hashed password
+
+        # ✅ If changing password
         if new_password:
-            if new_password != confirm_password:
-                flash("Passwords do not match.")
+            if not check_password_hash(current_hashed_pw, old_password):
+                flash("❌ Old password is incorrect.")
+            elif new_password != confirm_password:
+                flash("❌ New passwords do not match.")
             else:
                 hashed_pw = generate_password_hash(new_password)
                 cur.execute(
@@ -183,6 +190,7 @@ def admin_settings():
                 )
                 flash("✅ Name and password updated successfully!")
         else:
+            # ✅ Only update name if no new password
             cur.execute("UPDATE users SET fullname = %s WHERE email = %s", (fullname, email))
             flash("✅ Name updated successfully!")
 
@@ -193,8 +201,8 @@ def admin_settings():
 
     cur.close()
     conn.close()
-
     return render_template('Admin2/AdminSettings.html', admin=admin)
+
 
 
 @app.route('/logout')
