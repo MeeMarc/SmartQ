@@ -27,7 +27,7 @@ def get_db_connection():
     )
 
 
-# ==============================================================
+# ==============================================================  
 # AUTH ROUTES
 # ==============================================================
 
@@ -101,7 +101,7 @@ def login():
     return render_template('Admin/login.html')
 
 
-# ==============================================================
+# ==============================================================  
 # ADMIN ROUTES
 # ==============================================================
 
@@ -204,7 +204,7 @@ def logout():
     return redirect(url_for('login'))
 
 
-# ==============================================================
+# ==============================================================  
 # QR CODE GENERATION
 # ==============================================================
 
@@ -221,6 +221,111 @@ def generate_qr():
     qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     return jsonify({"qr_image": qr_base64})
+
+
+# ==============================================================  
+# QR DATABASE HANDLING (NEW)
+# ==============================================================
+
+def save_qr(queue_type, queue_purpose, queue_link, created_by):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO temp_qr (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s)",
+            (queue_type, queue_purpose, queue_link, created_by)
+        )
+        cur.execute(
+            "INSERT INTO qr_history (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s)",
+            (queue_type, queue_purpose, queue_link, created_by)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error saving QR: {e}")
+
+
+@app.route('/generate_qr_db', methods=['POST'])
+def generate_qr_db():
+    queue_type = request.form.get('type', 'General')
+    queue_purpose = request.form.get('purpose', 'General')
+    queue_link = request.form.get('link', '#')
+    created_by = session.get('user_email', 'Unknown')
+
+    qr_data = f"{queue_type} - {queue_purpose} - {queue_link}"
+    qr_img = qrcode.make(qr_data)
+
+    save_qr(queue_type, queue_purpose, queue_link, created_by)
+
+    buffer = io.BytesIO()
+    qr_img.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    return jsonify({"qr_image": qr_base64})
+
+
+@app.route('/delete_temp_qr', methods=['POST'])
+def delete_temp_qr():
+    qr_id = request.form.get('id')
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM temp_qr WHERE id = %s", (qr_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        print(f"Error deleting temp QR: {e}")
+        return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route('/qr_history_data', methods=['GET'])
+def qr_history_data():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # Join qr_history with users table to get fullname
+        cur.execute("""
+            SELECT h.id, h.queue_type, h.queue_purpose, h.queue_link, u.fullname, h.created_at
+            FROM qr_history h
+            LEFT JOIN users u ON h.created_by = u.email
+            ORDER BY h.created_at DESC
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        history = []
+        for row in rows:
+            history.append({
+                "id": row[0],
+                "queue_type": row[1],
+                "queue_purpose": row[2],
+                "queue_link": row[3],
+                "created_by": row[4] if row[4] else row[3],  # fallback if fullname not found
+                "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S")
+            })
+        return jsonify(history)
+    except Exception as e:
+        print(f"Error fetching QR history: {e}")
+        return jsonify([])
+
+
+
+@app.route('/clear_temp_qr', methods=['POST'])
+def clear_temp_qr():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM temp_qr")  # empty the table
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
 
 
 @app.route('/')

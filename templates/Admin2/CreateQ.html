@@ -21,7 +21,6 @@
         <li><a href="{{ url_for('scantracking') }}">Scan Tracker</a></li>
         <li><a href="{{ url_for('admin_settings') }}" class="active">Settings</a></li>
         <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
-
       </ul>
     </nav>
   </header>
@@ -44,6 +43,7 @@
         <input type="text" id="queueLink" placeholder="https://example.com/user_form" required>
 
         <button type="submit">Generate QR</button>
+        <button type="button" id="viewHistoryBtn">View QR History</button>
       </form>
     </div>
 
@@ -99,12 +99,36 @@
     localStorage.setItem("queues", JSON.stringify(qrList));
     renderQRs();
     form.reset();
+
+    // Automatically save QR to database
+    fetch("/generate_qr_db", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&link=${encodeURIComponent(link)}`
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log("✅ QR saved to DB automatically");
+    })
+    .catch(err => console.error(err));
   });
 
+  // ================= DELETE QR =================
   function deleteQR(index) {
+    // Remove from local storage and render
     qrList.splice(index, 1);
     localStorage.setItem("queues", JSON.stringify(qrList));
     renderQRs();
+
+    // Clear the temp_qr table in the database
+    fetch("/clear_temp_qr", {
+        method: "POST"
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log("✅ temp_qr table cleared");
+    })
+    .catch(err => console.error(err));
   }
 
   function downloadQR(index) {
@@ -119,6 +143,35 @@
   function addCandidate(link) {
     window.location.href = "{{ url_for('addcandidate') }}?link=" + encodeURIComponent(link);
   }
+
+  // ================= VIEW QR HISTORY =================
+  const viewHistoryBtn = document.getElementById("viewHistoryBtn");
+  viewHistoryBtn.addEventListener("click", () => {
+    fetch("/qr_history_data")
+      .then(response => response.json())
+      .then(data => {
+        container.innerHTML = "";
+        data.forEach(item => {
+          const box = document.createElement("div");
+          box.className = "qr-box";
+          box.innerHTML = `
+            <h4>${item.queue_type}</h4>
+            <p>${item.queue_purpose}</p>
+            <div id="historyQR${item.id}"></div>
+            <p><small>${item.queue_link}</small></p>
+            <p><small>Created by: ${item.created_by} | ${item.created_at}</small></p>
+          `;
+          container.appendChild(box);
+
+          new QRCode(document.getElementById(`historyQR${item.id}`), {
+            text: item.queue_link,
+            width: 128,
+            height: 128
+          });
+        });
+      })
+      .catch(err => console.error(err));
+  });
 </script>
 
 </body>
