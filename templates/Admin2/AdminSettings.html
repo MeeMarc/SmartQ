@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <title>Admin Settings - SmartQ</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/Profile.css') }}" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
 </head>
 <body>
   <header>
@@ -36,22 +38,49 @@
       {% endwith %}
 
       <form method="POST" action="{{ url_for('admin_settings') }}">
-  <label>Full Name:</label>
-  <p>{{ admin[0] if admin else '' }}</p> <!-- display as text -->
+ <label>Full Name:</label>
+<p>{{ admin[0] if admin else '' }}</p> <!-- display as text -->
 
-  <label>Email:</label>
-  <p>{{ admin[1] if admin else '' }}</p> <!-- display as text -->
+<label>Email:</label>
+<p>{{ admin[1] if admin else '' }}</p> <!-- display as text -->
 
-  <label>New Password:</label>
-  <input type="password" name="new_password" placeholder="Enter new password">
+<!-- ✅ Added Old Password -->
+<label>Old Password:</label>
+<div class="input-group">
+  <input type="password" id="old_password" name="old_password" placeholder="Enter old password" required>
+  <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('old_password', this)"></i>
+</div>
 
-  <label>Confirm Password:</label>
-  <input type="password" name="confirm_password" placeholder="Confirm new password">
+<label>New Password:</label>
+<div class="input-group">
+  <input type="password" id="new_password" name="new_password" placeholder="Enter new password" />
+  <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('new_password', this)"></i>
+</div>
+
+<label>Confirm Password:</label>
+<div class="input-group">
+  <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm new password" />
+  <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('confirm_password', this)"></i>
+</div>
+
+
 
   <button type="submit">Save Changes</button>
 </form>
 
     </section>
   </main>
+  <script>
+  function togglePassword(id, el) {
+    const input = document.getElementById(id);
+    if (input.type === "password") {
+      input.type = "text";
+      el.classList.replace("fa-eye", "fa-eye-slash");
+    } else {
+      input.type = "password";
+      el.classList.replace("fa-eye-slash", "fa-eye");
+    }
+  }
+</script>
 </body>
 </html>
