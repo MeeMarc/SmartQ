@@ -26,6 +26,9 @@
   </nav>
 </header>
 
+
+
+
 <!-- Section 1: How It Works -->
 <section class="how-it-works-slider">
   <h3>How It Works</h3>
@@ -34,50 +37,61 @@
     <div class="card active">
       <img src="../static/images/step-1.png" alt="step 1">
       <p><strong>STEP 1</strong></p>
-      <p>Scan the QR code.</p>
+      <p2>Scan the QR code.</p2>
     </div>
 
     <div class="card">
       <img src="../static/images/step2.png" alt="step 2">
       <p><strong>STEP 2</strong></p>
-      <p>Fill out the registration form.</p>
+      <p2>Fill out the registration form.</p2>
     </div>
 
     <div class="card">
       <img src="../static/images/step3.png" alt="step 3">
       <p><strong>STEP 3</strong></p>
-      <p>Wait for a notification when your turn is near.</p>
+      <p2>Wait for a notification when your turn is near.</p2>
     </div>
 
     <div class="card">
       <img src="../static/images/step4.png" alt="step 4">
       <p><strong>STEP 4</strong></p>
-      <p>Proceed to the counter when notified.</p>
+      <p2>Proceed to the counter when notified.</p2>
     </div>
   </div>
 
-  <!-- Navigation Buttons -->
+  <!-- ✅ Navigation Buttons -->
   <div class="slider-controls">
     <button id="prevBtn">❮ Prev</button>
     <button id="nextBtn">Next ❯</button>
   </div>
 </section>
 
-<!-- Section 2: Registration Form -->
-<section id="paper-section" class="paper-section">
-  <form class="paper-form" id="registrationForm" method="POST">
-    <h3>Registration Form</h3>
 
+
+<!-- Section 2: Processing of the Papers -->
+<section id="paper-section" class="paper-section">
+
+  <form class="paper-form" action="#" method="post">
     <div class="form-row">
+      <h3>Registration Form</h3>
+
       <label for="fullname">Full Name</label>
-      <input type="text" id="fullname" name="fullname" placeholder="Last, First MI, Suffix" required>
+      <input type="text" id="fullname" name="fullname" required>
+
+      <div class="name-hint">
+        <span>Last Name,</span>
+        <span>First Name </span>
+        <span>Middle Initial</span>
+        <span>Suffix</span>
+      </div>
     </div>
 
     <div class="form-row">
       <label for="phone">Phone Number</label>
-      <input type="text" id="phone" name="phone" placeholder="09*********" required>
+      <textarea id="phone" name="phone" rows="1" placeholder="09*********" required></textarea>
     </div>
 
+    <!-- 🌅 Morning or Afternoon Selection -->
     <div class="form-row">
       <label for="timeslot">Preferred Time</label>
       <select id="timeslot" name="timeslot" required>
@@ -89,24 +103,24 @@
 
     <div class="form-row">
       <label for="purpose">Purpose</label>
-      <textarea id="purpose" name="purpose" rows="3" placeholder="Purpose will auto-fill from QR"></textarea>
+      <textarea id="purpose" name="purpose" rows="4" placeholder="Optional"></textarea>
     </div>
 
-    <div class="form-row">
-      <button type="submit">Submit</button>
+    <div>
+      <button type="button" onclick="window.location.href='Waiting.html'">Submit</button>
     </div>
   </form>
 </section>
 
 <script>
-  // Slider
   const cards = document.querySelectorAll('.card');
-  let current = 0;
   const nextBtn = document.getElementById('nextBtn');
   const prevBtn = document.getElementById('prevBtn');
+  let current = 0;
 
   function updateCards() {
     cards.forEach(card => card.classList.remove('active', 'prev', 'next'));
+    
     const prevIndex = (current - 1 + cards.length) % cards.length;
     const nextIndex = (current + 1) % cards.length;
 
@@ -115,58 +129,37 @@
     cards[nextIndex].classList.add('next');
   }
 
-  nextBtn.addEventListener('click', () => { current = (current + 1) % cards.length; updateCards(); });
-  prevBtn.addEventListener('click', () => { current = (current - 1 + cards.length) % cards.length; updateCards(); });
-  setInterval(() => { current = (current + 1) % cards.length; updateCards(); }, 10000);
-  updateCards();
+  nextBtn.addEventListener('click', () => {
+    current = (current + 1) % cards.length;
+    updateCards();
+  });
 
-  // Menu toggle
+  prevBtn.addEventListener('click', () => {
+    current = (current - 1 + cards.length) % cards.length;
+    updateCards();
+  });
+
+  // Auto slide every 3 seconds
+  setInterval(() => {
+    current = (current + 1) % cards.length;
+    updateCards();
+  }, 10000);
+
+  updateCards();
+</script>
+
+
+<script>
   const menuToggle = document.getElementById('menu-toggle');
   const navMenu = document.getElementById('navmenu');
+
   menuToggle.addEventListener('click', () => {
     menuToggle.classList.toggle('active');
     navMenu.classList.toggle('active');
   });
-
-  // ===== Auto-fill purpose from URL parameter (QR) =====
-  const urlParams = new URLSearchParams(window.location.search);
-  const qrPurpose = urlParams.get('purpose');
-  if (qrPurpose) {
-    document.getElementById('purpose').value = qrPurpose;
-  }
-
-  // ===== Submit form via fetch to backend =====
-  const form = document.getElementById('registrationForm');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const data = {
-      fullname: form.fullname.value,
-      phone: form.phone.value,
-      timeslot: form.timeslot.value,
-      purpose: form.purpose.value,
-      qr_link: urlParams.get('link') || ''
-    };
-
-    try {
-      const res = await fetch('/submit_user_form', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      const result = await res.json();
-      if (result.status === 'success') {
-        alert('✅ Form submitted successfully!');
-        form.reset();
-      } else {
-        alert('❌ Error submitting form');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('❌ Network error');
-    }
-  });
 </script>
+
+
 
 </body>
 </html>
