@@ -155,6 +155,13 @@ header {
   margin-bottom: 10px;
 }
 
+.qr-box div[id^="qr"] {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 10px auto;
+}
+
 .qr-box small {
   display: block;
   color: #888;
