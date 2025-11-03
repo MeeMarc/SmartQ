@@ -8,21 +8,20 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
 </head>
 <body>
- 
 
 <!-- ================= HEADER / NAV ================= -->
-  <header>
-    <nav class="HomeNavbar">
-      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>SmartQ</strong></a>
-      <ul class="HomeNavMenu">
-        <li><a href="{{ url_for('homepage') }}">Home</a></li>
-        <li><a href="{{ url_for('createq') }}" class="active">Create Queue</a></li>
-        <li><a href="{{ url_for('scantracking') }}">Scan Tracking</a></li>
-        <li><a href="{{ url_for('admin_settings') }}">Profile</a></li>
-        <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
-      </ul>
-    </nav>
-  </header>
+<header>
+  <nav class="HomeNavbar">
+    <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>SmartQ</strong></a>
+    <ul class="HomeNavMenu">
+      <li><a href="{{ url_for('homepage') }}">Home</a></li>
+      <li><a href="{{ url_for('createq') }}" class="active">Create Queue</a></li>
+      <li><a href="{{ url_for('scantracking') }}">Scan Tracking</a></li>
+      <li><a href="{{ url_for('admin_settings') }}">Profile</a></li>
+      <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
+    </ul>
+  </nav>
+</header>
 
 <!-- ================= MAIN CONTENT ================= -->
 <main class="HomeMainContent">
@@ -39,10 +38,22 @@
         <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
 
         <label for="queueLink">Link or Page URL for this QR:</label>
-        <input type="text" id="queueLink" placeholder="https://example.com/user_form" required>
+        <input type="url" id="queueLink" placeholder="https://example.com/user_form" required>
 
-        <button type="submit">Generate QR</button>
-        <button type="button" id="viewHistoryBtn">View QR History</button>
+        <!-- 🆕 NEW CAPACITY FEATURE -->
+        <label for="dailyCapacity">Total Users Per Day:</label>
+        <input type="number" id="dailyCapacity" min="1" placeholder="e.g. 20" required>
+
+        <label>Split Between:</label>
+        <div class="split-container">
+          <input type="number" id="morningCount" min="0" placeholder="Morning (e.g. 10)" required>
+          <input type="number" id="afternoonCount" min="0" placeholder="Afternoon (e.g. 10)" required>
+        </div>
+
+        <div class="button-container">
+          <button type="submit">Generate QR</button>
+          <button type="button" id="viewHistoryBtn">View QR History</button>
+        </div>
       </form>
     </div>
 
@@ -61,6 +72,7 @@
 
   let qrList = JSON.parse(localStorage.getItem("queues")) || [];
 
+  // Render saved QR codes
   function renderQRs() {
     container.innerHTML = "";
     qrList.forEach((item, index) => {
@@ -69,10 +81,14 @@
       box.innerHTML = `
         <h4>${item.type}</h4>
         <p>${item.purpose}</p>
+        <p><strong>Capacity:</strong> ${item.dailyCapacity} total  
+        (Morning: ${item.morningCount}, Afternoon: ${item.afternoonCount})</p>
         <div id="qr${index}"></div>
         <p><small>${item.link}</small></p>
-        <button onclick="downloadQR(${index})">Download QR</button>
-        <button onclick="deleteQR(${index})">Delete</button>
+        <div class="qr-actions">
+          <button onclick="downloadQR(${index})">Download QR</button>
+          <button onclick="deleteQR(${index})">Delete</button>
+        </div>
       `;
       container.appendChild(box);
 
@@ -86,49 +102,52 @@
 
   renderQRs();
 
+  // Handle QR creation
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-    const type = document.getElementById("queueType").value;
-    const purpose = document.getElementById("queuePurpose").value;
-    const link = document.getElementById("queueLink").value;
 
-    const newQR = { type, purpose, link };
+    const type = document.getElementById("queueType").value.trim();
+    const purpose = document.getElementById("queuePurpose").value.trim();
+    const link = document.getElementById("queueLink").value.trim();
+    const dailyCapacity = parseInt(document.getElementById("dailyCapacity").value);
+    const morningCount = parseInt(document.getElementById("morningCount").value);
+    const afternoonCount = parseInt(document.getElementById("afternoonCount").value);
+
+    if (morningCount + afternoonCount !== dailyCapacity) {
+      alert("⚠️ Morning + Afternoon counts must equal Total Users Per Day!");
+      return;
+    }
+
+    const newQR = { type, purpose, link, dailyCapacity, morningCount, afternoonCount };
     qrList.push(newQR);
     localStorage.setItem("queues", JSON.stringify(qrList));
     renderQRs();
     form.reset();
 
-    // Automatically save QR to database
+    // Save QR to backend
     fetch("/generate_qr_db", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&link=${encodeURIComponent(link)}`
+      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&link=${encodeURIComponent(link)}&dailyCapacity=${dailyCapacity}&morningCount=${morningCount}&afternoonCount=${afternoonCount}`
     })
     .then(res => res.json())
-    .then(data => {
-      console.log("✅ QR saved to DB automatically");
-    })
+    .then(() => console.log("✅ QR saved with capacity info"))
     .catch(err => console.error(err));
   });
 
-  // ================= DELETE QR =================
+  // Delete QR
   function deleteQR(index) {
-    // Remove from local storage and render
     qrList.splice(index, 1);
     localStorage.setItem("queues", JSON.stringify(qrList));
     renderQRs();
 
-    // Clear the temp_qr table in the database
-    fetch("/clear_temp_qr", {
-        method: "POST"
-    })
-    .then(res => res.json())
-    .then(data => {
-        console.log("✅ temp_qr table cleared");
-    })
-    .catch(err => console.error(err));
+    fetch("/clear_temp_qr", { method: "POST" })
+      .then(res => res.json())
+      .then(() => console.log("✅ temp_qr cleared"))
+      .catch(err => console.error(err));
   }
 
+  // Download QR as image
   function downloadQR(index) {
     const qrCanvas = document.querySelector(`#qr${index} canvas`);
     if (!qrCanvas) return;
@@ -138,11 +157,7 @@
     link.click();
   }
 
-  function addCandidate(link) {
-    window.location.href = "{{ url_for('addcandidate') }}?link=" + encodeURIComponent(link);
-  }
-
-  // ================= VIEW QR HISTORY =================
+  // View QR History
   const viewHistoryBtn = document.getElementById("viewHistoryBtn");
   viewHistoryBtn.addEventListener("click", () => {
     fetch("/qr_history_data")
@@ -155,6 +170,8 @@
           box.innerHTML = `
             <h4>${item.queue_type}</h4>
             <p>${item.queue_purpose}</p>
+            <p><strong>Capacity:</strong> ${item.daily_capacity} total  
+            (Morning: ${item.morning_count}, Afternoon: ${item.afternoon_count})</p>
             <div id="historyQR${item.id}"></div>
             <p><small>${item.queue_link}</small></p>
             <p><small>Created by: ${item.created_by} | ${item.created_at}</small></p>
@@ -171,6 +188,5 @@
       .catch(err => console.error(err));
   });
 </script>
-
 </body>
 </html>
