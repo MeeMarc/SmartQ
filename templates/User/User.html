@@ -70,29 +70,36 @@
 
 <!-- Section 2: Processing of the Papers -->
 <section id="paper-section" class="paper-section">
-
-  <form class="paper-form" action="#" method="post">
+  <form class="paper-form" id="registrationForm" action="#" method="post">
     <div class="form-row">
       <h3>Registration Form</h3>
 
-      <label for="fullname">Full Name</label>
+      <!-- ✅ New read-only textarea for scanned QR -->
+<label for="qrData">Documents</label>
+<div id="qrDisplay" class="qr-display-box">
+  <span class="doc-name">Example: COR</span>
+  <span class="doc-desc">Claiming</span>
+</div>
+
+    <div class="form-row">
+      <label for="fullname">Full Name:</label>
       <input type="text" id="fullname" name="fullname" required>
 
       <div class="name-hint">
         <span>Last Name,</span>
-        <span>First Name </span>
+        <span>First Name</span>
         <span>Middle Initial</span>
         <span>Suffix</span>
       </div>
     </div>
 
     <div class="form-row">
-      <label for="phone">Phone Number</label>
+      <label for="phone">Phone Number:</label>
       <textarea id="phone" name="phone" rows="1" placeholder="09*********" required></textarea>
     </div>
 
     <div class="form-row">
-      <label for="purpose">Purpose</label>
+      <label for="purpose">Purpose:</label>
       <textarea id="purpose" name="purpose" rows="4" placeholder="Optional"></textarea>
     </div>
 
@@ -101,6 +108,7 @@
     </div>
   </form>
 </section>
+
 
 <script>
   const cards = document.querySelectorAll('.card');
@@ -147,6 +155,25 @@
     menuToggle.classList.toggle('active');
     navMenu.classList.toggle('active');
   });
+</script>
+
+
+<script>
+  function onQRScanned(scannedData) {
+    const [doc, desc] = scannedData.split("|");
+    const qrBox = document.getElementById("qrDisplay");
+
+    qrBox.innerHTML = `
+      <span class="doc-name">${doc}</span>
+      <span class="doc-desc">${desc}</span>
+    `;
+    qrBox.classList.add("filled");
+  }
+
+  // Demo only — automatically fill after 3 seconds
+  setTimeout(() => {
+    onQRScanned("COR|Claiming");
+  }, 3000);
 </script>
 
 

@@ -570,6 +570,52 @@ html {
   transform: translateY(-2px);
 }
 
+/* =========================================================
+   READ-ONLY QR TEXTAREA STYLES (For Scanned QR Data)
+========================================================= */
+.qr-display-box {
+  width: 100%;
+  background-color: #f5f7fb;
+  border: 1px solid #000;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-family: 'Montserrat', sans-serif;
+  cursor: not-allowed;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  min-height: 70px;
+}
+
+.qr-display-box .doc-name {
+  font-size: 1.2rem;      /* Bigger document name */
+  font-weight: 700;
+  color: #1a1a1a;
+  display: block;
+}
+
+.qr-display-box .doc-desc {
+  font-size: 1rem;        /* Slightly smaller */
+  color: #888;            /* Light gray text */
+  margin-top: 4px;
+  display: block;
+}
+
+.qr-display-box.filled {
+  background-color: #e9f9ee; /* Light green tone */
+  border-color: #28a745;
+  box-shadow: 0 0 8px rgba(40, 167, 69, 0.3);
+}
+
+/* ✅ Responsive Fix */
+@media (max-width: 768px) {
+  .qr-display-box .doc-name {
+    font-size: 1.05rem;
+  }
+  .qr-display-box .doc-desc {
+    font-size: 0.9rem;
+  }
+}
+
 /* Responsive for smaller screens */
 @media (max-width: 768px) {
   .paper-section {

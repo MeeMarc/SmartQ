@@ -14,7 +14,7 @@
       <ul class="HomeNavMenu">
         <li><a href="{{ url_for('homepage') }}">Home</a></li>
         <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
-        <li><a href="{{ url_for('scantracking') }}">Scan Tracker</a></li>
+        <li><a href="{{ url_for('scantracking') }}">Scan Tracking</a></li>
         <li><a href="{{ url_for('admin_settings') }}" class="active">Profile</a></li>
         <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
       </ul>
@@ -24,7 +24,7 @@
   
   <main>
     <section class="settings-section">
-      <h2>Admin Settings</h2>
+      <h2>Profile</h2>
 
       {% with messages = get_flashed_messages() %}
         {% if messages %}
