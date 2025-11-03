@@ -402,6 +402,12 @@ def add_candidate_modal():
         return jsonify({"status": "success", "qr_id": qr_id})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
+    
+@app.route('/user')
+def user_page():
+    return render_template("User/User.html")
+
+
 
 
 
