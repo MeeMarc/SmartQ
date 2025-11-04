@@ -537,7 +537,7 @@ html {
   background-color: #f5f7fb;
   transition: all 0.3s ease;
   box-sizing: border-box;
-  margin-bottom: 10px; /* ✅ Slightly tighter but balanced spacing */
+  margin-bottom: 5px; /* ✅ Slightly tighter but balanced spacing */
 }
 
 .paper-form input:focus,
@@ -587,8 +587,7 @@ html {
   display: flex;
   justify-content: space-between;
   pointer-events: none;
-  color: #888;
-  font-style: italic;
+  color: #646464;
   font-size: 0.9em;
   opacity: 0.7;
 }
