@@ -409,7 +409,7 @@ def user_page():
 
 @app.route('/')
 def home():
-    return redirect(url_for('signup'))
+    return redirect(url_for('homepage'))
 
 
 if __name__ == '__main__':
