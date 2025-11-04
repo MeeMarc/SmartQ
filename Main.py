@@ -12,11 +12,15 @@ app.secret_key = "secret123"  # for flash messages
 
 def get_db_connection():
     try:
-        conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+        # Get the DATABASE_URL and remove any hidden newline or space
+        db_url = os.getenv("DATABASE_URL", "").strip()
+        conn = psycopg2.connect(db_url)
+        print("✅ Database connected successfully!")
         return conn
     except Exception as e:
         print("❌ Database connection failed:", e)
         return None
+
 
 
 # ==============================================================  
