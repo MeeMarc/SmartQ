@@ -1,3 +1,4 @@
+import os
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 import psycopg2
 from psycopg2 import errors
@@ -9,22 +10,13 @@ import base64
 app = Flask(__name__)
 app.secret_key = "secret123"  # for flash messages
 
-# --- NeonDB PostgreSQL connection config ---
-DB_HOST = "ep-aged-mud-a1d1uiez-pooler.ap-southeast-1.aws.neon.tech"
-DB_NAME = "neondb"
-DB_USER = "neondb_owner"
-DB_PASSWORD = "npg_rU8X0gbciPlF"
-DB_PORT = "5432"
-
-
 def get_db_connection():
-    return psycopg2.connect(
-        host=DB_HOST,
-        dbname=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        port=DB_PORT
-    )
+    try:
+        conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+        return conn
+    except Exception as e:
+        print("❌ Database connection failed:", e)
+        return None
 
 
 # ==============================================================  
@@ -417,4 +409,5 @@ def home():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
