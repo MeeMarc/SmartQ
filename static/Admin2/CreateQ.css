@@ -147,7 +147,49 @@ header {
   border-color: #66B2FF;
 }
 
+/* =========================================================
+   SPLIT CONTAINER (Morning / Afternoon inputs)
+========================================================= */
+.HomeRightContainer .split-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  width: 100%;
+}
+
+.HomeRightContainer .split-container input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.HomeRightContainer .split-container input:focus {
+  border-color: #66B2FF;
+}
+
+/* Responsive: stack vertically on small screens */
+@media (max-width: 600px) {
+  .HomeRightContainer .split-container {
+    flex-direction: column;
+  }
+}
+
+/* =========================================================
+   BUTTON CONTAINER (Generate QR & View History)
+========================================================= */
+.HomeRightContainer .button-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 15px;
+}
+
 .HomeRightContainer button {
+  flex: 1;
   background-color: #003366;
   color: #ffffff;
   padding: 12px;
@@ -156,7 +198,6 @@ header {
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 10px;
   transition: all 0.3s ease;
 }
 
@@ -164,6 +205,7 @@ header {
   background-color: #0056b3;
   transform: translateY(-2px);
 }
+
 
 /* =========================================================
    BELOW: QR DISPLAY CONTAINER
@@ -195,7 +237,7 @@ header {
 }
 
 .qr-box {
-  background: #ffffff;
+  background: #f8faff;
   border: 1px solid #000000;
   box-shadow: 0 4px 8px rgba(0, 51, 102, 0.1);
   border-radius: 12px;
@@ -261,7 +303,7 @@ header {
 
 .qr-box button:nth-child(6) {
   background-color: #ff0000;
-  color: #000;
+  color: #000000;
 }
 
 .qr-box button:nth-child(6):hover {

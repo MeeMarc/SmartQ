@@ -167,10 +167,16 @@ header {
 
 .HomeHowItWorksSection .HomeTextContent ul {
   list-style-type: disc;
-  padding-left: 25px;
+  padding-left: 30px;
   color: #000000;
-  line-height: 1.8;
+  line-height: 1.9;
+  font-size: 1.05rem; /* increased from 1rem */
 }
+
+.HomeHowItWorksSection .HomeTextContent ul li {
+  margin-bottom: 10px; /* adds space between list items */
+}
+
 
 .HomeHowItWorksSection .HomeImageContent img {
   width: 100%;
@@ -200,7 +206,7 @@ header {
 
 .HomeFeaturesSection p {
   color: #000000;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   margin-bottom: 50px;
 }
 
