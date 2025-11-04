@@ -430,10 +430,9 @@ html {
   margin-top: 10px;
 }
 
-.card p {
-  color: #1a1a1a;
+.card p2 {
+  color: #000000;
   font-size: 1.5em;
-  font-weight: bold;
   margin: 10px 0 5px;
 }
 
@@ -494,18 +493,18 @@ html {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 60px 20px; /* slightly reduced top/bottom padding */
+  padding: 60px 20px;
   box-sizing: border-box;
 }
 
 .paper-form {
   display: flex;
   flex-direction: column;
-  gap: 20px; /* spacing between form elements */
+  gap: 20px; /* consistent spacing between form rows */
   width: 100%;
   max-width: 650px;
   background-color: #ffffff;
-  padding: 40px 30px; /* balanced padding */
+  padding: 40px 30px;
   border-radius: 16px;
   box-shadow: 0 6px 16px rgba(0, 51, 102, 0.15);
   box-sizing: border-box;
@@ -516,7 +515,7 @@ html {
   color: #003366;
   font-size: 2rem;
   font-weight: 700;
-  margin-bottom: 30px; /* spacing below heading */
+  margin-bottom: 25px;
 }
 
 .paper-form label {
@@ -538,6 +537,7 @@ html {
   background-color: #f5f7fb;
   transition: all 0.3s ease;
   box-sizing: border-box;
+  margin-bottom: 10px; /* ✅ Slightly tighter but balanced spacing */
 }
 
 .paper-form input:focus,
@@ -563,12 +563,93 @@ html {
   padding: 14px 20px;
   cursor: pointer;
   transition: background-color 0.3s ease, transform 0.2s ease;
+  margin-top: 15px;
 }
 
 .paper-form button:hover {
   background-color: #0055aa;
   transform: translateY(-2px);
 }
+
+/* =========================================================
+   INPUT WRAPPER WITH INLINE NAME HINT
+========================================================= */
+.input-wrapper {
+  position: relative;
+}
+
+.input-wrapper .name-hint {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  right: 12px;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  color: #888;
+  font-style: italic;
+  font-size: 0.9em;
+  opacity: 0.7;
+}
+
+/* =========================================================
+   READ-ONLY QR TEXTAREA STYLES
+========================================================= */
+.qr-display-box {
+  width: 100%;
+  background-color: #f5f7fb;
+  border: 1px solid #000;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-family: 'Montserrat', sans-serif;
+  cursor: not-allowed;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  min-height: 70px;
+}
+
+.qr-display-box .doc-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  display: block;
+}
+
+.qr-display-box .doc-desc {
+  font-size: 1rem;
+  color: #888;
+  margin-top: 4px;
+  display: block;
+}
+
+.qr-display-box.filled {
+  background-color: #e9f9ee;
+  border-color: #28a745;
+  box-shadow: 0 0 8px rgba(40, 167, 69, 0.3);
+}
+
+/* =========================================================
+   RESPONSIVE FIX
+========================================================= */
+@media (max-width: 768px) {
+  .paper-section {
+    padding: 40px 15px;
+  }
+
+  .paper-form {
+    padding: 30px 20px;
+  }
+
+  .qr-display-box .doc-name {
+    font-size: 1.05rem;
+  }
+
+  .qr-display-box .doc-desc {
+    font-size: 0.9rem;
+  }
+}
+
 
 /* =========================================================
    READ-ONLY QR TEXTAREA STYLES (For Scanned QR Data)
@@ -602,7 +683,7 @@ html {
 
 .qr-display-box.filled {
   background-color: #e9f9ee; /* Light green tone */
-  border-color: #28a745;
+  border-color: #003366;
   box-shadow: 0 0 8px rgba(40, 167, 69, 0.3);
 }
 
