@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Account</title>
+  <link rel="stylesheet" href="../static/login.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+
+<div class="container">
+  <div class="left">
+    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmartQ Logo" class="login-logo">
+    <h1>Activate Your Account</h1>
+    <p style="margin-top: 10px; max-width: 260px; line-height: 1.5;">Enter the six-digit code we sent to your email to unlock your SmartQ admin experience.</p>
+  </div>
+
+  <div class="right">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <h1>Email Verification</h1>
+    <p style="margin-bottom: 25px; color: #555;">We sent a 6-digit code to <strong>{{ email or 'your email' }}</strong>. Please enter it below to verify your account.</p>
+
+    <form method="POST" action="{{ url_for('verify_account') }}">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" placeholder="example@smartq.com" value="{{ email or '' }}" required>
+
+      <label for="verification_code">6-Digit Code</label>
+      <input type="text" id="verification_code" name="verification_code" maxlength="6" pattern="\d{6}" placeholder="Enter verification code" required>
+
+      <button type="submit">Verify Account</button>
+    </form>
+
+    <div class="footer-text">
+      Didn't get the code? <a href="{{ url_for('signup') }}">Create account again</a> or <a href="{{ url_for('login') }}">Go back to login</a>.
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
+

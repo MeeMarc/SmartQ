@@ -4,7 +4,7 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 import psycopg2
@@ -51,6 +51,112 @@ def get_db_connection():
 
 
 # ==============================================================  
+# SUPPORTING HELPERS
+# ==============================================================
+
+def generate_verification_code():
+    """Generate a 6-digit verification/reset code."""
+    return str(random.randint(100000, 999999))
+
+
+def send_verification_email(email, verification_code, fullname):
+    """Send verification code via Gmail SMTP."""
+    try:
+        gmail_user = os.getenv("GMAIL_USER")
+        gmail_password = os.getenv("GMAIL_PASSWORD")
+
+        if not gmail_user or not gmail_password:
+            print("⚠️ Gmail credentials not configured. Skipping email send.")
+            return False
+
+        msg = MIMEMultipart()
+        msg['From'] = gmail_user
+        msg['To'] = email
+        msg['Subject'] = "SmartQ - Account Verification Code"
+
+        body = f"""
+        Hello {fullname},
+
+        Thank you for creating an account with SmartQ!
+
+        Your verification code is: {verification_code}
+
+        Please enter this code on the verification page to activate your account.
+
+        This code will expire in 24 hours.
+
+        If you didn't create this account, please ignore this email.
+
+        Best regards,
+        SmartQ Team
+        """
+
+        msg.attach(MIMEText(body, 'plain'))
+
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(gmail_user, gmail_password)
+        server.sendmail(gmail_user, email, msg.as_string())
+        server.quit()
+
+        print(f"✅ Verification email sent to {email}")
+        return True
+
+    except Exception as e:
+        print(f"❌ Error sending verification email: {str(e)}")
+        return False
+
+
+def send_password_reset_email(email, reset_code, fullname):
+    """Send password reset code via Gmail SMTP."""
+    try:
+        gmail_user = os.getenv("GMAIL_USER")
+        gmail_password = os.getenv("GMAIL_PASSWORD")
+
+        if not gmail_user or not gmail_password:
+            print("⚠️ Gmail credentials not configured. Skipping email send.")
+            return False
+
+        msg = MIMEMultipart()
+        msg['From'] = gmail_user
+        msg['To'] = email
+        msg['Subject'] = "SmartQ - Password Reset Code"
+
+        body = f"""
+        Hello {fullname},
+
+        You requested to reset your password for your SmartQ account.
+
+        Your password reset code is: {reset_code}
+
+        Please enter this code on the password reset page to create a new password.
+
+        This code will expire in 1 hour.
+
+        If you didn't request this password reset, please ignore this email and your password will remain unchanged.
+
+        Best regards,
+        SmartQ Team
+        """
+
+        msg.attach(MIMEText(body, 'plain'))
+
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(gmail_user, gmail_password)
+        server.sendmail(gmail_user, email, msg.as_string())
+        server.quit()
+
+        print(f"✅ Password reset email sent to {email}")
+        return True
+
+    except Exception as e:
+        print(f"❌ Error sending password reset email: {str(e)}")
+        return False
+
+
+
+# ==============================================================  
 # AUTH ROUTES
 # ==============================================================
 
@@ -67,26 +173,116 @@ def signup():
             return redirect(url_for('signup'))
 
         hashed_password = generate_password_hash(password)
+        verification_code = generate_verification_code()
+
+        conn = None
+        cur = None
 
         try:
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO users (fullname, email, password) VALUES (%s, %s, %s)",
-                (fullname, email, hashed_password)
+                "INSERT INTO users (fullname, email, password, verification_code) VALUES (%s, %s, %s, %s)",
+                (fullname, email, hashed_password, verification_code)
             )
             conn.commit()
-            cur.close()
-            conn.close()
-            flash("✅ Account created! You can now log in.")
-            return redirect(url_for('login'))
+
+            email_sent = send_verification_email(email, verification_code, fullname)
+
+            if email_sent:
+                flash("✅ Account created! Please check your email for the verification code.")
+            else:
+                flash("⚠️ Account created, but we couldn't send the verification email. Please contact support if it doesn't arrive." )
+
+            session['pending_verification_email'] = email
+            return redirect(url_for('verify_account'))
 
         except errors.UniqueViolation:
+            if conn:
+                conn.rollback()
             flash("⚠️ Email already exists.")
         except Exception as e:
+            if conn:
+                conn.rollback()
             flash(f"❌ Error: {str(e)}")
+        finally:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
 
     return render_template('Admin/SignUp.html')
+
+
+@app.route('/verify', methods=['GET', 'POST'])
+def verify_account():
+    email = session.get('pending_verification_email')
+
+    if request.method == 'POST':
+        form_email = request.form.get('email', '').strip()
+        verification_code = request.form.get('verification_code', '').strip()
+
+        if form_email:
+            email = form_email
+
+        if not email:
+            flash("⚠️ Email is required for verification.")
+            return redirect(url_for('verify_account'))
+
+        if not verification_code:
+            flash("⚠️ Please enter the verification code sent to your email.")
+            return redirect(url_for('verify_account'))
+
+        conn = None
+        cur = None
+
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT verification_code, is_verified, fullname FROM users WHERE email = %s",
+                (email,)
+            )
+            user = cur.fetchone()
+
+            if not user:
+                flash("❌ Account not found. Please sign up first.")
+                return redirect(url_for('signup'))
+
+            stored_code, is_verified, fullname = user
+
+            if is_verified:
+                flash("✅ Account already verified. You can log in now.")
+                session.pop('pending_verification_email', None)
+                return redirect(url_for('login'))
+
+            if stored_code != verification_code:
+                flash("❌ Invalid verification code. Please try again.")
+                session['pending_verification_email'] = email
+                return redirect(url_for('verify_account'))
+
+            cur.execute(
+                "UPDATE users SET is_verified = TRUE, verification_code = NULL WHERE email = %s",
+                (email,)
+            )
+            conn.commit()
+
+            session.pop('pending_verification_email', None)
+            flash("✅ Your account has been verified. You can now log in.")
+            return redirect(url_for('login'))
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            flash(f"❌ Error verifying account: {str(e)}")
+            return redirect(url_for('verify_account'))
+        finally:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
+
+    return render_template('Admin/Verify.html', email=email)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -98,7 +294,10 @@ def login():
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT * FROM users WHERE email=%s", (email,))
+            cur.execute(
+                "SELECT id, fullname, email, password, is_verified, verification_code FROM users WHERE email=%s",
+                (email,)
+            )
             user = cur.fetchone()
             cur.close()
             conn.close()
@@ -111,6 +310,11 @@ def login():
                 flash("❌ Incorrect password.")
                 return redirect(url_for('login'))
 
+            if not user[4]:
+                flash("⚠️ Please verify your email before logging in.")
+                session['pending_verification_email'] = email
+                return redirect(url_for('verify_account'))
+
             # ✅ Store user info in session
             session['user_email'] = email
             session['user_fullname'] = user[1]
@@ -122,6 +326,127 @@ def login():
             flash(f"❌ Error: {str(e)}")
 
     return render_template('Admin/login.html')
+
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+
+        if not email:
+            flash("⚠️ Please enter your email address.")
+            return redirect(url_for('forgot_password'))
+
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT fullname, is_verified FROM users WHERE email = %s", (email,))
+            user = cur.fetchone()
+
+            if not user:
+                flash("❌ We couldn't find an account with that email address.")
+                cur.close()
+                conn.close()
+                return redirect(url_for('forgot_password'))
+
+            fullname, is_verified = user
+
+            reset_code = generate_verification_code()
+            cur.execute(
+                "UPDATE users SET verification_code = %s WHERE email = %s",
+                (reset_code, email)
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+
+            email_sent = send_password_reset_email(email, reset_code, fullname)
+
+            if email_sent:
+                session['password_reset_email'] = email
+                flash("✅ We sent a 6-digit code to your email. Enter it below to reset your password.")
+                return redirect(url_for('reset_password'))
+            else:
+                flash("⚠️ We couldn't send the email. Please contact support or try again later.")
+                return redirect(url_for('forgot_password'))
+
+        except Exception as e:
+            flash(f"❌ Error sending reset code: {str(e)}")
+            return redirect(url_for('forgot_password'))
+
+    return render_template('Admin/ForgotPassword.html')
+
+
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    email = session.get('password_reset_email')
+
+    if request.method == 'POST':
+        form_email = request.form.get('email', '').strip().lower()
+        reset_code = request.form.get('reset_code', '').strip()
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+
+        if form_email:
+            email = form_email
+
+        if not email:
+            flash("⚠️ Email is required to reset the password.")
+            return redirect(url_for('reset_password'))
+
+        if not reset_code:
+            flash("⚠️ Please enter the 6-digit reset code sent to your email.")
+            return redirect(url_for('reset_password'))
+
+        if not new_password or not confirm_password:
+            flash("⚠️ Please enter and confirm your new password.")
+            return redirect(url_for('reset_password'))
+
+        if new_password != confirm_password:
+            flash("❌ Passwords do not match.")
+            return redirect(url_for('reset_password'))
+
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT verification_code, fullname FROM users WHERE email = %s",
+                (email,)
+            )
+            user = cur.fetchone()
+
+            if not user:
+                flash("❌ Account not found. Please double-check the email address.")
+                cur.close()
+                conn.close()
+                return redirect(url_for('reset_password'))
+
+            stored_code, fullname = user
+
+            if not stored_code or stored_code != reset_code:
+                flash("❌ Invalid or expired reset code. Please request a new one.")
+                cur.close()
+                conn.close()
+                return redirect(url_for('reset_password'))
+
+            hashed_password = generate_password_hash(new_password)
+            cur.execute(
+                "UPDATE users SET password = %s, verification_code = NULL WHERE email = %s",
+                (hashed_password, email)
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+
+            session.pop('password_reset_email', None)
+            flash("✅ Your password has been reset. You can now log in with your new password.")
+            return redirect(url_for('login'))
+
+        except Exception as e:
+            flash(f"❌ Error resetting password: {str(e)}")
+            return redirect(url_for('reset_password'))
+
+    return render_template('Admin/ResetPassword.html', email=email)
 
 
 # ==============================================================  
