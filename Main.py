@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
@@ -253,48 +254,87 @@ def generate_qr():
 # QR DATABASE HANDLING (NEW)
 # ==============================================================
 
-def save_qr(queue_type, queue_purpose, queue_link, created_by):
+def create_slug(text):
+    """Convert text to URL-friendly slug."""
+    # Convert to lowercase and replace spaces/special chars with hyphens
+    slug = re.sub(r'[^\w\s-]', '', text.lower())
+    slug = re.sub(r'[-\s]+', '-', slug)
+    return slug.strip('-')
+
+def get_next_queue_number(queue_type):
+    """Get the next queue number for a given queue type (exact match)."""
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        # Count existing queues of this exact type
         cur.execute(
-            "INSERT INTO temp_qr (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s)",
+            "SELECT COUNT(*) FROM qr_history WHERE queue_type = %s",
+            (queue_type,)
+        )
+        count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return count + 1  # Next number
+    except Exception as e:
+        print(f"Error getting queue number: {e}")
+        return 1  # Default to 1 if error
+
+def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None):
+    """Save QR to database and return the inserted ID."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # Insert into qr_history first to get the ID
+        cur.execute(
+            "INSERT INTO qr_history (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s) RETURNING id",
             (queue_type, queue_purpose, queue_link, created_by)
         )
+        qr_id = cur.fetchone()[0]
+        
+        # Also insert into temp_qr
         cur.execute(
-            "INSERT INTO qr_history (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s)",
+            "INSERT INTO temp_qr (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s)",
             (queue_type, queue_purpose, queue_link, created_by)
         )
         conn.commit()
         cur.close()
         conn.close()
+        return qr_id
     except Exception as e:
         print(f"Error saving QR: {e}")
+        return None
 
 
 @app.route('/generate_qr_db', methods=['POST'])
 def generate_qr_db():
     queue_type = request.form.get('type', 'General')
     queue_purpose = request.form.get('purpose', 'General')
-    queue_link = request.form.get('link', '#')
     created_by = session.get('user_email', 'Unknown')
-
-    # If no link provided, auto-generate the site URL (e.g., User page)
-    if not queue_link or queue_link == '#':
-        # Prefer an explicit public base URL if available
-        base = get_public_base_url()
-        queue_link = f"{base}{url_for('user_page')}"
-
-    qr_data = f"{queue_type} - {queue_purpose} - {queue_link}"
-    qr_img = qrcode.make(qr_data)
-
-    save_qr(queue_type, queue_purpose, queue_link, created_by)
+    
+    # Auto-generate URL based on Queue Type and unique number
+    queue_number = get_next_queue_number(queue_type)
+    queue_slug = create_slug(queue_type)
+    
+    # Generate the URL: /queue/<slug>/<number>
+    base = get_public_base_url()
+    queue_link = f"{base}/queue/{queue_slug}/{queue_number}"
+    
+    # Save QR and get the ID
+    qr_id = save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number)
+    
+    # Generate QR code with the auto-generated URL
+    qr_img = qrcode.make(queue_link)
 
     buffer = io.BytesIO()
     qr_img.save(buffer, format="PNG")
     qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-    return jsonify({"qr_image": qr_base64})
+    return jsonify({
+        "qr_image": qr_base64,
+        "queue_link": queue_link,
+        "queue_number": queue_number,
+        "qr_id": qr_id
+    })
 
 
 # Simple endpoint to auto-generate a QR for the site URL without providing a link
@@ -447,6 +487,54 @@ def add_candidate_modal():
 @app.route('/user')
 def user_page():
     return render_template("User/User.html")
+
+@app.route('/queue/<queue_slug>/<int:queue_number>')
+def queue_page(queue_slug, queue_number):
+    """Dynamic route for auto-generated queue pages."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Find the queue by matching slug pattern and getting the nth queue
+        # The slug is created from queue_type, so we need to find queues where
+        # the slugified version matches
+        slug_normalized = queue_slug.replace('-', ' ')
+        
+        # Try to find queues where the queue_type (when slugified) matches
+        # Get all queue types and find ones that match when slugified
+        cur.execute(
+            "SELECT queue_type, queue_purpose FROM qr_history ORDER BY id"
+        )
+        all_queues = cur.fetchall()
+        
+        # Filter queues where slugified queue_type matches
+        matching_queues = []
+        for q_type, q_purpose in all_queues:
+            if create_slug(q_type) == queue_slug:
+                matching_queues.append((q_type, q_purpose))
+        
+        # Get the queue at the specified number position
+        if matching_queues and queue_number <= len(matching_queues):
+            queue_type = matching_queues[queue_number - 1][0]
+            queue_purpose = matching_queues[queue_number - 1][1]
+        else:
+            # Fallback: use slug as display name
+            queue_type = queue_slug.replace('-', ' ').title()
+            queue_purpose = "Queue Registration"
+        
+        cur.close()
+        conn.close()
+        
+        return render_template("User/User.html", 
+                             queue_type=queue_type, 
+                             queue_purpose=queue_purpose,
+                             queue_number=queue_number)
+    except Exception as e:
+        print(f"Error loading queue page: {e}")
+        return render_template("User/User.html", 
+                             queue_type=queue_slug.replace('-', ' ').title(), 
+                             queue_purpose="Queue Registration",
+                             queue_number=queue_number)
 
 
 

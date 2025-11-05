@@ -37,8 +37,10 @@
         <label for="queuePurpose">Queue Purpose / Description:</label>
         <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
 
-        <label for="queueLink">Link or Page URL for this QR:</label>
-        <input type="url" id="queueLink" placeholder="https://example.com/user_form" required>
+        <!-- URL will be auto-generated based on Queue Type -->
+        <p style="color: #666; font-size: 0.9rem; margin-top: -10px; margin-bottom: 15px;">
+          <em>✓ URL will be automatically generated based on Queue Type</em>
+        </p>
 
         <!-- 🆕 NEW CAPACITY FEATURE -->
         <label for="dailyCapacity">Total Users Per Day:</label>
@@ -81,10 +83,11 @@
       box.innerHTML = `
         <h4>${item.type}</h4>
         <p>${item.purpose}</p>
+        ${item.queueNumber ? `<p><strong>Queue #${item.queueNumber}</strong></p>` : ''}
         <p><strong>Capacity:</strong> ${item.dailyCapacity} total  
         (Morning: ${item.morningCount}, Afternoon: ${item.afternoonCount})</p>
         <div id="qr${index}"></div>
-        <p><small>${item.link}</small></p>
+        <p><small><strong>URL:</strong> ${item.link}</small></p>
         <div class="qr-actions">
           <button onclick="downloadQR(${index})">Download QR</button>
           <button onclick="deleteQR(${index})">Delete</button>
@@ -108,7 +111,6 @@
 
     const type = document.getElementById("queueType").value.trim();
     const purpose = document.getElementById("queuePurpose").value.trim();
-    const link = document.getElementById("queueLink").value.trim();
     const dailyCapacity = parseInt(document.getElementById("dailyCapacity").value);
     const morningCount = parseInt(document.getElementById("morningCount").value);
     const afternoonCount = parseInt(document.getElementById("afternoonCount").value);
@@ -118,21 +120,36 @@
       return;
     }
 
-    const newQR = { type, purpose, link, dailyCapacity, morningCount, afternoonCount };
-    qrList.push(newQR);
-    localStorage.setItem("queues", JSON.stringify(qrList));
-    renderQRs();
-    form.reset();
-
-    // Save QR to backend
+    // Save QR to backend - URL will be auto-generated
     fetch("/generate_qr_db", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&link=${encodeURIComponent(link)}&dailyCapacity=${dailyCapacity}&morningCount=${morningCount}&afternoonCount=${afternoonCount}`
+      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&dailyCapacity=${dailyCapacity}&morningCount=${morningCount}&afternoonCount=${afternoonCount}`
     })
     .then(res => res.json())
-    .then(() => console.log("✅ QR saved with capacity info"))
-    .catch(err => console.error(err));
+    .then(data => {
+      console.log("✅ QR saved with auto-generated URL:", data);
+      
+      // Add to local list with auto-generated link
+      const newQR = { 
+        type, 
+        purpose, 
+        link: data.queue_link || "#", 
+        dailyCapacity, 
+        morningCount, 
+        afternoonCount,
+        queueNumber: data.queue_number || 1,
+        qrId: data.qr_id
+      };
+      qrList.push(newQR);
+      localStorage.setItem("queues", JSON.stringify(qrList));
+      renderQRs();
+      form.reset();
+    })
+    .catch(err => {
+      console.error("Error generating QR:", err);
+      alert("❌ Error generating QR. Please try again.");
+    });
   });
 
   // Delete QR
