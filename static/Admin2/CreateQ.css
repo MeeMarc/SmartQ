@@ -338,6 +338,72 @@ header {
     padding: 25px;
   }
 }
+
+@media (max-width: 900px) {
+  .HomeNavbar {
+    padding: 1rem 2.5rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .HomeNavMenu {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    gap: 1.5rem;
+  }
+
+  .HomeRightContainer,
+  .HomeLeftContainer {
+    width: 95%;
+  }
+}
+
+@media (max-width: 768px) {
+  .HomeNavbar {
+    padding: 1rem 1.5rem;
+    justify-content: center;
+  }
+
+  .HomeNavMenu {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .HomeRightContainer,
+  .HomeLeftContainer {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .HomeLeftContainer {
+    padding: 24px 20px;
+  }
+
+  .HomeRightContainer {
+    padding: 28px 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .HomeNavbar {
+    padding: 0.8rem 1.2rem;
+  }
+
+  .HomeLogo {
+    font-size: 1.3rem;
+  }
+
+  .HomeNavMenu {
+    width: 100%;
+  }
+
+  .HomeRightContainer,
+  .HomeLeftContainer {
+    padding: 22px 16px;
+  }
+}
 body.dark {
   background-color: #121212;
   color: #f0f0f0;

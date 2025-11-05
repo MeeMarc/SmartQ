@@ -365,6 +365,66 @@ header {
   }
 }
 
+@media (max-width: 600px) {
+  .navbar {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 1rem 1.5rem;
+  }
+
+  .navmenu {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  #historyContainer {
+    width: calc(100% - 2rem);
+    right: 1rem;
+  }
+
+  .queue-card {
+    max-width: 320px;
+    padding: 18px;
+  }
+
+  .queue-card .number {
+    font-size: 2.1rem;
+  }
+
+  .queue-note {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .navbar {
+    padding: 0.85rem 1.2rem;
+  }
+
+  .navmenu {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  #historyContainer {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
+  .queue-card {
+    width: 100%;
+    margin: 18px auto;
+  }
+
+  .queue-name,
+  .queue-purpose {
+    font-size: 0.95rem;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }
