@@ -71,6 +71,12 @@ function fetchQRList() {
     .then(res => res.json())
     .then(data => {
       qrListContainer.innerHTML = "<h3>Generated Queues</h3>";
+      
+      if (data.length === 0) {
+        qrListContainer.innerHTML += "<p>No QR codes found. Create one in Create Queue page.</p>";
+        return;
+      }
+      
       data.forEach(qr => {
         const box = document.createElement("div");
         box.className = "qr-box";
@@ -90,9 +96,16 @@ function fetchQRList() {
           height: 100
         });
       });
+    })
+    .catch(err => {
+      console.error("Error fetching QR list:", err);
+      qrListContainer.innerHTML = "<h3>Generated Queues</h3><p>Error loading QR codes.</p>";
     });
 }
+
+// Auto-refresh QR list every 5 seconds to sync with CreateQ deletions
 fetchQRList();
+setInterval(fetchQRList, 5000);
 
 // Modal functions
 function openModal(link) {

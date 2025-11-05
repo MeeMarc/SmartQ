@@ -173,14 +173,41 @@
 
   // Delete QR
   function deleteQR(index) {
-    qrList.splice(index, 1);
-    localStorage.setItem("queues", JSON.stringify(qrList));
-    renderQRs();
-
-    fetch("/clear_temp_qr", { method: "POST" })
-      .then(res => res.json())
-      .then(() => console.log("✅ temp_qr cleared"))
-      .catch(err => console.error(err));
+    const qrToDelete = qrList[index];
+    const qrId = qrToDelete.qrId;
+    
+    if (!qrId) {
+      alert("⚠️ Cannot delete: QR ID not found");
+      return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete "${qrToDelete.type}"?`)) {
+      return;
+    }
+    
+    // Delete from backend
+    fetch("/delete_qr", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: qrId })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === "success") {
+        // Remove from local list
+        qrList.splice(index, 1);
+        localStorage.setItem("queues", JSON.stringify(qrList));
+        renderQRs();
+        console.log("✅ QR deleted successfully");
+        alert("✅ QR deleted successfully!");
+      } else {
+        throw new Error(data.message || "Failed to delete QR");
+      }
+    })
+    .catch(err => {
+      console.error("Error deleting QR:", err);
+      alert(`❌ Error deleting QR: ${err.message}`);
+    });
   }
 
   // Download QR as image

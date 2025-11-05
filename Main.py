@@ -455,13 +455,61 @@ def generate_site_qr():
     })
 
 
+@app.route('/delete_qr', methods=['POST'])
+def delete_qr():
+    """Delete a QR from both qr_history and temp_qr tables."""
+    data = request.get_json() if request.is_json else request.form
+    qr_id = data.get('id') or data.get('qr_id')
+    
+    if not qr_id:
+        return jsonify({"status": "error", "message": "QR ID is required"}), 400
+    
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        cur = conn.cursor()
+        
+        # Delete from temp_qr first (if it exists)
+        try:
+            cur.execute("DELETE FROM temp_qr WHERE id = %s", (qr_id,))
+            print(f"Deleted from temp_qr: {qr_id}")
+        except Exception as temp_error:
+            print(f"Note: temp_qr delete failed (might not exist): {temp_error}")
+        
+        # Delete from qr_history (main table)
+        cur.execute("DELETE FROM qr_history WHERE id = %s", (qr_id,))
+        deleted_count = cur.rowcount
+        
+        if deleted_count == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "QR not found"}), 404
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        print(f"✅ QR {qr_id} deleted successfully from both tables")
+        return jsonify({"status": "success", "message": "QR deleted successfully"})
+    except Exception as e:
+        print(f"Error deleting QR: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/delete_temp_qr', methods=['POST'])
 def delete_temp_qr():
+    """Legacy endpoint - redirects to delete_qr."""
     qr_id = request.form.get('id')
+    if qr_id:
+        return delete_qr()
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM temp_qr WHERE id = %s", (qr_id,))
+        cur.execute("DELETE FROM temp_qr")  # Clear all if no ID
         conn.commit()
         cur.close()
         conn.close()
