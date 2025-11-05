@@ -159,7 +159,15 @@
     })
     .catch(err => {
       console.error("Error generating QR:", err);
-      alert(`❌ Error generating QR: ${err.message || 'Please try again.'}`);
+      const errorMsg = err.message || 'Please try again.';
+      alert(`❌ Error generating QR: ${errorMsg}\n\nCheck browser console (F12) for details.`);
+      
+      // Log full error details
+      console.error("Full error details:", {
+        message: err.message,
+        stack: err.stack,
+        error: err
+      });
     });
   });
 

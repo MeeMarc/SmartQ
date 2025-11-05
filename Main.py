@@ -265,6 +265,9 @@ def get_next_queue_number(queue_type):
     """Get the next queue number for a given queue type (exact match)."""
     try:
         conn = get_db_connection()
+        if conn is None:
+            print("Database connection failed in get_next_queue_number")
+            return 1
         cur = conn.cursor()
         # Count existing queues of this exact type
         cur.execute(
@@ -277,40 +280,74 @@ def get_next_queue_number(queue_type):
         return count + 1  # Next number
     except Exception as e:
         print(f"Error getting queue number: {e}")
+        import traceback
+        traceback.print_exc()
         return 1  # Default to 1 if error
 
 def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None):
     """Save QR to database and return the inserted ID."""
     try:
+        print(f"save_qr called with: type='{queue_type}', purpose='{queue_purpose}', link='{queue_link}', created_by='{created_by}'")
         conn = get_db_connection()
         if conn is None:
-            print("Database connection failed")
+            print("ERROR: Database connection failed in save_qr")
             return None
-            
+        
+        print("Database connection successful")
         cur = conn.cursor()
-        # Insert into qr_history first to get the ID
-        cur.execute(
-            "INSERT INTO qr_history (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s) RETURNING id",
-            (queue_type, queue_purpose, queue_link, created_by)
-        )
-        qr_id = cur.fetchone()[0]
+        
+        # Try with RETURNING first (PostgreSQL)
+        try:
+            print("Attempting INSERT with RETURNING...")
+            cur.execute(
+                "INSERT INTO qr_history (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s) RETURNING id",
+                (queue_type, queue_purpose, queue_link, created_by)
+            )
+            qr_id = cur.fetchone()[0]
+            print(f"INSERT successful with RETURNING, got ID: {qr_id}")
+        except Exception as ret_error:
+            # If RETURNING doesn't work, try alternative approach
+            print(f"RETURNING failed, trying alternative: {ret_error}")
+            import traceback
+            traceback.print_exc()
+            try:
+                cur.execute(
+                    "INSERT INTO qr_history (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s)",
+                    (queue_type, queue_purpose, queue_link, created_by)
+                )
+                # Get the last inserted ID
+                cur.execute("SELECT LASTVAL()")
+                qr_id = cur.fetchone()[0]
+                print(f"INSERT successful with LASTVAL(), got ID: {qr_id}")
+            except Exception as alt_error:
+                print(f"Alternative insert also failed: {alt_error}")
+                import traceback
+                traceback.print_exc()
+                conn.rollback()
+                cur.close()
+                conn.close()
+                return None
         
         # Also insert into temp_qr (if table exists, ignore if it doesn't)
         try:
+            print("Inserting into temp_qr...")
             cur.execute(
                 "INSERT INTO temp_qr (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s)",
                 (queue_type, queue_purpose, queue_link, created_by)
             )
+            print("temp_qr insert successful")
         except Exception as temp_error:
-            print(f"Note: temp_qr insert failed (table may not exist): {temp_error}")
+            print(f"Note: temp_qr insert failed (this is okay): {temp_error}")
             # Continue anyway, qr_history is the important one
         
+        print("Committing transaction...")
         conn.commit()
         cur.close()
         conn.close()
+        print(f"save_qr completed successfully, returning ID: {qr_id}")
         return qr_id
     except Exception as e:
-        print(f"Error saving QR: {e}")
+        print(f"ERROR in save_qr: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -319,48 +356,70 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
 @app.route('/generate_qr_db', methods=['POST'])
 def generate_qr_db():
     try:
-        queue_type = request.form.get('type', 'General')
-        queue_purpose = request.form.get('purpose', 'General')
+        print("=== QR Generation Started ===")
+        print(f"Form data: {dict(request.form)}")
+        print(f"Session: {dict(session)}")
+        
+        queue_type = request.form.get('type', '').strip()
+        queue_purpose = request.form.get('purpose', '').strip()
         created_by = session.get('user_email', 'Unknown')
         
+        print(f"Queue Type: '{queue_type}', Purpose: '{queue_purpose}', Created By: '{created_by}'")
+        
         if not queue_type or not queue_purpose:
+            error_msg = "Queue Type and Purpose are required"
+            print(f"Validation failed: {error_msg}")
             return jsonify({
-                "error": "Queue Type and Purpose are required",
+                "error": error_msg,
                 "qr_image": None
             }), 400
         
         # Auto-generate URL based on Queue Type and unique number
+        print("Getting queue number...")
         queue_number = get_next_queue_number(queue_type)
+        print(f"Queue number: {queue_number}")
+        
         queue_slug = create_slug(queue_type)
+        print(f"Queue slug: {queue_slug}")
         
         # Generate the URL: /queue/<slug>/<number>
         try:
             base = get_public_base_url()
+            print(f"Base URL from get_public_base_url: {base}")
         except Exception as e:
             print(f"Error getting base URL: {e}")
             # Fallback to environment variable or default
             base = os.getenv("PUBLIC_BASE_URL", "https://smartq-vd9k.onrender.com")
             if not base.startswith('http'):
                 base = f"https://{base}"
+            print(f"Using fallback base URL: {base}")
         
         queue_link = f"{base}/queue/{queue_slug}/{queue_number}"
+        print(f"Generated queue link: {queue_link}")
         
         # Save QR and get the ID
+        print("Saving QR to database...")
         qr_id = save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number)
+        print(f"QR saved with ID: {qr_id}")
         
         if qr_id is None:
+            error_msg = "Failed to save QR to database. Check server logs for details."
+            print(f"ERROR: {error_msg}")
             return jsonify({
-                "error": "Failed to save QR to database",
+                "error": error_msg,
                 "qr_image": None
             }), 500
         
         # Generate QR code with the auto-generated URL
+        print("Generating QR image...")
         qr_img = qrcode.make(queue_link)
 
         buffer = io.BytesIO()
         qr_img.save(buffer, format="PNG")
         qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        print("QR image generated successfully")
 
+        print("=== QR Generation Completed Successfully ===")
         return jsonify({
             "qr_image": qr_base64,
             "queue_link": queue_link,
@@ -368,12 +427,14 @@ def generate_qr_db():
             "qr_id": qr_id
         })
     except Exception as e:
-        print(f"Error in generate_qr_db: {e}")
+        print(f"ERROR in generate_qr_db: {e}")
         import traceback
-        traceback.print_exc()
+        error_trace = traceback.format_exc()
+        print(error_trace)
         return jsonify({
-            "error": str(e),
-            "qr_image": None
+            "error": f"Server error: {str(e)}",
+            "qr_image": None,
+            "details": error_trace if os.getenv("FLASK_ENV") == "development" else None
         }), 500
 
 
@@ -524,6 +585,80 @@ def add_candidate_modal():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
     
+@app.route('/test_db')
+def test_db():
+    """Test endpoint to check database connectivity and table structure."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"error": "Database connection failed", "status": "error"}), 500
+        
+        cur = conn.cursor()
+        
+        # Check if qr_history table exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'qr_history'
+            )
+        """)
+        table_exists = cur.fetchone()[0]
+        
+        if not table_exists:
+            cur.close()
+            conn.close()
+            return jsonify({
+                "error": "qr_history table does not exist",
+                "status": "error",
+                "suggestion": "Please create the table with: CREATE TABLE qr_history (id SERIAL PRIMARY KEY, queue_type VARCHAR(255), queue_purpose VARCHAR(255), queue_link VARCHAR(500), created_by VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+            }), 500
+        
+        # Check table structure
+        cur.execute("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'qr_history'
+            ORDER BY ordinal_position
+        """)
+        columns = cur.fetchall()
+        
+        # Test insert (will rollback)
+        cur.execute("BEGIN")
+        try:
+            cur.execute(
+                "INSERT INTO qr_history (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s) RETURNING id",
+                ("TEST", "TEST", "TEST", "TEST")
+            )
+            test_id = cur.fetchone()[0]
+            cur.execute("ROLLBACK")
+        except Exception as insert_error:
+            cur.execute("ROLLBACK")
+            cur.close()
+            conn.close()
+            return jsonify({
+                "error": f"Insert test failed: {str(insert_error)}",
+                "status": "error",
+                "columns": [{"name": col[0], "type": col[1]} for col in columns]
+            }), 500
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Database connection successful",
+            "table_exists": True,
+            "columns": [{"name": col[0], "type": col[1]} for col in columns],
+            "test_insert": "passed"
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": str(e),
+            "status": "error",
+            "traceback": traceback.format_exc()
+        }), 500
+
 @app.route('/user')
 def user_page():
     return render_template("User/User.html")
