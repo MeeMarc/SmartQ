@@ -1,6 +1,7 @@
 Flask==3.0.3
 psycopg2-binary
-qrcode
+qrcode[pil]
 gunicorn
 werkzeug
 python-dotenv
+Pillow
