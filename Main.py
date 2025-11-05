@@ -1,5 +1,9 @@
 import os
 import re
+import random
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
