@@ -51,112 +51,6 @@ def get_db_connection():
 
 
 # ==============================================================  
-# SUPPORTING HELPERS
-# ==============================================================
-
-def generate_verification_code():
-    """Generate a 6-digit verification/reset code."""
-    return str(random.randint(100000, 999999))
-
-
-def send_verification_email(email, verification_code, fullname):
-    """Send verification code via Gmail SMTP."""
-    try:
-        gmail_user = os.getenv("GMAIL_USER")
-        gmail_password = os.getenv("GMAIL_PASSWORD")
-
-        if not gmail_user or not gmail_password:
-            print("⚠️ Gmail credentials not configured. Skipping email send.")
-            return False
-
-        msg = MIMEMultipart()
-        msg['From'] = gmail_user
-        msg['To'] = email
-        msg['Subject'] = "SmartQ - Account Verification Code"
-
-        body = f"""
-        Hello {fullname},
-
-        Thank you for creating an account with SmartQ!
-
-        Your verification code is: {verification_code}
-
-        Please enter this code on the verification page to activate your account.
-
-        This code will expire in 24 hours.
-
-        If you didn't create this account, please ignore this email.
-
-        Best regards,
-        SmartQ Team
-        """
-
-        msg.attach(MIMEText(body, 'plain'))
-
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(gmail_user, gmail_password)
-        server.sendmail(gmail_user, email, msg.as_string())
-        server.quit()
-
-        print(f"✅ Verification email sent to {email}")
-        return True
-
-    except Exception as e:
-        print(f"❌ Error sending verification email: {str(e)}")
-        return False
-
-
-def send_password_reset_email(email, reset_code, fullname):
-    """Send password reset code via Gmail SMTP."""
-    try:
-        gmail_user = os.getenv("GMAIL_USER")
-        gmail_password = os.getenv("GMAIL_PASSWORD")
-
-        if not gmail_user or not gmail_password:
-            print("⚠️ Gmail credentials not configured. Skipping email send.")
-            return False
-
-        msg = MIMEMultipart()
-        msg['From'] = gmail_user
-        msg['To'] = email
-        msg['Subject'] = "SmartQ - Password Reset Code"
-
-        body = f"""
-        Hello {fullname},
-
-        You requested to reset your password for your SmartQ account.
-
-        Your password reset code is: {reset_code}
-
-        Please enter this code on the password reset page to create a new password.
-
-        This code will expire in 1 hour.
-
-        If you didn't request this password reset, please ignore this email and your password will remain unchanged.
-
-        Best regards,
-        SmartQ Team
-        """
-
-        msg.attach(MIMEText(body, 'plain'))
-
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(gmail_user, gmail_password)
-        server.sendmail(gmail_user, email, msg.as_string())
-        server.quit()
-
-        print(f"✅ Password reset email sent to {email}")
-        return True
-
-    except Exception as e:
-        print(f"❌ Error sending password reset email: {str(e)}")
-        return False
-
-
-
-# ==============================================================  
 # AUTH ROUTES
 # ==============================================================
 
@@ -173,116 +67,26 @@ def signup():
             return redirect(url_for('signup'))
 
         hashed_password = generate_password_hash(password)
-        verification_code = generate_verification_code()
-
-        conn = None
-        cur = None
 
         try:
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO users (fullname, email, password, verification_code) VALUES (%s, %s, %s, %s)",
-                (fullname, email, hashed_password, verification_code)
+                "INSERT INTO users (fullname, email, password) VALUES (%s, %s, %s)",
+                (fullname, email, hashed_password)
             )
             conn.commit()
-
-            email_sent = send_verification_email(email, verification_code, fullname)
-
-            if email_sent:
-                flash("✅ Account created! Please check your email for the verification code.")
-            else:
-                flash("⚠️ Account created, but we couldn't send the verification email. Please contact support if it doesn't arrive." )
-
-            session['pending_verification_email'] = email
-            return redirect(url_for('verify_account'))
-
-        except errors.UniqueViolation:
-            if conn:
-                conn.rollback()
-            flash("⚠️ Email already exists.")
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            flash(f"❌ Error: {str(e)}")
-        finally:
-            if cur:
-                cur.close()
-            if conn:
-                conn.close()
-
-    return render_template('Admin/SignUp.html')
-
-
-@app.route('/verify', methods=['GET', 'POST'])
-def verify_account():
-    email = session.get('pending_verification_email')
-
-    if request.method == 'POST':
-        form_email = request.form.get('email', '').strip()
-        verification_code = request.form.get('verification_code', '').strip()
-
-        if form_email:
-            email = form_email
-
-        if not email:
-            flash("⚠️ Email is required for verification.")
-            return redirect(url_for('verify_account'))
-
-        if not verification_code:
-            flash("⚠️ Please enter the verification code sent to your email.")
-            return redirect(url_for('verify_account'))
-
-        conn = None
-        cur = None
-
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT verification_code, is_verified, fullname FROM users WHERE email = %s",
-                (email,)
-            )
-            user = cur.fetchone()
-
-            if not user:
-                flash("❌ Account not found. Please sign up first.")
-                return redirect(url_for('signup'))
-
-            stored_code, is_verified, fullname = user
-
-            if is_verified:
-                flash("✅ Account already verified. You can log in now.")
-                session.pop('pending_verification_email', None)
-                return redirect(url_for('login'))
-
-            if stored_code != verification_code:
-                flash("❌ Invalid verification code. Please try again.")
-                session['pending_verification_email'] = email
-                return redirect(url_for('verify_account'))
-
-            cur.execute(
-                "UPDATE users SET is_verified = TRUE, verification_code = NULL WHERE email = %s",
-                (email,)
-            )
-            conn.commit()
-
-            session.pop('pending_verification_email', None)
-            flash("✅ Your account has been verified. You can now log in.")
+            cur.close()
+            conn.close()
+            flash("✅ Account created! You can now log in.")
             return redirect(url_for('login'))
 
+        except errors.UniqueViolation:
+            flash("⚠️ Email already exists.")
         except Exception as e:
-            if conn:
-                conn.rollback()
-            flash(f"❌ Error verifying account: {str(e)}")
-            return redirect(url_for('verify_account'))
-        finally:
-            if cur:
-                cur.close()
-            if conn:
-                conn.close()
+            flash(f"❌ Error: {str(e)}")
 
-    return render_template('Admin/Verify.html', email=email)
+    return render_template('Admin/SignUp.html')
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -294,10 +98,7 @@ def login():
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute(
-                "SELECT id, fullname, email, password, is_verified, verification_code FROM users WHERE email=%s",
-                (email,)
-            )
+            cur.execute("SELECT * FROM users WHERE email=%s", (email,))
             user = cur.fetchone()
             cur.close()
             conn.close()
@@ -310,11 +111,6 @@ def login():
                 flash("❌ Incorrect password.")
                 return redirect(url_for('login'))
 
-            if not user[4]:
-                flash("⚠️ Please verify your email before logging in.")
-                session['pending_verification_email'] = email
-                return redirect(url_for('verify_account'))
-
             # ✅ Store user info in session
             session['user_email'] = email
             session['user_fullname'] = user[1]
@@ -326,127 +122,6 @@ def login():
             flash(f"❌ Error: {str(e)}")
 
     return render_template('Admin/login.html')
-
-
-@app.route('/forgot-password', methods=['GET', 'POST'])
-def forgot_password():
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
-
-        if not email:
-            flash("⚠️ Please enter your email address.")
-            return redirect(url_for('forgot_password'))
-
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("SELECT fullname, is_verified FROM users WHERE email = %s", (email,))
-            user = cur.fetchone()
-
-            if not user:
-                flash("❌ We couldn't find an account with that email address.")
-                cur.close()
-                conn.close()
-                return redirect(url_for('forgot_password'))
-
-            fullname, is_verified = user
-
-            reset_code = generate_verification_code()
-            cur.execute(
-                "UPDATE users SET verification_code = %s WHERE email = %s",
-                (reset_code, email)
-            )
-            conn.commit()
-            cur.close()
-            conn.close()
-
-            email_sent = send_password_reset_email(email, reset_code, fullname)
-
-            if email_sent:
-                session['password_reset_email'] = email
-                flash("✅ We sent a 6-digit code to your email. Enter it below to reset your password.")
-                return redirect(url_for('reset_password'))
-            else:
-                flash("⚠️ We couldn't send the email. Please contact support or try again later.")
-                return redirect(url_for('forgot_password'))
-
-        except Exception as e:
-            flash(f"❌ Error sending reset code: {str(e)}")
-            return redirect(url_for('forgot_password'))
-
-    return render_template('Admin/ForgotPassword.html')
-
-
-@app.route('/reset-password', methods=['GET', 'POST'])
-def reset_password():
-    email = session.get('password_reset_email')
-
-    if request.method == 'POST':
-        form_email = request.form.get('email', '').strip().lower()
-        reset_code = request.form.get('reset_code', '').strip()
-        new_password = request.form.get('new_password', '')
-        confirm_password = request.form.get('confirm_password', '')
-
-        if form_email:
-            email = form_email
-
-        if not email:
-            flash("⚠️ Email is required to reset the password.")
-            return redirect(url_for('reset_password'))
-
-        if not reset_code:
-            flash("⚠️ Please enter the 6-digit reset code sent to your email.")
-            return redirect(url_for('reset_password'))
-
-        if not new_password or not confirm_password:
-            flash("⚠️ Please enter and confirm your new password.")
-            return redirect(url_for('reset_password'))
-
-        if new_password != confirm_password:
-            flash("❌ Passwords do not match.")
-            return redirect(url_for('reset_password'))
-
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT verification_code, fullname FROM users WHERE email = %s",
-                (email,)
-            )
-            user = cur.fetchone()
-
-            if not user:
-                flash("❌ Account not found. Please double-check the email address.")
-                cur.close()
-                conn.close()
-                return redirect(url_for('reset_password'))
-
-            stored_code, fullname = user
-
-            if not stored_code or stored_code != reset_code:
-                flash("❌ Invalid or expired reset code. Please request a new one.")
-                cur.close()
-                conn.close()
-                return redirect(url_for('reset_password'))
-
-            hashed_password = generate_password_hash(new_password)
-            cur.execute(
-                "UPDATE users SET password = %s, verification_code = NULL WHERE email = %s",
-                (hashed_password, email)
-            )
-            conn.commit()
-            cur.close()
-            conn.close()
-
-            session.pop('password_reset_email', None)
-            flash("✅ Your password has been reset. You can now log in with your new password.")
-            return redirect(url_for('login'))
-
-        except Exception as e:
-            flash(f"❌ Error resetting password: {str(e)}")
-            return redirect(url_for('reset_password'))
-
-    return render_template('Admin/ResetPassword.html', email=email)
 
 
 # ==============================================================  
@@ -680,120 +355,6 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
         import traceback
         traceback.print_exc()
         return None
-
-
-def ensure_queue_entries_table(cur):
-    """Create the queue_entries table if it doesn't exist."""
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS queue_entries (
-            id SERIAL PRIMARY KEY,
-            qr_id INTEGER REFERENCES qr_history(id) ON DELETE CASCADE,
-            queue_type VARCHAR(255) NOT NULL,
-            queue_number INTEGER NOT NULL,
-            fullname VARCHAR(255) NOT NULL,
-            phone VARCHAR(50),
-            purpose TEXT,
-            status VARCHAR(50) DEFAULT 'waiting',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
-
-
-def record_queue_entry(qr_id, queue_type, queue_number, fullname, phone, purpose):
-    """Insert a user's submission into queue_entries and return metadata."""
-    conn = None
-    cur = None
-    try:
-        conn = get_db_connection()
-        if conn is None:
-            print("❌ record_queue_entry: Database connection unavailable")
-            return None
-
-        cur = conn.cursor()
-        ensure_queue_entries_table(cur)
-
-        cur.execute(
-            """
-            INSERT INTO queue_entries (qr_id, queue_type, queue_number, fullname, phone, purpose)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id, created_at
-            """,
-            (qr_id, queue_type, queue_number, fullname, phone or None, purpose or None)
-        )
-        entry_row = cur.fetchone()
-        if entry_row is None:
-            conn.rollback()
-            return None
-
-        entry_id, created_at = entry_row
-
-        cur.execute(
-            """
-            SELECT COUNT(*)
-            FROM queue_entries
-            WHERE qr_id = %s AND status = 'waiting' AND id <= %s
-            """,
-            (qr_id, entry_id)
-        )
-        position = cur.fetchone()[0]
-
-        conn.commit()
-        return {
-            "entry_id": entry_id,
-            "position": position,
-            "created_at": created_at
-        }
-    except Exception as e:
-        print(f"❌ Error recording queue entry: {e}")
-        import traceback
-        traceback.print_exc()
-        if conn:
-            conn.rollback()
-        return None
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-
-
-def get_queue_metadata(queue_slug, queue_number):
-    """Find queue information (id, type, purpose) based on slug and ordinal."""
-    conn = None
-    cur = None
-    try:
-        conn = get_db_connection()
-        if conn is None:
-            return None
-
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT id, queue_type, queue_purpose FROM qr_history ORDER BY id"
-        )
-        all_rows = cur.fetchall()
-
-        matching = [row for row in all_rows if create_slug(row[1]) == queue_slug]
-
-        if matching and 0 < queue_number <= len(matching):
-            row = matching[queue_number - 1]
-            return {
-                "id": row[0],
-                "queue_type": row[1],
-                "queue_purpose": row[2]
-            }
-        return None
-    except Exception as e:
-        print(f"Error fetching queue metadata: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
 
 
 @app.route('/generate_qr_db', methods=['POST'])
@@ -1187,166 +748,53 @@ def test_db():
 def user_page():
     return render_template("User/User.html")
 
-@app.route('/queue/<queue_slug>/<int:queue_number>', methods=['GET', 'POST'])
+@app.route('/queue/<queue_slug>/<int:queue_number>')
 def queue_page(queue_slug, queue_number):
-    """Display and process the queue registration form for a specific QR."""
-    queue_info = get_queue_metadata(queue_slug, queue_number)
-
-    if queue_info is None:
-        flash("We couldn't find the queue you are trying to access.", "error")
-        fallback_type = queue_slug.replace('-', ' ').title()
-        return render_template(
-            "User/User.html",
-            queue_type=fallback_type,
-            queue_purpose="Queue Registration",
-            queue_number=queue_number,
-            queue_slug=queue_slug
-        ), 404
-
-    if request.method == 'POST':
-        fullname = request.form.get('fullname', '').strip()
-        phone = request.form.get('phone', '').strip()
-        purpose = request.form.get('purpose', '').strip()
-
-        if not fullname or not phone:
-            flash("Please provide both your full name and phone number to join the queue.", "error")
-            return redirect(request.url)
-
-        record = record_queue_entry(
-            queue_info['id'],
-            queue_info['queue_type'],
-            queue_number,
-            fullname,
-            phone,
-            purpose
-        )
-
-        if record is None:
-            flash("We were unable to save your registration. Please try again shortly.", "error")
-            return redirect(request.url)
-
-        return redirect(url_for(
-            'queue_waiting',
-            queue_slug=queue_slug,
-            queue_number=queue_number,
-            entry_id=record['entry_id']
-        ))
-
-    return render_template(
-        "User/User.html",
-        queue_type=queue_info['queue_type'],
-        queue_purpose=queue_info['queue_purpose'],
-        queue_number=queue_number,
-        queue_slug=queue_slug
-    )
-
-
-@app.route('/queue/<queue_slug>/<int:queue_number>/waiting/<int:entry_id>')
-def queue_waiting(queue_slug, queue_number, entry_id):
-    """Show the confirmation page for a user's queue registration."""
-    queue_info = get_queue_metadata(queue_slug, queue_number)
-    if queue_info is None:
-        flash("Queue information could not be found.", "error")
-        return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
-
-    conn = None
-    cur = None
+    """Dynamic route for auto-generated queue pages."""
     try:
         conn = get_db_connection()
-        if conn is None:
-            flash("Database connection is unavailable right now. Please try again later.", "error")
-            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
-
         cur = conn.cursor()
-        ensure_queue_entries_table(cur)
-
+        
+        # Find the queue by matching slug pattern and getting the nth queue
+        # The slug is created from queue_type, so we need to find queues where
+        # the slugified version matches
+        slug_normalized = queue_slug.replace('-', ' ')
+        
+        # Try to find queues where the queue_type (when slugified) matches
+        # Get all queue types and find ones that match when slugified
         cur.execute(
-            """
-            SELECT id, qr_id, queue_type, queue_number, fullname, phone, purpose, status, created_at
-            FROM queue_entries
-            WHERE id = %s
-            """,
-            (entry_id,)
+            "SELECT queue_type, queue_purpose FROM qr_history ORDER BY id"
         )
-        row = cur.fetchone()
-
-        if row is None:
-            flash("We could not find your queue registration.", "error")
-            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
-
-        entry = {
-            "id": row[0],
-            "qr_id": row[1],
-            "queue_type": row[2],
-            "queue_number": row[3],
-            "fullname": row[4],
-            "phone": row[5],
-            "purpose": row[6],
-            "status": row[7],
-            "created_at": row[8]
-        }
-
-        if entry['qr_id'] != queue_info['id']:
-            flash("The registration you are trying to view does not match this queue.", "error")
-            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
-
-        cur.execute(
-            """
-            SELECT COUNT(*)
-            FROM queue_entries
-            WHERE qr_id = %s AND status = 'waiting' AND id <= %s
-            """,
-            (entry['qr_id'], entry['id'])
-        )
-        position = cur.fetchone()[0]
-
-        cur.execute(
-            """
-            SELECT id, fullname, purpose, status, created_at
-            FROM queue_entries
-            WHERE qr_id = %s
-            ORDER BY created_at DESC
-            LIMIT 10
-            """,
-            (entry['qr_id'],)
-        )
-        history_rows = cur.fetchall()
-
-        recent_entries = [
-            {
-                "id": r[0],
-                "fullname": r[1],
-                "purpose": r[2],
-                "status": r[3],
-                "created_at": r[4]
-            }
-            for r in history_rows
-        ]
-
-        people_ahead = max(position - 1, 0)
-
-        return render_template(
-            "User/Waiting.html",
-            queue_slug=queue_slug,
-            queue_number=queue_number,
-            queue_type=queue_info['queue_type'],
-            queue_purpose=queue_info['queue_purpose'],
-            entry=entry,
-            position=position,
-            people_ahead=people_ahead,
-            recent_entries=recent_entries
-        )
+        all_queues = cur.fetchall()
+        
+        # Filter queues where slugified queue_type matches
+        matching_queues = []
+        for q_type, q_purpose in all_queues:
+            if create_slug(q_type) == queue_slug:
+                matching_queues.append((q_type, q_purpose))
+        
+        # Get the queue at the specified number position
+        if matching_queues and queue_number <= len(matching_queues):
+            queue_type = matching_queues[queue_number - 1][0]
+            queue_purpose = matching_queues[queue_number - 1][1]
+        else:
+            # Fallback: use slug as display name
+            queue_type = queue_slug.replace('-', ' ').title()
+            queue_purpose = "Queue Registration"
+        
+        cur.close()
+        conn.close()
+        
+        return render_template("User/User.html", 
+                             queue_type=queue_type, 
+                             queue_purpose=queue_purpose,
+                             queue_number=queue_number)
     except Exception as e:
-        print(f"Error loading waiting page: {e}")
-        import traceback
-        traceback.print_exc()
-        flash("An error occurred while loading your queue details.", "error")
-        return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
+        print(f"Error loading queue page: {e}")
+        return render_template("User/User.html", 
+                             queue_type=queue_slug.replace('-', ' ').title(), 
+                             queue_purpose="Queue Registration",
+                             queue_number=queue_number)
 
 
 
