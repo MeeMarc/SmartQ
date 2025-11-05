@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ queue_type|default('Queue Status', true) }} | SmartQ</title>
-  <link rel="stylesheet" href="../static/Waiting.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='Waiting.css') }}">
 </head>
 <body data-queue-slug="{{ queue_slug|default('', true) }}">
 
