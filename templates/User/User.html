@@ -6,7 +6,7 @@
   <title>SmartQ</title>
   <link rel="stylesheet" href="../static/User.css">
 </head>
-<body id="top" data-queue-type="{{ queue_type|default('', true) }}" data-queue-purpose="{{ queue_purpose|default('', true) }}">
+<body id="top" data-queue-type="{{ queue_type|default('', true) }}" data-queue-purpose="{{ queue_purpose|default('', true) }}" data-queue-slug="{{ queue_slug|default('', true) }}">
 
 <header>
   <nav class="navbar">
@@ -20,11 +20,21 @@
       </div>
 
       <ul class="navmenu" id="navmenu">
-        <li><a href="Waiting.html">Waiting Form</a></li>
+        <li><a href="#paper-section">Waiting Form</a></li>
       </ul>
     </div>
   </nav>
 </header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-container">
+    {% for category, message in messages %}
+      <div class="flash-message {{ category }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
 
 
 <section class="queue-hero">
@@ -89,7 +99,7 @@
 
 <!-- Section 2: Processing of the Papers -->
 <section id="paper-section" class="paper-section">
-  <form class="paper-form" id="registrationForm" action="#" method="post">
+  <form class="paper-form" id="registrationForm" method="post">
     
     <h3>Registration Form</h3>
     <p class="form-description">Kindly provide accurate information so we can assist you with <strong>{{ queue_type|default('your requested documents', true) }}</strong>.</p>
@@ -105,6 +115,7 @@
 
     <input type="hidden" name="queue_type" value="{{ queue_type|default('', true) }}">
     <input type="hidden" name="queue_number" value="{{ queue_number|default('', true) }}">
+    <input type="hidden" name="queue_slug" value="{{ queue_slug|default('', true) }}">
 
     <!-- ✅ Full Name (with hint inside field) -->
     <div class="form-row">
@@ -134,7 +145,7 @@
 
     <!-- ✅ Submit Button -->
     <div class="form-row">
-      <button type="button" onclick="window.location.href='Waiting.html'">Submit</button>
+      <button type="submit">Submit</button>
     </div>
     
   </form>

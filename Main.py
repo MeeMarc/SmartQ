@@ -4,7 +4,7 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 import psycopg2
@@ -355,6 +355,120 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
         import traceback
         traceback.print_exc()
         return None
+
+
+def ensure_queue_entries_table(cur):
+    """Create the queue_entries table if it doesn't exist."""
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS queue_entries (
+            id SERIAL PRIMARY KEY,
+            qr_id INTEGER REFERENCES qr_history(id) ON DELETE CASCADE,
+            queue_type VARCHAR(255) NOT NULL,
+            queue_number INTEGER NOT NULL,
+            fullname VARCHAR(255) NOT NULL,
+            phone VARCHAR(50),
+            purpose TEXT,
+            status VARCHAR(50) DEFAULT 'waiting',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+
+def record_queue_entry(qr_id, queue_type, queue_number, fullname, phone, purpose):
+    """Insert a user's submission into queue_entries and return metadata."""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            print("❌ record_queue_entry: Database connection unavailable")
+            return None
+
+        cur = conn.cursor()
+        ensure_queue_entries_table(cur)
+
+        cur.execute(
+            """
+            INSERT INTO queue_entries (qr_id, queue_type, queue_number, fullname, phone, purpose)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, created_at
+            """,
+            (qr_id, queue_type, queue_number, fullname, phone or None, purpose or None)
+        )
+        entry_row = cur.fetchone()
+        if entry_row is None:
+            conn.rollback()
+            return None
+
+        entry_id, created_at = entry_row
+
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM queue_entries
+            WHERE qr_id = %s AND status = 'waiting' AND id <= %s
+            """,
+            (qr_id, entry_id)
+        )
+        position = cur.fetchone()[0]
+
+        conn.commit()
+        return {
+            "entry_id": entry_id,
+            "position": position,
+            "created_at": created_at
+        }
+    except Exception as e:
+        print(f"❌ Error recording queue entry: {e}")
+        import traceback
+        traceback.print_exc()
+        if conn:
+            conn.rollback()
+        return None
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+def get_queue_metadata(queue_slug, queue_number):
+    """Find queue information (id, type, purpose) based on slug and ordinal."""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return None
+
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, queue_type, queue_purpose FROM qr_history ORDER BY id"
+        )
+        all_rows = cur.fetchall()
+
+        matching = [row for row in all_rows if create_slug(row[1]) == queue_slug]
+
+        if matching and 0 < queue_number <= len(matching):
+            row = matching[queue_number - 1]
+            return {
+                "id": row[0],
+                "queue_type": row[1],
+                "queue_purpose": row[2]
+            }
+        return None
+    except Exception as e:
+        print(f"Error fetching queue metadata: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 @app.route('/generate_qr_db', methods=['POST'])
@@ -748,53 +862,166 @@ def test_db():
 def user_page():
     return render_template("User/User.html")
 
-@app.route('/queue/<queue_slug>/<int:queue_number>')
+@app.route('/queue/<queue_slug>/<int:queue_number>', methods=['GET', 'POST'])
 def queue_page(queue_slug, queue_number):
-    """Dynamic route for auto-generated queue pages."""
+    """Display and process the queue registration form for a specific QR."""
+    queue_info = get_queue_metadata(queue_slug, queue_number)
+
+    if queue_info is None:
+        flash("We couldn't find the queue you are trying to access.", "error")
+        fallback_type = queue_slug.replace('-', ' ').title()
+        return render_template(
+            "User/User.html",
+            queue_type=fallback_type,
+            queue_purpose="Queue Registration",
+            queue_number=queue_number,
+            queue_slug=queue_slug
+        ), 404
+
+    if request.method == 'POST':
+        fullname = request.form.get('fullname', '').strip()
+        phone = request.form.get('phone', '').strip()
+        purpose = request.form.get('purpose', '').strip()
+
+        if not fullname or not phone:
+            flash("Please provide both your full name and phone number to join the queue.", "error")
+            return redirect(request.url)
+
+        record = record_queue_entry(
+            queue_info['id'],
+            queue_info['queue_type'],
+            queue_number,
+            fullname,
+            phone,
+            purpose
+        )
+
+        if record is None:
+            flash("We were unable to save your registration. Please try again shortly.", "error")
+            return redirect(request.url)
+
+        return redirect(url_for(
+            'queue_waiting',
+            queue_slug=queue_slug,
+            queue_number=queue_number,
+            entry_id=record['entry_id']
+        ))
+
+    return render_template(
+        "User/User.html",
+        queue_type=queue_info['queue_type'],
+        queue_purpose=queue_info['queue_purpose'],
+        queue_number=queue_number,
+        queue_slug=queue_slug
+    )
+
+
+@app.route('/queue/<queue_slug>/<int:queue_number>/waiting/<int:entry_id>')
+def queue_waiting(queue_slug, queue_number, entry_id):
+    """Show the confirmation page for a user's queue registration."""
+    queue_info = get_queue_metadata(queue_slug, queue_number)
+    if queue_info is None:
+        flash("Queue information could not be found.", "error")
+        return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
+        if conn is None:
+            flash("Database connection is unavailable right now. Please try again later.", "error")
+            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+
         cur = conn.cursor()
-        
-        # Find the queue by matching slug pattern and getting the nth queue
-        # The slug is created from queue_type, so we need to find queues where
-        # the slugified version matches
-        slug_normalized = queue_slug.replace('-', ' ')
-        
-        # Try to find queues where the queue_type (when slugified) matches
-        # Get all queue types and find ones that match when slugified
+        ensure_queue_entries_table(cur)
+
         cur.execute(
-            "SELECT queue_type, queue_purpose FROM qr_history ORDER BY id"
+            """
+            SELECT id, qr_id, queue_type, queue_number, fullname, phone, purpose, status, created_at
+            FROM queue_entries
+            WHERE id = %s
+            """,
+            (entry_id,)
         )
-        all_queues = cur.fetchall()
-        
-        # Filter queues where slugified queue_type matches
-        matching_queues = []
-        for q_type, q_purpose in all_queues:
-            if create_slug(q_type) == queue_slug:
-                matching_queues.append((q_type, q_purpose))
-        
-        # Get the queue at the specified number position
-        if matching_queues and queue_number <= len(matching_queues):
-            queue_type = matching_queues[queue_number - 1][0]
-            queue_purpose = matching_queues[queue_number - 1][1]
-        else:
-            # Fallback: use slug as display name
-            queue_type = queue_slug.replace('-', ' ').title()
-            queue_purpose = "Queue Registration"
-        
-        cur.close()
-        conn.close()
-        
-        return render_template("User/User.html", 
-                             queue_type=queue_type, 
-                             queue_purpose=queue_purpose,
-                             queue_number=queue_number)
+        row = cur.fetchone()
+
+        if row is None:
+            flash("We could not find your queue registration.", "error")
+            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+
+        entry = {
+            "id": row[0],
+            "qr_id": row[1],
+            "queue_type": row[2],
+            "queue_number": row[3],
+            "fullname": row[4],
+            "phone": row[5],
+            "purpose": row[6],
+            "status": row[7],
+            "created_at": row[8]
+        }
+
+        if entry['qr_id'] != queue_info['id']:
+            flash("The registration you are trying to view does not match this queue.", "error")
+            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM queue_entries
+            WHERE qr_id = %s AND status = 'waiting' AND id <= %s
+            """,
+            (entry['qr_id'], entry['id'])
+        )
+        position = cur.fetchone()[0]
+
+        cur.execute(
+            """
+            SELECT id, fullname, purpose, status, created_at
+            FROM queue_entries
+            WHERE qr_id = %s
+            ORDER BY created_at DESC
+            LIMIT 10
+            """,
+            (entry['qr_id'],)
+        )
+        history_rows = cur.fetchall()
+
+        recent_entries = [
+            {
+                "id": r[0],
+                "fullname": r[1],
+                "purpose": r[2],
+                "status": r[3],
+                "created_at": r[4]
+            }
+            for r in history_rows
+        ]
+
+        people_ahead = max(position - 1, 0)
+
+        return render_template(
+            "User/Waiting.html",
+            queue_slug=queue_slug,
+            queue_number=queue_number,
+            queue_type=queue_info['queue_type'],
+            queue_purpose=queue_info['queue_purpose'],
+            entry=entry,
+            position=position,
+            people_ahead=people_ahead,
+            recent_entries=recent_entries
+        )
     except Exception as e:
-        print(f"Error loading queue page: {e}")
-        return render_template("User/User.html", 
-                             queue_type=queue_slug.replace('-', ' ').title(), 
-                             queue_purpose="Queue Registration",
-                             queue_number=queue_number)
+        print(f"Error loading waiting page: {e}")
+        import traceback
+        traceback.print_exc()
+        flash("An error occurred while loading your queue details.", "error")
+        return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 
