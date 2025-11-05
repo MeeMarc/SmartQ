@@ -1,7 +1,7 @@
 /* =========================================================
    FONT + BASE STYLES
 ========================================================= */
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
 * {
   margin: 0;
@@ -14,55 +14,67 @@ body {
   background-color: #f5f7fb;
   color: #333;
   min-height: 100vh;
+  line-height: 1.6;
 }
 
 /* =========================================================
    NAVBAR / HEADER
 ========================================================= */
 header {
-  background: #003366;
-  box-shadow: 0 2px 4px rgba(0, 51, 102, 0.2);
+  background: linear-gradient(135deg, #003366 0%, #0055aa 100%);
+  box-shadow: 0 4px 6px rgba(0, 51, 102, 0.2);
   position: sticky;
   top: 0;
   z-index: 999;
 }
 
-.HomeNavbar {
+.navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1rem 5rem;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.HomeLogo {
-  font-size: 1.5rem;
-  font-weight: bold;
+.logo {
+  font-size: 1.8rem;
+  font-weight: 700;
   color: #fff;
   text-decoration: none;
+  transition: all 0.3s ease;
 }
 
-.HomeLogo:hover {
+.logo:hover {
   color: #66b2ff;
+  transform: scale(1.05);
 }
 
-.HomeNavMenu {
+.navmenu {
   list-style: none;
   display: flex;
-  gap: 2rem;
+  gap: 2.5rem;
+  align-items: center;
 }
 
-.HomeNavMenu a {
+.navmenu li {
+  margin: 0;
+}
+
+.navmenu a {
   color: #fff;
   text-decoration: none;
   font-weight: 500;
+  font-size: 1rem;
   position: relative;
   transition: color 0.3s ease;
+  padding: 0.5rem 0;
 }
 
-.HomeNavMenu a::after {
+.navmenu a::after {
   content: "";
   position: absolute;
-  bottom: -4px;
+  bottom: 0;
   left: 0;
   width: 100%;
   height: 2px;
@@ -72,366 +84,507 @@ header {
   transition: transform 0.3s ease;
 }
 
-.HomeNavMenu a:hover {
+.navmenu a:hover {
   color: #66b2ff;
 }
 
-.HomeNavMenu a:hover::after,
-.HomeNavMenu a.active::after {
+.navmenu a:hover::after {
   transform: scaleX(1);
-}
-/* ======= Intro Section ======= */
-.HomeIntroSection {
-  background: #f5f7fb;
-  padding: 100px 20px;
-  max-height: 100vh;
-}
-
-.HomeIntroSection .HomeContainer {
-  width: 90%;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.HomeIntroSection .HomeRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 60px;
-}
-
-.HomeIntroSection .HomeTextContent {
-  flex: 1 1 50%;
-  text-align: left;
-}
-
-.HomeIntroSection .HomeTextContent h2 {
-  color: #003366;
-  font-size: 2.2rem;
-  line-height: 1.3;
-  margin-bottom: 20px;
-}
-
-.HomeIntroSection .HomeTextContent p {
-  color: #000000;
-  font-size: 1.1rem;
-  line-height: 1.7;
-}
-
-.HomeIntroSection .HomeImageContent {
-  flex: 1 1 50%;
-  text-align: right;
-}
-
-.HomeIntroSection .HomeImageContent img {
-  width: 100%;
-  max-width: 450px;
-  border-radius: 12px;
-}
-
-/* ======= How It Works Section ======= */
-.HomeHowItWorksSection {
-  background: #E6EEF8;
-  padding: 100px 20px;
-  max-height: 100vh;
-}
-
-.HomeHowItWorksSection .HomeContainer {
-  width: 90%;
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.HomeHowItWorksSection .HomeRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 60px;
-}
-
-.HomeHowItWorksSection .HomeImageContent {
-  flex: 1 1 50%;
-  text-align: left;
-}
-
-.HomeHowItWorksSection .HomeTextContent {
-  flex: 1 1 50%;
-  text-align: left;
-}
-
-.HomeHowItWorksSection .HomeTextContent h3 {
-  color: #003366;
-  font-size: 1.9rem;
-  margin-bottom: 15px;
-}
-
-.HomeHowItWorksSection .HomeTextContent ul {
-  list-style-type: disc;
-  padding-left: 30px;
-  color: #000000;
-  line-height: 1.9;
-  font-size: 1.05rem; /* increased from 1rem */
-}
-
-.HomeHowItWorksSection .HomeTextContent ul li {
-  margin-bottom: 10px; /* adds space between list items */
-}
-
-
-.HomeHowItWorksSection .HomeImageContent img {
-  width: 100%;
-  max-width: 400px;
-  border-radius: 10px;
-}
-
-/* ======= Features Section ======= */
-.HomeFeaturesSection {
-  background-color: #f5f7fb;
-  text-align: center;
-  padding: 100px 20px;
-  max-height: 100vh;
-}
-
-.HomeFeaturesSection .HomeContainer {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.HomeFeaturesSection h2 {
-  color: #003366;
-  font-size: 2rem;
-  margin-bottom: 10px;
-}
-
-.HomeFeaturesSection p {
-  color: #000000;
-  font-size: 1.2rem;
-  margin-bottom: 50px;
-}
-
-.HomeFeaturesSection ul {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 25px 40px;
-  list-style: none;
-  justify-items: center;
-  padding: 0;
-  margin: 0 auto 60px;
-  max-width: 1000px;
-}
-
-.HomeFeaturesSection ul li {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  background: #E6EEF8;
-  border-radius: 10px;
-  padding: 15px 20px;
-  font-size: 1rem;
-  font-weight: 500;
-  color: #1a1a1a;
-  box-shadow: 0 2px 6px rgba(0, 51, 102, 0.1);
-  transition: transform 0.3s ease;
-}
-
-.HomeFeaturesSection ul li:hover {
-  transform: translateY(-5px);
-  background-color: #e6f0ff;
-}
-
-.HomeFeaturesSection ul li img {
-  width: 28px;
-  height: 28px;
-}
-
-@media (max-width: 768px) {
-  .HomeFeaturesSection ul {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* =========================================================
-   SECTION — HOW IT WORKS (Animated Card Slider)
+   INTRO SECTION
 ========================================================= */
-.HomeHowItWorksSlider {
-  background-color: #E6EEF8;
+.intro-section {
+  background: linear-gradient(135deg, #f5f7fb 0%, #e8f0f8 100%);
+  padding: 100px 20px;
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+}
+
+.intro-section .container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.intro-section .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 60px;
+}
+
+.intro-section .text-content {
+  flex: 1 1 50%;
+}
+
+.intro-section .text-content h2 {
+  color: #003366;
+  font-size: 2.5rem;
+  line-height: 1.2;
+  margin-bottom: 25px;
+  font-weight: 700;
+}
+
+.intro-section .text-content p {
+  color: #555;
+  font-size: 1.15rem;
+  line-height: 1.8;
+}
+
+.intro-section .image-content {
+  flex: 1 1 50%;
   text-align: center;
-  min-height: 650px;
-  padding: 80px 20px 120px; /* space for controls */
-  box-sizing: border-box;
-  overflow: hidden;
+}
+
+.intro-section .image-content img {
+  width: 100%;
+  max-width: 500px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 51, 102, 0.15);
+  transition: transform 0.3s ease;
+}
+
+.intro-section .image-content img:hover {
+  transform: translateY(-5px);
+}
+
+/* =========================================================
+   HOW IT WORKS SECTION
+========================================================= */
+.how-it-works-section {
+  background: linear-gradient(135deg, #E6EEF8 0%, #d0dff0 100%);
+  padding: 100px 20px;
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+}
+
+.how-it-works-section .container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.how-it-works-section .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 60px;
+}
+
+.how-it-works-section .image-content {
+  flex: 1 1 50%;
+  text-align: center;
+}
+
+.how-it-works-section .image-content img {
+  width: 100%;
+  max-width: 450px;
+  border-radius: 15px;
+  box-shadow: 0 8px 25px rgba(0, 51, 102, 0.15);
+}
+
+.how-it-works-section .text-content {
+  flex: 1 1 50%;
+}
+
+.how-it-works-section .text-content h3 {
+  color: #003366;
+  font-size: 2.2rem;
+  margin-bottom: 25px;
+  font-weight: 700;
+}
+
+.how-it-works-section .text-content ul {
+  list-style: none;
+  padding: 0;
+  color: #333;
+  line-height: 2;
+  font-size: 1.1rem;
+}
+
+.how-it-works-section .text-content ul li {
+  margin-bottom: 15px;
+  padding-left: 30px;
   position: relative;
 }
 
-.HomeHowItWorksSlider h3 {
+.how-it-works-section .text-content ul li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
   color: #003366;
-  font-size: 2rem;
-  margin-bottom: 50px;
+  font-weight: bold;
+  font-size: 1.3rem;
+}
+
+/* =========================================================
+   FEATURES SECTION
+========================================================= */
+.features-section {
+  background: linear-gradient(135deg, #f5f7fb 0%, #ffffff 100%);
+  text-align: center;
+  padding: 100px 20px;
+}
+
+.features-section .container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.features-section h2 {
+  color: #003366;
+  font-size: 2.3rem;
+  margin-bottom: 15px;
+  font-weight: 700;
+}
+
+.features-section p {
+  color: #666;
+  font-size: 1.3rem;
+  margin-bottom: 60px;
+  font-weight: 500;
+}
+
+.features-section ul {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.features-section ul li {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 15px;
+  background: #ffffff;
+  border-radius: 15px;
+  padding: 25px 30px;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  box-shadow: 0 4px 15px rgba(0, 51, 102, 0.1);
+  transition: all 0.3s ease;
+  text-align: left;
+}
+
+.features-section ul li:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 25px rgba(0, 51, 102, 0.2);
+  background: linear-gradient(135deg, #E6EEF8 0%, #d0dff0 100%);
+}
+
+.features-section ul li img {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+/* =========================================================
+   HOW IT WORKS SLIDER SECTION
+========================================================= */
+.how-it-works-slider {
+  background: linear-gradient(135deg, #E6EEF8 0%, #d0dff0 100%);
+  text-align: center;
+  padding: 80px 20px 120px;
+  position: relative;
+  overflow: hidden;
+}
+
+.how-it-works-slider .container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.how-it-works-slider h3 {
+  color: #003366;
+  font-size: 2.3rem;
+  margin-bottom: 60px;
   font-weight: 700;
 }
 
 /* === Slider Container === */
-.HomeSteps {
+.slider {
   position: relative;
   width: 100%;
-  max-width: 950px;
-  height: 450px;
-  margin: 0 auto;
+  max-width: 1000px;
+  height: 500px;
+  margin: 0 auto 50px;
   display: flex;
   justify-content: center;
   align-items: center;
-  perspective: 1000px;
+  perspective: 1200px;
 }
 
 /* === Individual Cards === */
-.step {
+.card {
   position: absolute;
-  width: 400px;
-  height: 420px;
+  width: 420px;
+  height: 480px;
   background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  border-radius: 25px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
   overflow: hidden;
-  transform: scale(0.8);
-  opacity: 0;
-  transition: all 1s ease;
-  border: 1px solid #000000;
+  transform: scale(0.75);
+  opacity: 0.4;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
 }
 
-.step img {
+.card img {
   width: 100%;
-  height: 70%;
+  height: 65%;
   object-fit: contain;
-  margin-top: 10px;
+  border-radius: 15px;
+  margin-bottom: 15px;
 }
 
-.step p {
-  color: #1a1a1a;
-  font-size: 1.4rem;
-  font-weight: bold;
-  margin: 10px 0 5px;
+.card p {
+  color: #333;
+  font-size: 1.1rem;
+  margin: 8px 0;
 }
 
-.step strong {
+.card strong {
   color: #003366;
   display: block;
-  font-size: 1.2rem;
-  margin-bottom: 5px;
+  font-size: 1.4rem;
+  margin-bottom: 8px;
+  font-weight: 700;
 }
 
 /* === Animation States === */
-.step.active {
+.card.active {
   opacity: 1;
-  transform: scale(1) translateX(0);
+  transform: scale(1) translateX(0) translateZ(0);
   z-index: 3;
+  border-color: #003366;
+  box-shadow: 0 20px 50px rgba(0, 51, 102, 0.3);
 }
 
-.step.prev {
-  opacity: 0.5;
-  transform: scale(0.85) translateX(-250px) rotateY(15deg);
+.card.prev {
+  opacity: 0.6;
+  transform: scale(0.8) translateX(-280px) translateZ(-100px) rotateY(20deg);
   z-index: 2;
 }
 
-.step.next {
-  opacity: 0.5;
-  transform: scale(0.85) translateX(250px) rotateY(-15deg);
+.card.next {
+  opacity: 0.6;
+  transform: scale(0.8) translateX(280px) translateZ(-100px) rotateY(-20deg);
   z-index: 2;
 }
 
-/* === Controls BELOW the container === */
-.HomeControls {
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
+/* === Controls === */
+.slider-controls {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 20px;
+  margin-top: 30px;
 }
 
-.HomeControls button {
-  background: #003366;
+.slider-controls button {
+  background: linear-gradient(135deg, #003366 0%, #0055aa 100%);
   color: white;
   border: none;
-  padding: 12px 25px;
-  border-radius: 10px;
+  padding: 14px 30px;
+  border-radius: 12px;
   font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 51, 102, 0.3);
 }
 
-.Homecontrols button:active {
-  transform: scale(0.97);
-}
-.HomeControls button:hover {
-  background: #0055cc;
-  transform: translateY(-2px);
+.slider-controls button:hover {
+  background: linear-gradient(135deg, #0055aa 0%, #0066cc 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 51, 102, 0.4);
 }
 
-/* === Responsive Fixes === */
+.slider-controls button:active {
+  transform: translateY(-1px);
+}
+
+/* =========================================================
+   RESPONSIVE DESIGN
+========================================================= */
+@media (max-width: 1024px) {
+  .features-section ul {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .intro-section .text-content h2,
+  .how-it-works-section .text-content h3,
+  .features-section h2,
+  .how-it-works-slider h3 {
+    font-size: 2rem;
+  }
+}
+
 @media (max-width: 768px) {
-  .HomeSteps {
-    height: 380px;
+  .navbar {
+    padding: 1rem 2rem;
   }
 
-  .step {
-    width: 90%;
-    height: 360px;
+  .logo {
+    font-size: 1.5rem;
   }
 
-  .HomeControls {
-    bottom: 30px;
+  .navmenu {
+    gap: 1.5rem;
+  }
+
+  .navmenu a {
+    font-size: 0.9rem;
+  }
+
+  .intro-section,
+  .how-it-works-section {
+    padding: 60px 20px;
+    min-height: auto;
+  }
+
+  .intro-section .row,
+  .how-it-works-section .row {
     flex-direction: column;
+    gap: 40px;
+    text-align: center;
+  }
+
+  .intro-section .text-content,
+  .how-it-works-section .text-content {
+    text-align: center;
+  }
+
+  .intro-section .text-content h2 {
+    font-size: 2rem;
+  }
+
+  .how-it-works-section .text-content h3 {
+    font-size: 1.8rem;
+  }
+
+  .features-section {
+    padding: 60px 20px;
+  }
+
+  .features-section ul {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .features-section h2 {
+    font-size: 1.8rem;
+  }
+
+  .how-it-works-slider {
+    padding: 60px 20px 100px;
+  }
+
+  .how-it-works-slider h3 {
+    font-size: 1.8rem;
+    margin-bottom: 40px;
+  }
+
+  .slider {
+    height: 450px;
+    max-width: 90%;
+  }
+
+  .card {
+    width: 90%;
+    max-width: 350px;
+    height: 420px;
+  }
+
+  .card.prev {
+    transform: scale(0.75) translateX(-200px) translateZ(-100px) rotateY(15deg);
+  }
+
+  .card.next {
+    transform: scale(0.75) translateX(200px) translateZ(-100px) rotateY(-15deg);
+  }
+
+  .slider-controls {
+    flex-direction: row;
     gap: 15px;
   }
 
-  .HomeControls button {
-    width: 80%;
-    max-width: 280px;
+  .slider-controls button {
+    padding: 12px 25px;
     font-size: 0.95rem;
   }
 }
 
-
-
-/* ======= Responsive Adjustments ======= */
-@media (max-width: 768px) {
-  .HomeIntroSection .HomeRow,
-  .HomeHowItWorksSection .HomeRow {
-    flex-direction: column;
-    text-align: center;
+@media (max-width: 480px) {
+  .navbar {
+    padding: 0.8rem 1rem;
+    flex-wrap: wrap;
   }
 
-  .HomeIntroSection .HomeTextContent,
-  .HomeHowItWorksSection .HomeTextContent {
-    text-align: center;
+  .logo {
+    font-size: 1.3rem;
   }
 
-  .HomeIntroSection .HomeImageContent,
-  .HomeHowItWorksSection .HomeImageContent {
-    text-align: center;
+  .navmenu {
+    gap: 1rem;
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.5rem;
   }
-}
-body.dark {
-  background-color: #121212;
-  color: #f0f0f0;
-}
 
-body.dark a {
-  color: #80bfff;
-}
+  .intro-section .text-content h2 {
+    font-size: 1.6rem;
+  }
 
-body.dark .HomeNavbar {
-  background-color: #1e1e1e;
-}
+  .intro-section .text-content p {
+    font-size: 1rem;
+  }
 
-body.dark input, 
-body.dark button {
-  background-color: #222;
-  color: #fff;
-  border: 1px solid #444;
+  .how-it-works-section .text-content h3 {
+    font-size: 1.5rem;
+  }
+
+  .how-it-works-section .text-content ul li {
+    font-size: 1rem;
+  }
+
+  .features-section h2 {
+    font-size: 1.5rem;
+  }
+
+  .features-section p {
+    font-size: 1.1rem;
+  }
+
+  .slider {
+    height: 400px;
+  }
+
+  .card {
+    height: 380px;
+    padding: 15px;
+  }
+
+  .card strong {
+    font-size: 1.2rem;
+  }
+
+  .card p {
+    font-size: 1rem;
+  }
 }

@@ -1,5 +1,7 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from werkzeug.middleware.proxy_fix import ProxyFix
+from dotenv import load_dotenv
 import psycopg2
 from psycopg2 import errors
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -7,8 +9,28 @@ import qrcode
 import io
 import base64
 
+load_dotenv()  # Load variables from .env if present (local dev)
+
 app = Flask(__name__)
-app.secret_key = "secret123"  # for flash messages
+app.secret_key = os.getenv("SECRET_KEY", "dev-insecure-secret")  # for flash messages
+
+# Make Flask respect X-Forwarded-* headers on Render so url_for(..., _external=True)
+# uses the correct scheme/host (https and your subdomain)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
+
+def get_public_base_url():
+    """Return a public base URL suitable for QR links in production.
+
+    Priority:
+    1) PUBLIC_BASE_URL (user-defined)
+    2) RENDER_EXTERNAL_URL (provided by Render)
+    3) request.host_url as fallback
+    """
+    env_base = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL")
+    if env_base:
+        return env_base.rstrip('/')
+    # Fallback to current request host
+    return request.host_url.rstrip('/')
 
 def get_db_connection():
     try:
@@ -257,6 +279,12 @@ def generate_qr_db():
     queue_link = request.form.get('link', '#')
     created_by = session.get('user_email', 'Unknown')
 
+    # If no link provided, auto-generate the site URL (e.g., User page)
+    if not queue_link or queue_link == '#':
+        # Prefer an explicit public base URL if available
+        base = get_public_base_url()
+        queue_link = f"{base}{url_for('user_page')}"
+
     qr_data = f"{queue_type} - {queue_purpose} - {queue_link}"
     qr_img = qrcode.make(qr_data)
 
@@ -267,6 +295,23 @@ def generate_qr_db():
     qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     return jsonify({"qr_image": qr_base64})
+
+
+# Simple endpoint to auto-generate a QR for the site URL without providing a link
+@app.route('/generate_site_qr', methods=['GET'])
+def generate_site_qr():
+    base = get_public_base_url()
+    target_url = f"{base}{url_for('user_page')}"
+
+    qr_img = qrcode.make(target_url)
+    buffer = io.BytesIO()
+    qr_img.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    return jsonify({
+        "qr_image": qr_base64,
+        "target_url": target_url
+    })
 
 
 @app.route('/delete_temp_qr', methods=['POST'])

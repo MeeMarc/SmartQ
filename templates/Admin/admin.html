@@ -6,7 +6,7 @@
   <title>SmartQ</title>
 
   <!-- ✅ Correct path to CSS file ...-->
-  <link rel="stylesheet" href="../static/admin.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
 </head>
 <body>
 
@@ -34,7 +34,7 @@
           <h2>Virtual Queue System to make it efficient than traditional Queue Method</h2>
           <p>
             SmartQ makes it easy for them and staff to access services efficiently,
-            ensuring smooth management. test
+            ensuring smooth management.
           </p>
         </div>
 
@@ -53,7 +53,7 @@
     <div class="row">
       <!-- Left side: Image -->
       <div class="image-content">
-        <img src="{{ url_for('static', filename='Images/Automation.png') }}" alt="Automation" class="image">
+        <img src="{{ url_for('static', filename='images/Automation.png') }}" alt="Automation" class="image">
       </div>
 
       <!-- Right side: Text -->
