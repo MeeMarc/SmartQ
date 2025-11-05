@@ -283,6 +283,10 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
     """Save QR to database and return the inserted ID."""
     try:
         conn = get_db_connection()
+        if conn is None:
+            print("Database connection failed")
+            return None
+            
         cur = conn.cursor()
         # Insert into qr_history first to get the ID
         cur.execute(
@@ -291,50 +295,86 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
         )
         qr_id = cur.fetchone()[0]
         
-        # Also insert into temp_qr
-        cur.execute(
-            "INSERT INTO temp_qr (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s)",
-            (queue_type, queue_purpose, queue_link, created_by)
-        )
+        # Also insert into temp_qr (if table exists, ignore if it doesn't)
+        try:
+            cur.execute(
+                "INSERT INTO temp_qr (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s)",
+                (queue_type, queue_purpose, queue_link, created_by)
+            )
+        except Exception as temp_error:
+            print(f"Note: temp_qr insert failed (table may not exist): {temp_error}")
+            # Continue anyway, qr_history is the important one
+        
         conn.commit()
         cur.close()
         conn.close()
         return qr_id
     except Exception as e:
         print(f"Error saving QR: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
 @app.route('/generate_qr_db', methods=['POST'])
 def generate_qr_db():
-    queue_type = request.form.get('type', 'General')
-    queue_purpose = request.form.get('purpose', 'General')
-    created_by = session.get('user_email', 'Unknown')
-    
-    # Auto-generate URL based on Queue Type and unique number
-    queue_number = get_next_queue_number(queue_type)
-    queue_slug = create_slug(queue_type)
-    
-    # Generate the URL: /queue/<slug>/<number>
-    base = get_public_base_url()
-    queue_link = f"{base}/queue/{queue_slug}/{queue_number}"
-    
-    # Save QR and get the ID
-    qr_id = save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number)
-    
-    # Generate QR code with the auto-generated URL
-    qr_img = qrcode.make(queue_link)
+    try:
+        queue_type = request.form.get('type', 'General')
+        queue_purpose = request.form.get('purpose', 'General')
+        created_by = session.get('user_email', 'Unknown')
+        
+        if not queue_type or not queue_purpose:
+            return jsonify({
+                "error": "Queue Type and Purpose are required",
+                "qr_image": None
+            }), 400
+        
+        # Auto-generate URL based on Queue Type and unique number
+        queue_number = get_next_queue_number(queue_type)
+        queue_slug = create_slug(queue_type)
+        
+        # Generate the URL: /queue/<slug>/<number>
+        try:
+            base = get_public_base_url()
+        except Exception as e:
+            print(f"Error getting base URL: {e}")
+            # Fallback to environment variable or default
+            base = os.getenv("PUBLIC_BASE_URL", "https://smartq-vd9k.onrender.com")
+            if not base.startswith('http'):
+                base = f"https://{base}"
+        
+        queue_link = f"{base}/queue/{queue_slug}/{queue_number}"
+        
+        # Save QR and get the ID
+        qr_id = save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number)
+        
+        if qr_id is None:
+            return jsonify({
+                "error": "Failed to save QR to database",
+                "qr_image": None
+            }), 500
+        
+        # Generate QR code with the auto-generated URL
+        qr_img = qrcode.make(queue_link)
 
-    buffer = io.BytesIO()
-    qr_img.save(buffer, format="PNG")
-    qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        buffer = io.BytesIO()
+        qr_img.save(buffer, format="PNG")
+        qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-    return jsonify({
-        "qr_image": qr_base64,
-        "queue_link": queue_link,
-        "queue_number": queue_number,
-        "qr_id": qr_id
-    })
+        return jsonify({
+            "qr_image": qr_base64,
+            "queue_link": queue_link,
+            "queue_number": queue_number,
+            "qr_id": qr_id
+        })
+    except Exception as e:
+        print(f"Error in generate_qr_db: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": str(e),
+            "qr_image": None
+        }), 500
 
 
 # Simple endpoint to auto-generate a QR for the site URL without providing a link

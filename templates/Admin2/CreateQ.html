@@ -126,8 +126,19 @@
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&dailyCapacity=${dailyCapacity}&morningCount=${morningCount}&afternoonCount=${afternoonCount}`
     })
-    .then(res => res.json())
+    .then(res => {
+      if (!res.ok) {
+        return res.json().then(data => {
+          throw new Error(data.error || `Server error: ${res.status}`);
+        });
+      }
+      return res.json();
+    })
     .then(data => {
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
       console.log("✅ QR saved with auto-generated URL:", data);
       
       // Add to local list with auto-generated link
@@ -148,7 +159,7 @@
     })
     .catch(err => {
       console.error("Error generating QR:", err);
-      alert("❌ Error generating QR. Please try again.");
+      alert(`❌ Error generating QR: ${err.message || 'Please try again.'}`);
     });
   });
 
