@@ -6,7 +6,7 @@
   <title>SmartQ</title>
   <link rel="stylesheet" href="../static/User.css">
 </head>
-<body id="top">
+<body id="top" data-queue-type="{{ queue_type|default('', true) }}" data-queue-purpose="{{ queue_purpose|default('', true) }}">
 
 <header>
   <nav class="navbar">
@@ -26,6 +26,25 @@
   </nav>
 </header>
 
+
+<section class="queue-hero">
+  <div class="hero-content">
+    <div class="hero-text">
+      <span class="hero-label">Document Queue</span>
+      <h1>{{ queue_type|default('SmartQ Queue Registration', true) }}</h1>
+      <p>{{ queue_purpose|default('Please complete the form below so we can start processing your documents.', true) }}</p>
+    </div>
+    <div class="hero-meta">
+      <div class="hero-chip">Secure &amp; prioritized processing</div>
+      {% if queue_number is defined and queue_number %}
+      <div class="queue-number-card">
+        <span>Queue No.</span>
+        <strong>{{ queue_number }}</strong>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
 
 
 
@@ -73,15 +92,19 @@
   <form class="paper-form" id="registrationForm" action="#" method="post">
     
     <h3>Registration Form</h3>
+    <p class="form-description">Kindly provide accurate information so we can assist you with <strong>{{ queue_type|default('your requested documents', true) }}</strong>.</p>
 
     <!-- ✅ New read-only textarea for scanned QR -->
     <div class="form-row">
       <label for="qrData">Documents</label>
-      <div id="qrDisplay" class="qr-display-box">
-        <span class="doc-name">Example: COR</span>
-        <span class="doc-desc">Claiming</span>
+      <div id="qrDisplay" class="qr-display-box {% if (queue_type is defined and queue_type) or (queue_purpose is defined and queue_purpose) %}filled{% endif %}">
+        <span class="doc-name">{{ queue_type|default('Document Name', true) }}</span>
+        <span class="doc-desc">{{ queue_purpose|default('Purpose', true) }}</span>
       </div>
     </div>
+
+    <input type="hidden" name="queue_type" value="{{ queue_type|default('', true) }}">
+    <input type="hidden" name="queue_number" value="{{ queue_number|default('', true) }}">
 
     <!-- ✅ Full Name (with hint inside field) -->
     <div class="form-row">
@@ -125,7 +148,7 @@
 
   function updateCards() {
     cards.forEach(card => card.classList.remove('active', 'prev', 'next'));
-    
+
     const prevIndex = (current - 1 + cards.length) % cards.length;
     const nextIndex = (current + 1) % cards.length;
 
@@ -134,23 +157,25 @@
     cards[nextIndex].classList.add('next');
   }
 
-  nextBtn.addEventListener('click', () => {
-    current = (current + 1) % cards.length;
-    updateCards();
-  });
+  if (cards.length && nextBtn && prevBtn) {
+    nextBtn.addEventListener('click', () => {
+      current = (current + 1) % cards.length;
+      updateCards();
+    });
 
-  prevBtn.addEventListener('click', () => {
-    current = (current - 1 + cards.length) % cards.length;
-    updateCards();
-  });
+    prevBtn.addEventListener('click', () => {
+      current = (current - 1 + cards.length) % cards.length;
+      updateCards();
+    });
 
-  // Auto slide every 3 seconds
-  setInterval(() => {
-    current = (current + 1) % cards.length;
-    updateCards();
-  }, 10000);
+    // Auto slide every 10 seconds
+    setInterval(() => {
+      current = (current + 1) % cards.length;
+      updateCards();
+    }, 10000);
 
-  updateCards();
+    updateCards();
+  }
 </script>
 
 
@@ -158,10 +183,12 @@
   const menuToggle = document.getElementById('menu-toggle');
   const navMenu = document.getElementById('navmenu');
 
-  menuToggle.addEventListener('click', () => {
-    menuToggle.classList.toggle('active');
-    navMenu.classList.toggle('active');
-  });
+  if (menuToggle && navMenu) {
+    menuToggle.addEventListener('click', () => {
+      menuToggle.classList.toggle('active');
+      navMenu.classList.toggle('active');
+    });
+  }
 </script>
 
 
@@ -170,10 +197,11 @@
   if (logoLink) {
     logoLink.addEventListener('click', (event) => {
       event.preventDefault();
-      if (document.body && document.body.scrollIntoView) {
-        document.body.scrollIntoView({ behavior: 'smooth' });
+      const topAnchor = document.getElementById('top') || document.body;
+      if (topAnchor && topAnchor.scrollIntoView) {
+        topAnchor.scrollIntoView({ behavior: 'smooth' });
       } else {
-        window.scrollTo(0, 0);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     });
   }
@@ -183,16 +211,24 @@
     const qrBox = document.getElementById("qrDisplay");
 
     qrBox.innerHTML = `
-      <span class="doc-name">${doc}</span>
-      <span class="doc-desc">${desc}</span>
+      <span class="doc-name">${doc || 'Document Name'}</span>
+      <span class="doc-desc">${desc || 'Purpose'}</span>
     `;
-    qrBox.classList.add("filled");
+
+    if (doc || desc) {
+      qrBox.classList.add("filled");
+    } else {
+      qrBox.classList.remove("filled");
+    }
   }
 
-  // Demo only — automatically fill after 3 seconds
-  setTimeout(() => {
-    onQRScanned("COR|Claiming");
-  }, 3000);
+  const bodyDataset = document.body ? document.body.dataset : {};
+  const queueType = bodyDataset && bodyDataset.queueType ? bodyDataset.queueType : '';
+  const queuePurpose = bodyDataset && bodyDataset.queuePurpose ? bodyDataset.queuePurpose : '';
+
+  if (queueType || queuePurpose) {
+    onQRScanned([queueType, queuePurpose].join('|'));
+  }
 </script>
 
 
