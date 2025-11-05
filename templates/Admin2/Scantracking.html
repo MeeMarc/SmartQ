@@ -65,37 +65,73 @@ const modalQRLink = document.getElementById("modalQRLink");
 
 let currentScans = [];
 
-// Fetch QR List
+// Fetch QR List - shows all from qr_history (permanent history)
 function fetchQRList() {
   fetch("/qr_history_data")
     .then(res => res.json())
     .then(data => {
-      qrListContainer.innerHTML = "<h3>Generated Queues</h3>";
+      qrListContainer.innerHTML = "<h3>Generated Queues (All History)</h3>";
       
       if (data.length === 0) {
         qrListContainer.innerHTML += "<p>No QR codes found. Create one in Create Queue page.</p>";
         return;
       }
       
-      data.forEach(qr => {
-        const box = document.createElement("div");
-        box.className = "qr-box";
-        box.innerHTML = `
-          <h4>${qr.queue_type}</h4>
-          <p>${qr.queue_purpose}</p>
-          <div id="qr${qr.id}"></div>
-          <p><small>${qr.queue_link}</small></p>
-          <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>
-          <button onclick="viewScans(${qr.id})">View Scans</button>
-        `;
-        qrListContainer.appendChild(box);
+      // Also check which ones are active in temp_qr
+      fetch("/temp_qr_data")
+        .then(res => res.json())
+        .then(activeQRs => {
+          const activeIds = new Set(activeQRs.map(qr => qr.id));
+          
+          data.forEach(qr => {
+            const isActive = activeIds.has(qr.id);
+            const box = document.createElement("div");
+            box.className = "qr-box";
+            box.style.opacity = isActive ? "1" : "0.6"; // Dim inactive ones
+            box.innerHTML = `
+              <h4>${qr.queue_type} ${!isActive ? '<span style="color: #999; font-size: 0.8em;">(Removed)</span>' : ''}</h4>
+              <p>${qr.queue_purpose}</p>
+              <div id="qr${qr.id}"></div>
+              <p><small>${qr.queue_link}</small></p>
+              ${isActive ? `
+                <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>
+                <button onclick="viewScans(${qr.id})">View Scans</button>
+              ` : `
+                <button onclick="viewScans(${qr.id})">View Scans</button>
+                <p style="color: #999; font-size: 0.85em;">This QR was removed but history is preserved</p>
+              `}
+            `;
+            qrListContainer.appendChild(box);
 
-        new QRCode(document.getElementById(`qr${qr.id}`), {
-          text: qr.queue_link,
-          width: 100,
-          height: 100
+            new QRCode(document.getElementById(`qr${qr.id}`), {
+              text: qr.queue_link,
+              width: 100,
+              height: 100
+            });
+          });
+        })
+        .catch(() => {
+          // If temp_qr_data endpoint doesn't exist, just show all as active
+          data.forEach(qr => {
+            const box = document.createElement("div");
+            box.className = "qr-box";
+            box.innerHTML = `
+              <h4>${qr.queue_type}</h4>
+              <p>${qr.queue_purpose}</p>
+              <div id="qr${qr.id}"></div>
+              <p><small>${qr.queue_link}</small></p>
+              <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>
+              <button onclick="viewScans(${qr.id})">View Scans</button>
+            `;
+            qrListContainer.appendChild(box);
+
+            new QRCode(document.getElementById(`qr${qr.id}`), {
+              text: qr.queue_link,
+              width: 100,
+              height: 100
+            });
+          });
         });
-      });
     })
     .catch(err => {
       console.error("Error fetching QR list:", err);

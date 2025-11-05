@@ -457,7 +457,7 @@ def generate_site_qr():
 
 @app.route('/delete_qr', methods=['POST'])
 def delete_qr():
-    """Delete a QR from both qr_history and temp_qr tables."""
+    """Delete a QR from temp_qr only. qr_history is kept for permanent history."""
     data = request.get_json() if request.is_json else request.form
     qr_id = data.get('id') or data.get('qr_id')
     
@@ -471,29 +471,33 @@ def delete_qr():
         
         cur = conn.cursor()
         
-        # Delete from temp_qr first (if it exists)
-        try:
-            cur.execute("DELETE FROM temp_qr WHERE id = %s", (qr_id,))
-            print(f"Deleted from temp_qr: {qr_id}")
-        except Exception as temp_error:
-            print(f"Note: temp_qr delete failed (might not exist): {temp_error}")
-        
-        # Delete from qr_history (main table)
-        cur.execute("DELETE FROM qr_history WHERE id = %s", (qr_id,))
+        # Only delete from temp_qr (active/temporary QRs)
+        # Keep qr_history intact for permanent history
+        cur.execute("DELETE FROM temp_qr WHERE id = %s", (qr_id,))
         deleted_count = cur.rowcount
         
         if deleted_count == 0:
-            conn.rollback()
-            cur.close()
-            conn.close()
-            return jsonify({"status": "error", "message": "QR not found"}), 404
+            # Check if QR exists in qr_history (for reference)
+            cur.execute("SELECT id FROM qr_history WHERE id = %s", (qr_id,))
+            exists = cur.fetchone()
+            if exists:
+                conn.commit()
+                cur.close()
+                conn.close()
+                print(f"Note: QR {qr_id} not in temp_qr (already deleted or never was), but exists in history")
+                return jsonify({"status": "success", "message": "QR removed from active list (history preserved)"})
+            else:
+                conn.rollback()
+                cur.close()
+                conn.close()
+                return jsonify({"status": "error", "message": "QR not found"}), 404
         
         conn.commit()
         cur.close()
         conn.close()
         
-        print(f"✅ QR {qr_id} deleted successfully from both tables")
-        return jsonify({"status": "success", "message": "QR deleted successfully"})
+        print(f"✅ QR {qr_id} deleted from temp_qr (history preserved)")
+        return jsonify({"status": "success", "message": "QR removed from active list. History preserved."})
     except Exception as e:
         print(f"Error deleting QR: {e}")
         import traceback
@@ -518,6 +522,35 @@ def delete_temp_qr():
         print(f"Error deleting temp QR: {e}")
         return jsonify({"status": "error", "message": str(e)})
 
+
+@app.route('/temp_qr_data', methods=['GET'])
+def temp_qr_data():
+    """Get all active QRs from temp_qr table."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, queue_type, queue_purpose, queue_link, created_by
+            FROM temp_qr
+            ORDER BY created_at DESC
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        active_qrs = []
+        for row in rows:
+            active_qrs.append({
+                "id": row[0],
+                "queue_type": row[1],
+                "queue_purpose": row[2],
+                "queue_link": row[3],
+                "created_by": row[4]
+            })
+        return jsonify(active_qrs)
+    except Exception as e:
+        print(f"Error fetching temp QR data: {e}")
+        return jsonify([])
 
 @app.route('/qr_history_data', methods=['GET'])
 def qr_history_data():
