@@ -15,6 +15,12 @@ body {
   color: #333;
   min-height: 100vh;
   line-height: 1.6;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+#home {
+  width: 100%;
+  overflow-x: hidden;
 }
 
 /* =========================================================
@@ -145,9 +151,12 @@ header {
 .HomeIntroSection .HomeImageContent .HomeImage {
   width: 100%;
   max-width: 500px;
+  height: auto;
   border-radius: 20px;
   box-shadow: 0 10px 30px rgba(0, 51, 102, 0.15);
   transition: transform 0.3s ease;
+  display: block;
+  margin: 0 auto;
 }
 
 .HomeIntroSection .HomeImageContent img:hover,
@@ -177,6 +186,7 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 60px;
+  flex-direction: row-reverse; /* Image on left, text on right */
 }
 
 .HomeHowItWorksSection .HomeImageContent {
@@ -188,8 +198,11 @@ header {
 .HomeHowItWorksSection .HomeImageContent .HomeImage {
   width: 100%;
   max-width: 450px;
+  height: auto;
   border-radius: 15px;
   box-shadow: 0 8px 25px rgba(0, 51, 102, 0.15);
+  display: block;
+  margin: 0 auto;
 }
 
 .HomeHowItWorksSection .HomeTextContent {
@@ -261,7 +274,8 @@ header {
   gap: 30px;
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 0 auto;
+  max-width: 1100px;
 }
 
 .HomeFeaturesSection ul li {
@@ -352,9 +366,11 @@ header {
 .step img {
   width: 100%;
   height: 65%;
+  max-height: 300px;
   object-fit: contain;
   border-radius: 15px;
   margin-bottom: 15px;
+  background: #f8f9fa;
 }
 
 .step p {
@@ -444,20 +460,24 @@ header {
   .HomeNavbar {
     padding: 1rem 2rem;
     flex-wrap: wrap;
+    justify-content: center;
   }
 
   .HomeLogo {
     font-size: 1.5rem;
+    margin-bottom: 0.5rem;
   }
 
   .HomeNavMenu {
-    gap: 1.5rem;
+    gap: 1rem;
     flex-wrap: wrap;
     justify-content: center;
+    width: 100%;
   }
 
   .HomeNavMenu a {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    padding: 0.3rem 0;
   }
 
   .HomeIntroSection,
@@ -471,6 +491,10 @@ header {
     flex-direction: column;
     gap: 40px;
     text-align: center;
+  }
+
+  .HomeHowItWorksSection .HomeRow {
+    flex-direction: column; /* Override row-reverse on mobile */
   }
 
   .HomeIntroSection .HomeTextContent,
