@@ -6,11 +6,11 @@
   <title>SmartQ</title>
   <link rel="stylesheet" href="../static/User.css">
 </head>
-<body>
+<body id="top">
 
 <header>
   <nav class="navbar">
-    <a href="User.html" class="logo"><strong>SmartQ</strong></a>
+    <a href="#top" class="logo"><strong>SmartQ</strong></a>
 
     <div class="menu-wrapper">
       <div class="menu-toggle" id="menu-toggle">
@@ -166,6 +166,18 @@
 
 
 <script>
+  const logoLink = document.querySelector('.logo');
+  if (logoLink) {
+    logoLink.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (document.body && document.body.scrollIntoView) {
+        document.body.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        window.scrollTo(0, 0);
+      }
+    });
+  }
+
   function onQRScanned(scannedData) {
     const [doc, desc] = scannedData.split("|");
     const qrBox = document.getElementById("qrDisplay");
