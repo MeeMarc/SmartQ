@@ -730,15 +730,29 @@ def get_qr_scans(qr_id):
             conn.close()
             return jsonify([])
 
-        # Fetch candidates linked to this QR (users who filled the form / scanned)
+        # Extract queue_slug and queue_number from the queue_link
+        # Format: https://domain.com/queue/<slug>/<number>
+        match = re.search(r'/queue/([^/]+)/(\d+)', queue_link)
+        if not match:
+            cur.close()
+            conn.close()
+            return jsonify([])
+        
+        queue_slug = match.group(1)
+        queue_number = int(match.group(2))
+
+        # Ensure queue_entries table exists
+        ensure_queue_entries_table(conn)
+
+        # Fetch queue entries (users who filled the form / scanned the QR)
         cur.execute(
             """
-            SELECT fullname, phone, timeslot
-            FROM candidates
-            WHERE qr_link = %s
-            ORDER BY id DESC
+            SELECT fullname, phone, purpose, status, created_at
+            FROM queue_entries
+            WHERE queue_slug = %s AND queue_number = %s
+            ORDER BY created_at DESC
             """,
-            (queue_link,)
+            (queue_slug, queue_number)
         )
         rows = cur.fetchall()
 
@@ -747,9 +761,9 @@ def get_qr_scans(qr_id):
             scans.append({
                 "fullname": row[0] or "Unknown",
                 "phone": row[1] or "",
-                "timeslot": row[2] or "",
-                "email": "",  # kept for compatibility with frontend code
-                "scanned_at": ""  # can be enhanced if created_at column exists
+                "purpose": row[2] or "",
+                "status": row[3] or "waiting",
+                "scanned_at": row[4].strftime('%Y-%m-%d %I:%M %p') if row[4] else ""
             })
 
         cur.close()
@@ -759,6 +773,8 @@ def get_qr_scans(qr_id):
 
     except Exception as e:
         print(f"Error fetching QR scans: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify([])
 
 @app.route('/add_candidate_modal', methods=['POST'])

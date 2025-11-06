@@ -199,7 +199,7 @@ function viewScans(qrId) {
       currentScans = data;
       qrDetailContainer.innerHTML = `
         <h3>Scans for QR #${qrId}</h3>
-        <input type="text" id="scanSearch" placeholder="Search by name or phone">
+        <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, or status">
         <div class="scan-list" id="scanList"></div>
       `;
       document.getElementById("scanSearch").addEventListener("input", filterScans);
@@ -221,9 +221,19 @@ function renderScans(scans) {
     const card = document.createElement("div");
     card.className = "scan-card";
     const phone = user.phone ? ` • ${user.phone}` : "";
-    const timeslot = user.timeslot ? ` • ${user.timeslot}` : "";
+    const purpose = user.purpose ? ` • ${user.purpose}` : "";
     const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
-    card.innerHTML = `<strong>${user.fullname}</strong>${phone}${timeslot}${scannedAt}`;
+    const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
+    const statusClass = user.status === 'completed' ? 'status-completed' : user.status === 'cancelled' ? 'status-cancelled' : 'status-waiting';
+    
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: start;">
+        <div>
+          <strong>${user.fullname}</strong>${phone}${purpose}${scannedAt}
+        </div>
+        <span class="status-badge ${statusClass}">${status}</span>
+      </div>
+    `;
     scanList.appendChild(card);
   });
 }
@@ -234,7 +244,8 @@ function filterScans() {
   const filtered = currentScans.filter(user =>
     (user.fullname && user.fullname.toLowerCase().includes(query)) ||
     (user.phone && user.phone.toLowerCase().includes(query)) ||
-    (user.email && user.email.toLowerCase().includes(query))
+    (user.purpose && user.purpose.toLowerCase().includes(query)) ||
+    (user.status && user.status.toLowerCase().includes(query))
   );
   renderScans(filtered);
 }
