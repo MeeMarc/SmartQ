@@ -254,7 +254,15 @@
       }
     } catch (err) {
       console.error("Error deleting QR:", err);
-      alert(`❌ Error deleting QR: ${err.message}`);
+      const message = err.message || "Unknown error";
+      if (message.toLowerCase().includes("not found")) {
+        qrList.splice(index, 1);
+        localStorage.setItem("queues", JSON.stringify(qrList));
+        renderQRs();
+        alert("✅ QR entry removed locally. (Server already removed it.)");
+      } else {
+        alert(`❌ Error deleting QR: ${message}`);
+      }
     }
   }
 
