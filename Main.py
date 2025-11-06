@@ -557,24 +557,20 @@ def delete_qr():
             # Check if QR exists in qr_history (for reference)
             cur.execute("SELECT id FROM qr_history WHERE id = %s", (qr_id,))
             exists = cur.fetchone()
+            conn.commit()
+            cur.close()
+            conn.close()
+
             if exists:
-                conn.commit()
-                cur.close()
-                conn.close()
                 print(f"Note: QR {qr_id} not in temp_qr (already deleted or never was), but exists in history")
                 return jsonify({"status": "success", "message": "QR removed from active list (history preserved)"})
-            elif force:
-                # Force delete: remove any lingering references and treat as success
-                conn.commit()
-                cur.close()
-                conn.close()
+
+            if force:
                 print(f"Force deleting QR {qr_id} succeeded (no server records found)")
-                return jsonify({"status": "success", "message": "QR removed."})
             else:
-                conn.rollback()
-                cur.close()
-                conn.close()
-                return jsonify({"status": "error", "message": "QR not found"}), 404
+                print(f"QR {qr_id} already removed (nothing to delete)")
+
+            return jsonify({"status": "success", "message": "QR removed."})
         
         conn.commit()
         cur.close()
