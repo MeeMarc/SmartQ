@@ -58,17 +58,15 @@
 
   <!-- ======= QUEUE SUMMARY ======= -->
   <section class="queue-card waiting">
-    <h3>🎉 Queue Confirmed!</h3>
+    <h3>🎉 Ticket Confirmed!</h3>
     <div class="number">{{ queue_number }}</div>
     <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
     {% if queue_purpose %}
     <p class="queue-purpose">{{ queue_purpose }}</p>
     {% endif %}
-    <p class="queue-name">Ticket Owner: <strong>{{ entry.fullname }}</strong></p>
-    <p>Your queue reference: <strong>#{{ entry.id }}</strong></p>
-    <p>Your current position: <strong>{{ position }}</strong></p>
-    <p>People ahead of you: <strong>{{ people_ahead }}</strong></p>
-    <p class="queue-note">We’ll notify you when it’s almost your turn. Keep this page open or take a screenshot.</p>
+    <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
+    <p>Your ticket reference: <strong>{{ ticket_reference }}</strong></p>
+    <p class="queue-note">Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.</p>
   </section>
 
   <!-- ======= JAVASCRIPT ======= -->
