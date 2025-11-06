@@ -99,7 +99,7 @@
 
 <!-- Section 2: Processing of the Papers -->
 <section id="paper-section" class="paper-section">
-  <form class="paper-form" id="registrationForm" method="post" action="{{ url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number) if queue_slug and queue_number else request.path }}">
+  <form class="paper-form" id="registrationForm" method="post">
     
     <h3>Registration Form</h3>
     <p class="form-description">Kindly provide accurate information so we can assist you with <strong>{{ queue_type|default('your requested documents', true) }}</strong>.</p>

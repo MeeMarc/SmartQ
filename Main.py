@@ -888,13 +888,6 @@ def queue_page(queue_slug, queue_number):
     )
 
 
-@app.route('/queue/<queue_slug>', methods=['GET', 'POST'])
-@app.route('/queue/<queue_slug>/', methods=['GET', 'POST'])
-def queue_page_default(queue_slug):
-    """Fallback route when queue number isn't provided in the URL."""
-    return queue_page(queue_slug, 1)
-
-
 @app.route('/queue/<queue_slug>/<int:queue_number>/waiting/<int:entry_id>')
 def queue_waiting(queue_slug, queue_number, entry_id):
     queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
