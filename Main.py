@@ -688,39 +688,56 @@ def clear_temp_qr():
 
 @app.route('/get_qr_scans/<int:qr_id>', methods=['GET'])
 def get_qr_scans(qr_id):
-    """
-    Return a JSON list of users who scanned a specific QR code.
-    Expected columns: fullname, email, scanned_at
-    """
+    """Return a JSON list of users linked to a specific QR code."""
     try:
         conn = get_db_connection()
+        if conn is None:
+            return jsonify([])
+
         cur = conn.cursor()
-        # Assuming you have a table like 'qr_scans' that stores scans
-        # Example schema:
-        # CREATE TABLE qr_scans (
-        #   id SERIAL PRIMARY KEY,
-        #   qr_id INT REFERENCES temp_qr(id),
-        #   fullname VARCHAR(255),
-        #   email VARCHAR(255),
-        #   scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        # );
-        cur.execute("""
-            SELECT fullname, email, scanned_at
-            FROM qr_scans
-            WHERE qr_id = %s
-            ORDER BY scanned_at DESC
-        """, (qr_id,))
+
+        # Resolve the queue link using qr_history first, then fallback to temp_qr
+        queue_link = None
+        cur.execute("SELECT queue_link FROM qr_history WHERE id = %s", (qr_id,))
+        row = cur.fetchone()
+        if row:
+            queue_link = row[0]
+        else:
+            cur.execute("SELECT queue_link FROM temp_qr WHERE id = %s", (qr_id,))
+            row = cur.fetchone()
+            if row:
+                queue_link = row[0]
+
+        if not queue_link:
+            cur.close()
+            conn.close()
+            return jsonify([])
+
+        # Fetch candidates linked to this QR (users who filled the form / scanned)
+        cur.execute(
+            """
+            SELECT fullname, phone, timeslot
+            FROM candidates
+            WHERE qr_link = %s
+            ORDER BY id DESC
+            """,
+            (queue_link,)
+        )
         rows = cur.fetchall()
-        cur.close()
-        conn.close()
 
         scans = []
         for row in rows:
             scans.append({
-                "fullname": row[0],
-                "email": row[1],
-                "scanned_at": row[2].strftime("%Y-%m-%d %H:%M:%S")
+                "fullname": row[0] or "Unknown",
+                "phone": row[1] or "",
+                "timeslot": row[2] or "",
+                "email": "",  # kept for compatibility with frontend code
+                "scanned_at": ""  # can be enhanced if created_at column exists
             })
+
+        cur.close()
+        conn.close()
+
         return jsonify(scans)
 
     except Exception as e:
