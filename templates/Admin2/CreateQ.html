@@ -170,30 +170,70 @@
     });
   });
 
+  // Resolve QR id either from the saved reference or by looking up the link
+  async function resolveQrId(qrItem) {
+    if (qrItem.qrId) {
+      return qrItem.qrId;
+    }
+
+    const link = (qrItem.link || '').trim();
+    if (!link) {
+      return null;
+    }
+
+    const tryLookup = async (endpoint) => {
+      const response = await fetch(endpoint);
+      if (!response.ok) {
+        return null;
+      }
+      const rows = await response.json();
+      const match = rows.find(row => (row.queue_link || '').trim() === link);
+      return match ? match.id : null;
+    };
+
+    try {
+      // Prefer active temp_qr table first
+      let foundId = await tryLookup("/temp_qr_data");
+      if (!foundId) {
+        // Fall back to permanent history
+        foundId = await tryLookup("/qr_history_data");
+      }
+
+      if (foundId) {
+        qrItem.qrId = foundId;
+        localStorage.setItem("queues", JSON.stringify(qrList));
+      }
+
+      return foundId;
+    } catch (error) {
+      console.error("Error resolving QR id:", error);
+      return null;
+    }
+  }
+
   // Delete QR
-  function deleteQR(index) {
+  async function deleteQR(index) {
     const qrToDelete = qrList[index];
-    const qrId = qrToDelete.qrId;
-    
+    let qrId = await resolveQrId(qrToDelete);
+
     if (!qrId) {
-      alert("⚠️ Cannot delete: QR ID not found");
+      alert("⚠️ Cannot delete: QR ID not found. Please try refreshing the page or regenerating the QR.");
       return;
     }
-    
+
     if (!confirm(`Are you sure you want to delete "${qrToDelete.type}"?`)) {
       return;
     }
-    
-    // Delete from backend
-    fetch("/delete_qr", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: qrId })
-    })
-    .then(res => res.json())
-    .then(data => {
+
+    try {
+      const response = await fetch("/delete_qr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: qrId })
+      });
+
+      const data = await response.json();
       if (data.status === "success") {
-        // Remove from local list
         qrList.splice(index, 1);
         localStorage.setItem("queues", JSON.stringify(qrList));
         renderQRs();
@@ -202,11 +242,10 @@
       } else {
         throw new Error(data.message || "Failed to delete QR");
       }
-    })
-    .catch(err => {
+    } catch (err) {
       console.error("Error deleting QR:", err);
       alert(`❌ Error deleting QR: ${err.message}`);
-    });
+    }
   }
 
   // Download QR as image

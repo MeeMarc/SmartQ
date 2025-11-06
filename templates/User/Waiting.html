@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Document Claims</title>
-  <link rel="stylesheet" href="../static/Waiting.css">
+  <title>{{ queue_type|default('Queue Status', true) }} | SmartQ</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Waiting.css') }}">
 </head>
-<body>
+<body data-queue-slug="{{ queue_slug|default('', true) }}">
 
   <!-- ======= HEADER / NAVBAR ======= -->
   <header>
     <nav class="navbar">
-      <a href="User.html" class="logo"><strong>SmartQ</strong></a>
+      <a href="{{ url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number) }}" class="logo"><strong>SmartQ</strong></a>
 
       <!-- Hamburger Menu -->
       <div class="menu-toggle" id="menu-toggle">
@@ -22,7 +22,7 @@
 
       <!-- Navigation Menu -->
       <ul class="navmenu" id="navmenu">
-        <li><a href="User.html#paper-section" class="fill-up-link">Fill up Form</a></li>
+        <li><a href="{{ url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number) }}#paper-section" class="fill-up-link">Fill up Form</a></li>
         <li class="dropdown">
           <button id="toggleHistoryBtn">Transaction History</button>
         </li>
@@ -30,22 +30,43 @@
     </nav>
   </header>
 
-  <!-- ======= DOCUMENT PROCESS SECTION ======= -->
+  <!-- ======= HISTORY PANEL ======= -->
   <section class="document-process-section">
     <div id="historyContainer">
+      {% if recent_entries %}
       <ul>
-        <li>2025-10-20 - Transcript of Records</li>
-        <li>2025-10-21 - Certificate of Enrollment</li>
-        <li>2025-10-22 - Student Clearance</li>
-        <li>2025-10-23 - Transcript of Records</li>
+        {% for item in recent_entries %}
+        <li>
+          <div class="history-row">
+            <div>
+              <strong>{{ item.fullname }}</strong>
+              {% if item.purpose %}
+              <span class="history-purpose">{{ item.purpose }}</span>
+              {% endif %}
+            </div>
+            <small>{{ item.created_at.strftime('%b %d, %Y %I:%M %p') }}</small>
+          </div>
+          <div class="history-status">Status: {{ item.status|default('waiting')|capitalize }}</div>
+        </li>
+        {% endfor %}
       </ul>
+      {% else %}
+      <p class="history-empty">No registrations have been recorded for this queue yet.</p>
+      {% endif %}
     </div>
   </section>
 
-  <!-- ======= WAITING QUEUE CARD ======= -->
+  <!-- ======= QUEUE SUMMARY ======= -->
   <section class="queue-card waiting">
-    <p>🎉 Queue Confirmed!</p>
-    <p>You’re all set. Kindly go to the claiming area on October 30, 2025 (Monday) from 8:00 AM – 11:30 AM.🙌</p>
+    <h3>🎉 Ticket Confirmed!</h3>
+    <div class="number">{{ queue_number }}</div>
+    <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
+    {% if queue_purpose %}
+    <p class="queue-purpose">{{ queue_purpose }}</p>
+    {% endif %}
+    <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
+    <p>Your ticket reference: <strong>{{ ticket_reference }}</strong></p>
+    <p class="queue-note">Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.</p>
   </section>
 
   <!-- ======= JAVASCRIPT ======= -->
@@ -54,30 +75,36 @@
   const menuToggle = document.getElementById("menu-toggle");
   const navMenu = document.getElementById("navmenu");
 
-  menuToggle.addEventListener("click", (e) => {
-    e.stopPropagation(); // prevent this click from closing the history
-    menuToggle.classList.toggle("active");
-    navMenu.classList.toggle("active");
-  });
+  if (menuToggle && navMenu) {
+    menuToggle.addEventListener("click", (e) => {
+      e.stopPropagation(); // prevent this click from closing the history
+      menuToggle.classList.toggle("active");
+      navMenu.classList.toggle("active");
+    });
+  }
 
   // === TRANSACTION HISTORY TOGGLE ===
   const toggleBtn = document.getElementById("toggleHistoryBtn");
   const historyContainer = document.getElementById("historyContainer");
 
-  toggleBtn.addEventListener("click", (e) => {
-    e.stopPropagation(); // prevent closing when clicking the button
-    const isVisible = historyContainer.style.display === "block";
-    historyContainer.style.display = isVisible ? "none" : "block";
-  });
+  if (toggleBtn && historyContainer) {
+    toggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation(); // prevent closing when clicking the button
+      const isVisible = historyContainer.style.display === "block";
+      historyContainer.style.display = isVisible ? "none" : "block";
+    });
+  }
 
   // === CLOSE HISTORY WHEN CLICKING OUTSIDE ===
   document.addEventListener("click", (event) => {
+    if (!historyContainer) return;
+
     const isClickInsideHistory =
       historyContainer.contains(event.target) ||
-      toggleBtn.contains(event.target);
+      (toggleBtn && toggleBtn.contains(event.target));
 
     const isClickOnMenu =
-      navMenu.contains(event.target) || menuToggle.contains(event.target);
+      (navMenu && navMenu.contains(event.target)) || (menuToggle && menuToggle.contains(event.target));
 
     // Close only if clicking outside both
     if (!isClickInsideHistory && !isClickOnMenu) {
@@ -85,11 +112,7 @@
     }
   });
 </script>
-<footer><h4>rqwerewqrwerewrqwerew
-  rqwerewqrwerewrqwerewrqwerewqrwerewrqwerewrqwerewqrwerewrqwerewrqwerewqrwerewrqwerew
 
-  rqwerewqrwerewrqwerewrqwerewqrwerewrqwerewrqwerewqrwerewrqwerew
-</h4></footer>
 </body>
 </html>
 
