@@ -243,6 +243,8 @@
       });
 
       const data = await response.json();
+      console.log("Delete response:", response.status, data);
+
       if (data.status === "success") {
         qrList.splice(index, 1);
         localStorage.setItem("queues", JSON.stringify(qrList));
@@ -254,14 +256,17 @@
       }
     } catch (err) {
       console.error("Error deleting QR:", err);
-      const message = err.message || "Unknown error";
-      if (message.toLowerCase().includes("not found")) {
+      // Force remove from localStorage anyway since backend may have already deleted it
+      const forceRemove = confirm(
+        `❌ Server error: ${err.message}\n\n` +
+        "The QR may already be deleted on the server.\n" +
+        "Choose OK to remove it from this list anyway."
+      );
+      if (forceRemove) {
         qrList.splice(index, 1);
         localStorage.setItem("queues", JSON.stringify(qrList));
         renderQRs();
-        alert("✅ QR entry removed locally. (Server already removed it.)");
-      } else {
-        alert(`❌ Error deleting QR: ${message}`);
+        alert("✅ QR entry removed from list.");
       }
     }
   }
