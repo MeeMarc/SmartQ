@@ -310,6 +310,27 @@ def ensure_queue_entries_table(conn):
             """
         )
         conn.commit()
+
+        # Ensure required columns exist (handles older schemas)
+        column_statements = [
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS queue_slug VARCHAR(255)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS queue_number INTEGER",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS queue_type VARCHAR(255)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS queue_purpose VARCHAR(255)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS fullname VARCHAR(255)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS phone VARCHAR(50)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS purpose TEXT",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'waiting'",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP"
+        ]
+
+        for stmt in column_statements:
+            try:
+                cur.execute(stmt)
+            except Exception as column_error:
+                # Log and continue; column may already exist with different definition
+                print(f"Warning: ensure_queue_entries_table column migration issue: {column_error}")
+        conn.commit()
         cur.close()
     except Exception as e:
         print(f"Error ensuring queue_entries table: {e}")
