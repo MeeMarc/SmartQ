@@ -51,6 +51,12 @@
       <input type="text" id="fullname" required>
       <label for="phone">Phone:</label>
       <input type="text" id="phone" required>
+      <label for="timeslot">Timeslot:</label>
+      <select id="timeslot" required>
+        <option value="Morning">Morning</option>
+        <option value="Afternoon">Afternoon</option>
+        <option value="Evening">Evening</option>
+      </select>
       <button type="submit">Submit</button>
     </form>
   </div>
@@ -193,7 +199,7 @@ function viewScans(qrId) {
       currentScans = data;
       qrDetailContainer.innerHTML = `
         <h3>Scans for QR #${qrId}</h3>
-        <input type="text" id="scanSearch" placeholder="Search by name or email">
+        <input type="text" id="scanSearch" placeholder="Search by name or phone">
         <div class="scan-list" id="scanList"></div>
       `;
       document.getElementById("scanSearch").addEventListener("input", filterScans);
@@ -205,11 +211,19 @@ function viewScans(qrId) {
 function renderScans(scans) {
   const scanList = document.getElementById("scanList");
   scanList.innerHTML = "";
-  if(scans.length === 0) scanList.innerHTML = "<p>No scans found.</p>";
+
+  if (scans.length === 0) {
+    scanList.innerHTML = "<p>No scans found.</p>";
+    return;
+  }
+
   scans.forEach(user => {
     const card = document.createElement("div");
     card.className = "scan-card";
-    card.innerHTML = `<strong>${user.fullname}</strong> - ${user.email} - ${user.scanned_at}`;
+    const phone = user.phone ? ` • ${user.phone}` : "";
+    const timeslot = user.timeslot ? ` • ${user.timeslot}` : "";
+    const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
+    card.innerHTML = `<strong>${user.fullname}</strong>${phone}${timeslot}${scannedAt}`;
     scanList.appendChild(card);
   });
 }
@@ -218,7 +232,9 @@ function renderScans(scans) {
 function filterScans() {
   const query = document.getElementById("scanSearch").value.toLowerCase();
   const filtered = currentScans.filter(user =>
-    user.fullname.toLowerCase().includes(query) || user.email.toLowerCase().includes(query)
+    (user.fullname && user.fullname.toLowerCase().includes(query)) ||
+    (user.phone && user.phone.toLowerCase().includes(query)) ||
+    (user.email && user.email.toLowerCase().includes(query))
   );
   renderScans(filtered);
 }
