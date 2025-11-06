@@ -433,3 +433,195 @@ h4 {
   color: #fff;
   opacity: 0;
 }
+
+/* =========================================================
+   DIGITAL TICKET STUB
+========================================================= */
+.ticket-stub {
+  max-width: 500px;
+  margin: 40px auto;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  animation: slideUp 0.6s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stub-header {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  text-align: center;
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.3);
+}
+
+.stub-header h2 {
+  color: #ffffff;
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.stub-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  margin: 5px 0 0 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.stub-body {
+  padding: 30px 25px;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.stub-qr-placeholder {
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.stub-icon {
+  font-size: 4rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.stub-info {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.stub-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border-left: 4px solid #667eea;
+}
+
+.stub-label {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stub-value {
+  font-size: 1rem;
+  color: #333;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-word;
+  max-width: 60%;
+}
+
+.stub-status {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stub-status.waiting {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 2px solid #ffeaa7;
+}
+
+.stub-status.completed {
+  background-color: #d4edda;
+  color: #155724;
+  border: 2px solid #c3e6cb;
+}
+
+.stub-footer {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  text-align: center;
+  border-top: 2px dashed rgba(255, 255, 255, 0.3);
+}
+
+.stub-footer p {
+  color: #ffffff;
+  margin: 5px 0;
+  font-size: 1rem;
+}
+
+.stub-footer strong {
+  font-weight: 700;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.stub-note {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Mobile responsive for ticket stub */
+@media (max-width: 768px) {
+  .ticket-stub {
+    max-width: 90%;
+    margin: 30px auto;
+  }
+  
+  .stub-header h2 {
+    font-size: 1.6rem;
+  }
+  
+  .stub-body {
+    padding: 25px 20px;
+  }
+  
+  .stub-value {
+    font-size: 0.9rem;
+    max-width: 55%;
+  }
+  
+  .stub-icon {
+    font-size: 3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .stub-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .stub-value {
+    max-width: 100%;
+    text-align: left;
+  }
+  
+  .stub-label {
+    font-size: 0.8rem;
+  }
+}

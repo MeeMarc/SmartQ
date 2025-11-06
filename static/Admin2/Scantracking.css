@@ -264,6 +264,29 @@ header {
   border: 1px solid #f5c6cb;
 }
 
+/* Done button */
+.done-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  white-space: nowrap;
+}
+
+.done-btn:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
+.done-btn:active {
+  transform: translateY(0);
+}
+
 /* =========================================================
    MODAL
 ========================================================= */

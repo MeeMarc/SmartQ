@@ -745,12 +745,19 @@ def get_qr_scans(qr_id):
         ensure_queue_entries_table(conn)
 
         # Fetch queue entries (users who filled the form / scanned the QR)
+        # Order by status (waiting first) then by created_at
         cur.execute(
             """
-            SELECT fullname, phone, purpose, status, created_at
+            SELECT id, fullname, phone, purpose, status, created_at
             FROM queue_entries
             WHERE queue_slug = %s AND queue_number = %s
-            ORDER BY created_at DESC
+            ORDER BY 
+                CASE 
+                    WHEN status = 'waiting' THEN 1
+                    WHEN status = 'completed' THEN 2
+                    ELSE 3
+                END,
+                created_at DESC
             """,
             (queue_slug, queue_number)
         )
@@ -759,11 +766,12 @@ def get_qr_scans(qr_id):
         scans = []
         for row in rows:
             scans.append({
-                "fullname": row[0] or "Unknown",
-                "phone": row[1] or "",
-                "purpose": row[2] or "",
-                "status": row[3] or "waiting",
-                "scanned_at": row[4].strftime('%Y-%m-%d %I:%M %p') if row[4] else ""
+                "id": row[0],
+                "fullname": row[1] or "Unknown",
+                "phone": row[2] or "",
+                "purpose": row[3] or "",
+                "status": row[4] or "waiting",
+                "scanned_at": row[5].strftime('%Y-%m-%d %I:%M %p') if row[5] else ""
             })
 
         cur.close()
@@ -776,6 +784,46 @@ def get_qr_scans(qr_id):
         import traceback
         traceback.print_exc()
         return jsonify([])
+
+@app.route('/update_queue_status', methods=['POST'])
+def update_queue_status():
+    """Update the status of a queue entry."""
+    try:
+        data = request.get_json()
+        entry_id = data.get('entry_id')
+        new_status = data.get('status', 'completed')
+        
+        if not entry_id:
+            return jsonify({"status": "error", "message": "Entry ID is required"}), 400
+        
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        cur.execute(
+            "UPDATE queue_entries SET status = %s WHERE id = %s",
+            (new_status, entry_id)
+        )
+        
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Entry not found"}), 404
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({"status": "success", "message": f"Status updated to {new_status}"})
+    except Exception as e:
+        print(f"Error updating queue status: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/add_candidate_modal', methods=['POST'])
 def add_candidate_modal():

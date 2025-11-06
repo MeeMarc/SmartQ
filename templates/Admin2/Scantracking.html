@@ -70,6 +70,39 @@ const candidateForm = document.getElementById("candidateForm");
 const modalQRLink = document.getElementById("modalQRLink");
 
 let currentScans = [];
+let currentQRId = null;
+
+// Mark entry as done
+function markAsDone(entryId, buttonElement) {
+  if (!confirm('Mark this user as served/completed?')) {
+    return;
+  }
+  
+  fetch('/update_queue_status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      entry_id: entryId,
+      status: 'completed'
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === 'success') {
+      alert('✅ User marked as completed!');
+      // Refresh the scan list
+      if (currentQRId) {
+        viewScans(currentQRId);
+      }
+    } else {
+      alert('❌ Error: ' + data.message);
+    }
+  })
+  .catch(err => {
+    console.error('Error marking as done:', err);
+    alert('❌ Failed to update status');
+  });
+}
 
 // Fetch QR List - shows all from qr_history (permanent history)
 function fetchQRList() {
@@ -193,6 +226,7 @@ candidateForm.addEventListener("submit", function(e) {
 
 // View scans for a specific QR
 function viewScans(qrId) {
+  currentQRId = qrId;
   fetch(`/get_qr_scans/${qrId}`)
     .then(res => res.json())
     .then(data => {
@@ -227,11 +261,14 @@ function renderScans(scans) {
     const statusClass = user.status === 'completed' ? 'status-completed' : user.status === 'cancelled' ? 'status-cancelled' : 'status-waiting';
     
     card.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: start;">
-        <div>
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+        <div style="flex: 1;">
           <strong>${user.fullname}</strong>${phone}${purpose}${scannedAt}
         </div>
-        <span class="status-badge ${statusClass}">${status}</span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="status-badge ${statusClass}">${status}</span>
+          ${user.status !== 'completed' ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
+        </div>
       </div>
     `;
     scanList.appendChild(card);

@@ -56,17 +56,57 @@
     </div>
   </section>
 
-  <!-- ======= QUEUE SUMMARY ======= -->
-  <section class="queue-card waiting">
-    <h3>🎉 Ticket Confirmed!</h3>
-    <div class="number">{{ queue_number }}</div>
-    <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
-    {% if queue_purpose %}
-    <p class="queue-purpose">{{ queue_purpose }}</p>
-    {% endif %}
-    <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
-    <p>Your ticket reference: <strong>{{ ticket_reference }}</strong></p>
-    <p class="queue-note">Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.</p>
+  <!-- ======= DIGITAL STUB / TICKET ======= -->
+  <section class="ticket-stub">
+    <div class="stub-header">
+      <h2>SmartQ</h2>
+      <p class="stub-subtitle">Online Queue Ticket</p>
+    </div>
+    
+    <div class="stub-body">
+      <div class="stub-qr-placeholder">
+        <div class="stub-icon">🎫</div>
+      </div>
+      
+      <div class="stub-info">
+        <div class="stub-row">
+          <span class="stub-label">Ticket Reference</span>
+          <span class="stub-value">{{ ticket_reference }}</span>
+        </div>
+        
+        <div class="stub-row">
+          <span class="stub-label">Name</span>
+          <span class="stub-value">{{ entry.fullname }}</span>
+        </div>
+        
+        <div class="stub-row">
+          <span class="stub-label">Service</span>
+          <span class="stub-value">{{ queue_type }}</span>
+        </div>
+        
+        {% if entry.phone %}
+        <div class="stub-row">
+          <span class="stub-label">Phone</span>
+          <span class="stub-value">{{ entry.phone }}</span>
+        </div>
+        {% endif %}
+        
+        <div class="stub-row">
+          <span class="stub-label">Status</span>
+          <span class="stub-status waiting">{{ entry.status|default('Waiting')|capitalize }}</span>
+        </div>
+        
+        <div class="stub-row">
+          <span class="stub-label">Registered</span>
+          <span class="stub-value">{{ entry.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="stub-footer">
+      <p>📱 <strong>Show this ticket to the staff</strong></p>
+      <p class="stub-note">Please have your documents ready when called</p>
+    </div>
   </section>
 
   <!-- ======= JAVASCRIPT ======= -->
