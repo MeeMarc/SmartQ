@@ -214,14 +214,24 @@
   // Delete QR
   async function deleteQR(index) {
     const qrToDelete = qrList[index];
-    let qrId = await resolveQrId(qrToDelete);
-
-    if (!qrId) {
-      alert("⚠️ Cannot delete: QR ID not found. Please try refreshing the page or regenerating the QR.");
+    const userConfirmed = confirm(`Please press OK to delete "${qrToDelete.type}" from the generated queues.`);
+    if (!userConfirmed) {
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete "${qrToDelete.type}"?`)) {
+    let qrId = await resolveQrId(qrToDelete);
+
+    if (!qrId) {
+      const forceRemove = confirm(
+        "⚠️ QR record was not found on the server.\n\n" +
+        "Choose OK to remove it locally from this list, or Cancel to keep it."
+      );
+      if (forceRemove) {
+        qrList.splice(index, 1);
+        localStorage.setItem("queues", JSON.stringify(qrList));
+        renderQRs();
+        alert("✅ QR entry removed locally.");
+      }
       return;
     }
 
