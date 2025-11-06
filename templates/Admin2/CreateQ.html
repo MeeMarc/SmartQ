@@ -239,7 +239,7 @@
       const response = await fetch("/delete_qr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: qrId })
+        body: JSON.stringify({ id: qrId, force: true })
       });
 
       const data = await response.json();

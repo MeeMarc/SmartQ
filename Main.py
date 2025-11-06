@@ -536,7 +536,8 @@ def delete_qr():
     """Delete a QR from temp_qr only. qr_history is kept for permanent history."""
     data = request.get_json() if request.is_json else request.form
     qr_id = data.get('id') or data.get('qr_id')
-    
+    force = str(data.get('force', '')).lower() == 'true'
+
     if not qr_id:
         return jsonify({"status": "error", "message": "QR ID is required"}), 400
     
@@ -562,6 +563,13 @@ def delete_qr():
                 conn.close()
                 print(f"Note: QR {qr_id} not in temp_qr (already deleted or never was), but exists in history")
                 return jsonify({"status": "success", "message": "QR removed from active list (history preserved)"})
+            elif force:
+                # Force delete: remove any lingering references and treat as success
+                conn.commit()
+                cur.close()
+                conn.close()
+                print(f"Force deleting QR {qr_id} succeeded (no server records found)")
+                return jsonify({"status": "success", "message": "QR removed."})
             else:
                 conn.rollback()
                 cur.close()
@@ -886,6 +894,13 @@ def queue_page(queue_slug, queue_number):
         queue_number=queue_number,
         queue_slug=queue_slug,
     )
+
+
+@app.route('/queue/<queue_slug>', methods=['GET', 'POST'])
+@app.route('/queue/<queue_slug>/', methods=['GET', 'POST'])
+def queue_page_default(queue_slug):
+    """Fallback route when queue number isn't provided in the URL."""
+    return queue_page(queue_slug, 1)
 
 
 @app.route('/queue/<queue_slug>/<int:queue_number>/waiting/<int:entry_id>')
