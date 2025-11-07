@@ -178,7 +178,6 @@ def scantracking():
 
 
 @app.route('/admin_settings', methods=['GET', 'POST'])
-@app.route('/admin_settings', methods=['GET', 'POST'])
 def admin_settings():
     if 'user_email' not in session:
         flash("Please log in first.")

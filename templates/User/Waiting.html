@@ -23,90 +23,35 @@
       <!-- Navigation Menu -->
       <ul class="navmenu" id="navmenu">
         <li><a href="{{ url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number) }}#paper-section" class="fill-up-link">Fill up Form</a></li>
-        <li class="dropdown">
-          <button id="toggleHistoryBtn">Transaction History</button>
-        </li>
       </ul>
     </nav>
   </header>
 
-  <!-- ======= HISTORY PANEL ======= -->
-  <section class="document-process-section">
-    <div id="historyContainer">
-      {% if recent_entries %}
-      <ul>
-        {% for item in recent_entries %}
-        <li>
-          <div class="history-row">
-            <div>
-              <strong>{{ item.fullname }}</strong>
-              {% if item.purpose %}
-              <span class="history-purpose">{{ item.purpose }}</span>
-              {% endif %}
-            </div>
-            <small>{{ item.created_at.strftime('%b %d, %Y %I:%M %p') }}</small>
-          </div>
-          <div class="history-status">Status: {{ item.status|default('waiting')|capitalize }}</div>
-        </li>
-        {% endfor %}
-      </ul>
+  <!-- ======= QUEUE SUMMARY ======= -->
+  <section class="queue-card {% if entry.status == 'completed' %}completed{% elif entry.status == 'cancelled' %}cancelled{% else %}waiting{% endif %}">
+    <h3>
+      {% if entry.status == 'completed' %}
+        ✅ Ticket Complete!
+      {% elif entry.status == 'cancelled' %}
+        ❌ Ticket Cancelled
       {% else %}
-      <p class="history-empty">No registrations have been recorded for this queue yet.</p>
+        🎉 Ticket Confirmed!
       {% endif %}
-    </div>
-  </section>
-
-  <!-- ======= DIGITAL STUB / TICKET ======= -->
-  <section class="ticket-stub">
-    <div class="stub-header">
-      <h2>SmartQ</h2>
-      <p class="stub-subtitle">Online Queue Ticket</p>
-    </div>
+    </h3>
+    <div class="number">{{ queue_number }}</div>
+    <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
+    {% if queue_purpose %}
+    <p class="queue-purpose">{{ queue_purpose }}</p>
+    {% endif %}
+    <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
+    <p>Your ticket reference: <strong>{{ ticket_reference }}</strong></p>
+    <p class="status-display">Status: <span class="status-badge status-{{ entry.status|default('waiting') }}">{{ entry.status|default('waiting')|capitalize }}</span></p>
+    <p class="queue-note">Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.</p>
     
-    <div class="stub-body">
-      <div class="stub-qr-placeholder">
-        <div class="stub-icon">🎫</div>
-      </div>
-      
-      <div class="stub-info">
-        <div class="stub-row">
-          <span class="stub-label">Ticket Reference</span>
-          <span class="stub-value">{{ ticket_reference }}</span>
-        </div>
-        
-        <div class="stub-row">
-          <span class="stub-label">Name</span>
-          <span class="stub-value">{{ entry.fullname }}</span>
-        </div>
-        
-        <div class="stub-row">
-          <span class="stub-label">Service</span>
-          <span class="stub-value">{{ queue_type }}</span>
-        </div>
-        
-        {% if entry.phone %}
-        <div class="stub-row">
-          <span class="stub-label">Phone</span>
-          <span class="stub-value">{{ entry.phone }}</span>
-        </div>
-        {% endif %}
-        
-        <div class="stub-row">
-          <span class="stub-label">Status</span>
-          <span class="stub-status waiting">{{ entry.status|default('Waiting')|capitalize }}</span>
-        </div>
-        
-        <div class="stub-row">
-          <span class="stub-label">Registered</span>
-          <span class="stub-value">{{ entry.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="stub-footer">
-      <p>📱 <strong>Show this ticket to the staff</strong></p>
-      <p class="stub-note">Please have your documents ready when called</p>
-    </div>
+    <!-- Cancel Button -->
+    {% if entry.status != 'cancelled' and entry.status != 'completed' %}
+    <button class="cancel-btn" onclick="confirmCancel()">Cancel Registration</button>
+    {% endif %}
   </section>
 
   <!-- ======= JAVASCRIPT ======= -->
@@ -117,40 +62,40 @@
 
   if (menuToggle && navMenu) {
     menuToggle.addEventListener("click", (e) => {
-      e.stopPropagation(); // prevent this click from closing the history
+      e.stopPropagation();
       menuToggle.classList.toggle("active");
       navMenu.classList.toggle("active");
     });
   }
 
-  // === TRANSACTION HISTORY TOGGLE ===
-  const toggleBtn = document.getElementById("toggleHistoryBtn");
-  const historyContainer = document.getElementById("historyContainer");
-
-  if (toggleBtn && historyContainer) {
-    toggleBtn.addEventListener("click", (e) => {
-      e.stopPropagation(); // prevent closing when clicking the button
-      const isVisible = historyContainer.style.display === "block";
-      historyContainer.style.display = isVisible ? "none" : "block";
-    });
-  }
-
-  // === CLOSE HISTORY WHEN CLICKING OUTSIDE ===
-  document.addEventListener("click", (event) => {
-    if (!historyContainer) return;
-
-    const isClickInsideHistory =
-      historyContainer.contains(event.target) ||
-      (toggleBtn && toggleBtn.contains(event.target));
-
-    const isClickOnMenu =
-      (navMenu && navMenu.contains(event.target)) || (menuToggle && menuToggle.contains(event.target));
-
-    // Close only if clicking outside both
-    if (!isClickInsideHistory && !isClickOnMenu) {
-      historyContainer.style.display = "none";
+  // === CANCEL REGISTRATION ===
+  function confirmCancel() {
+    if (confirm("Are you sure you want to cancel your registration? This action cannot be undone.")) {
+      const entryId = {{ entry.id }};
+      const queueSlug = "{{ queue_slug }}";
+      const queueNumber = {{ queue_number }};
+      
+      fetch(`/cancel_queue_entry/${entryId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          alert('✅ Registration cancelled successfully!');
+          window.location.reload();
+        } else {
+          alert('❌ Error: ' + data.message);
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Failed to cancel registration. Please try again.');
+      });
     }
-  });
+  }
 </script>
 
 </body>
