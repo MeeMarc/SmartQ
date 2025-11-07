@@ -29,7 +29,7 @@
 
       {% with messages = get_flashed_messages() %}
         {% if messages %}
-          <div class="flash">
+          <div class="flash-messages">
             {% for msg in messages %}
               <p>{{ msg }}</p>
             {% endfor %}
@@ -44,7 +44,7 @@
 <label>Email:</label>
 <p>{{ admin[1] if admin else '' }}</p> <!-- display as text -->
 
-<!-- ✅ Added Old Password -->
+<!-- Added Old Password -->
 <label>Old Password:</label>
 <div class="input-group">
   <input type="password" id="old_password" name="old_password" placeholder="Enter old password" required>
@@ -84,6 +84,25 @@ function togglePassword(id, el) {
     el.classList.add("fa-eye-slash");
   }
 }
+
+// Auto-dismiss flash messages after 4 seconds
+document.addEventListener('DOMContentLoaded', function() {
+  const flashMessages = document.querySelector('.flash-messages');
+  if (flashMessages) {
+    setTimeout(() => {
+      flashMessages.style.opacity = '0';
+      flashMessages.style.transform = 'translate(-50%, -45%)';
+      setTimeout(() => flashMessages.remove(), 300);
+    }, 4000);
+    
+    // Also allow clicking anywhere to dismiss
+    flashMessages.addEventListener('click', function() {
+      flashMessages.style.opacity = '0';
+      flashMessages.style.transform = 'translate(-50%, -45%)';
+      setTimeout(() => flashMessages.remove(), 300);
+    });
+  }
+});
 </script>
 
 </body>

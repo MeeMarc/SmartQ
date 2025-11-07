@@ -26,11 +26,11 @@
   </nav>
 </header>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
+{% with messages = get_flashed_messages() %}
   {% if messages %}
-  <div class="flash-container">
-    {% for category, message in messages %}
-      <div class="flash-message {{ category }}">{{ message }}</div>
+  <div class="flash-messages">
+    {% for message in messages %}
+      <p>{{ message }}</p>
     {% endfor %}
   </div>
   {% endif %}
@@ -88,7 +88,7 @@
     </div>
   </div>
 
-  <!-- ✅ Navigation Buttons -->
+  <!-- Navigation Buttons -->
   <div class="slider-controls">
     <button id="prevBtn">❮ Prev</button>
     <button id="nextBtn">Next ❯</button>
@@ -104,7 +104,7 @@
     <h3>Registration Form</h3>
     <p class="form-description">Kindly provide accurate information so we can assist you with <strong>{{ queue_type|default('your requested documents', true) }}</strong>.</p>
 
-    <!-- ✅ New read-only textarea for scanned QR -->
+    <!-- New read-only textarea for scanned QR -->
     <div class="form-row">
       <label for="qrData">Documents</label>
       <div id="qrDisplay" class="qr-display-box {% if (queue_type is defined and queue_type) or (queue_purpose is defined and queue_purpose) %}filled{% endif %}">
@@ -117,7 +117,7 @@
     <input type="hidden" name="queue_number" value="{{ queue_number|default('', true) }}">
     <input type="hidden" name="queue_slug" value="{{ queue_slug|default('', true) }}">
 
-    <!-- ✅ Full Name (with hint inside field) -->
+    <!-- Full Name (with hint inside field) -->
     <div class="form-row">
       <label for="fullname">Full Name:</label>
       <div class="input-wrapper">
@@ -131,19 +131,19 @@
       </div>
     </div>
 
-    <!-- ✅ Phone Number -->
+    <!-- Phone Number -->
     <div class="form-row">
       <label for="phone">Phone Number:</label>
       <textarea id="phone" name="phone" rows="1" placeholder="09*********" required></textarea>
     </div>
 
-    <!-- ✅ Purpose -->
+    <!-- Purpose -->
     <div class="form-row">
       <label for="purpose">Purpose:</label>
       <textarea id="purpose" name="purpose" rows="4" placeholder="Optional"></textarea>
     </div>
 
-    <!-- ✅ Submit Button -->
+    <!-- Submit Button -->
     <div class="form-row">
       <button type="submit">Submit</button>
     </div>
@@ -242,7 +242,26 @@
   }
 </script>
 
-
+<script>
+// Auto-dismiss flash messages after 4 seconds
+document.addEventListener('DOMContentLoaded', function() {
+  const flashMessages = document.querySelector('.flash-messages');
+  if (flashMessages) {
+    setTimeout(() => {
+      flashMessages.style.opacity = '0';
+      flashMessages.style.transform = 'translate(-50%, -45%)';
+      setTimeout(() => flashMessages.remove(), 300);
+    }, 4000);
+    
+    // Also allow clicking anywhere to dismiss
+    flashMessages.addEventListener('click', function() {
+      flashMessages.style.opacity = '0';
+      flashMessages.style.transform = 'translate(-50%, -45%)';
+      setTimeout(() => flashMessages.remove(), 300);
+    });
+  }
+});
+</script>
 
 </body>
 </html>

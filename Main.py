@@ -43,10 +43,10 @@ def get_db_connection():
         # Get the DATABASE_URL and remove any hidden newline or space
         db_url = os.getenv("DATABASE_URL", "").strip()
         conn = psycopg2.connect(db_url)
-        print("✅ Database connected successfully!")
+        print("Database connected successfully!")
         return conn
     except Exception as e:
-        print("❌ Database connection failed:", e)
+        print("Database connection failed:", e)
         return None
 
 
@@ -64,7 +64,7 @@ def signup():
         confirm = request.form['confirm_password']
 
         if password != confirm:
-            flash("❌ Passwords do not match.")
+            flash("Passwords do not match.")
             return redirect(url_for('signup'))
 
         hashed_password = generate_password_hash(password)
@@ -79,13 +79,13 @@ def signup():
             conn.commit()
             cur.close()
             conn.close()
-            flash("✅ Account created! You can now log in.")
+            flash("Account created! You can now log in.")
             return redirect(url_for('login'))
 
         except errors.UniqueViolation:
-            flash("⚠️ Email already exists.")
+            flash("Email already exists.")
         except Exception as e:
-            flash(f"❌ Error: {str(e)}")
+            flash(f"Error: {str(e)}")
 
     return render_template('Admin/SignUp.html')
 
@@ -105,22 +105,22 @@ def login():
             conn.close()
 
             if not user:
-                flash("⚠️ Account not found! Please sign up.")
+                flash("Account not found! Please sign up.")
                 return redirect(url_for('signup'))
 
             if not check_password_hash(user[3], password):
-                flash("❌ Incorrect password.")
+                flash("Incorrect password.")
                 return redirect(url_for('login'))
 
-            # ✅ Store user info in session
+            # Store user info in session
             session['user_email'] = email
             session['user_fullname'] = user[1]
 
-            flash("✅ Login successful!")
+            flash("Login successful!")
             return redirect(url_for('homepage'))
 
         except Exception as e:
-            flash(f"❌ Error: {str(e)}")
+            flash(f"Error: {str(e)}")
 
     return render_template('Admin/login.html')
 
@@ -165,9 +165,9 @@ def addcandidate():
             conn.commit()
             cur.close()
             conn.close()
-            flash("✅ Candidate added successfully!")
+            flash("Candidate added successfully!")
         except Exception as e:
-            flash(f"❌ Error adding candidate: {str(e)}")
+            flash(f"Error adding candidate: {str(e)}")
 
     return render_template('Admin2/AddCandidate.html')
 
@@ -188,7 +188,7 @@ def admin_settings():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # ✅ Fetch fullname, email, and password for verification
+    # Fetch fullname, email, and password for verification
     cur.execute("SELECT fullname, email, password FROM users WHERE email = %s", (email,))
     admin = cur.fetchone()
 
@@ -200,23 +200,23 @@ def admin_settings():
 
         current_hashed_pw = admin[2]  # stored hashed password
 
-        # ✅ If changing password
+        # If changing password
         if new_password:
             if not check_password_hash(current_hashed_pw, old_password):
-                flash("❌ Old password is incorrect.")
+                flash("Old password is incorrect.")
             elif new_password != confirm_password:
-                flash("❌ New passwords do not match.")
+                flash("New passwords do not match.")
             else:
                 hashed_pw = generate_password_hash(new_password)
                 cur.execute(
                     "UPDATE users SET fullname = %s, password = %s WHERE email = %s",
                     (fullname, hashed_pw, email)
                 )
-                flash("✅ Name and password updated successfully!")
+                flash("Name and password updated successfully!")
         else:
-            # ✅ Only update name if no new password
+            # Only update name if no new password
             cur.execute("UPDATE users SET fullname = %s WHERE email = %s", (fullname, email))
-            flash("✅ Name updated successfully!")
+            flash("Name updated successfully!")
 
         conn.commit()
         cur.close()
@@ -232,7 +232,7 @@ def admin_settings():
 @app.route('/logout')
 def logout():
     session.clear()
-    flash("👋 Logged out successfully.")
+    flash("Logged out successfully.")
     return redirect(url_for('login'))
 
 
@@ -597,7 +597,7 @@ def delete_qr():
         cur.close()
         conn.close()
         
-        print(f"✅ QR {qr_id} deleted from temp_qr (history preserved)")
+        print(f"QR {qr_id} deleted from temp_qr (history preserved)")
         return jsonify({"status": "success", "message": "QR removed from active list. History preserved."})
     except Exception as e:
         print(f"Error deleting QR: {e}")

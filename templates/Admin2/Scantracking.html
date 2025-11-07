@@ -89,18 +89,18 @@ function markAsDone(entryId, buttonElement) {
   .then(res => res.json())
   .then(data => {
     if (data.status === 'success') {
-      alert('✅ User marked as completed!');
+      alert('User marked as completed!');
       // Refresh the scan list
       if (currentQRId) {
         viewScans(currentQRId);
       }
     } else {
-      alert('❌ Error: ' + data.message);
+      alert('Error: ' + data.message);
     }
   })
   .catch(err => {
     console.error('Error marking as done:', err);
-    alert('❌ Failed to update status');
+    alert('Failed to update status');
   });
 }
 
@@ -210,7 +210,7 @@ candidateForm.addEventListener("submit", function(e) {
   .then(res => res.json())
   .then(resp => {
     if(resp.status === "success") {
-      alert("✅ Candidate added successfully!");
+      alert("Candidate added successfully!");
       closeModal();
       // Refresh scans if currently viewing the QR
       const displayedQR = document.querySelector(`#qrDetailContainer h3`);
@@ -218,7 +218,7 @@ candidateForm.addEventListener("submit", function(e) {
         viewScans(resp.qr_id);
       }
     } else {
-      alert("❌ Error: " + resp.message);
+      alert("Error: " + resp.message);
     }
   })
   .catch(err => console.error(err));

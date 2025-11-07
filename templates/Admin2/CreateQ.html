@@ -115,7 +115,7 @@
     const afternoonCount = parseInt(document.getElementById("afternoonCount").value);
 
     if (morningCount + afternoonCount !== dailyCapacity) {
-      alert("⚠️ Morning + Afternoon counts must equal Total Users Per Day!");
+      alert("Morning + Afternoon counts must equal Total Users Per Day!");
       return;
     }
 
@@ -138,7 +138,7 @@
         throw new Error(data.error);
       }
       
-      console.log("✅ QR saved with auto-generated URL:", data);
+      console.log("QR saved with auto-generated URL:", data);
       
       // Add to local list with auto-generated link
       const newQR = { 
@@ -159,7 +159,7 @@
     .catch(err => {
       console.error("Error generating QR:", err);
       const errorMsg = err.message || 'Please try again.';
-      alert(`❌ Error generating QR: ${errorMsg}\n\nCheck browser console (F12) for details.`);
+      alert(`Error generating QR: ${errorMsg}\n\nCheck browser console (F12) for details.`);
       
       // Log full error details
       console.error("Full error details:", {
@@ -223,14 +223,14 @@
 
     if (!qrId) {
       const forceRemove = confirm(
-        "⚠️ QR record was not found on the server.\n\n" +
+        "QR record was not found on the server.\n\n" +
         "Choose OK to remove it locally from this list, or Cancel to keep it."
       );
       if (forceRemove) {
         qrList.splice(index, 1);
         localStorage.setItem("queues", JSON.stringify(qrList));
         renderQRs();
-        alert("✅ QR entry removed locally.");
+        alert("QR entry removed locally.");
       }
       return;
     }
@@ -249,8 +249,8 @@
         qrList.splice(index, 1);
         localStorage.setItem("queues", JSON.stringify(qrList));
         renderQRs();
-        console.log("✅ QR deleted successfully");
-        alert("✅ QR deleted successfully!");
+        console.log("QR deleted successfully");
+        alert("QR deleted successfully!");
       } else {
         throw new Error(data.message || "Failed to delete QR");
       }
@@ -258,7 +258,7 @@
       console.error("Error deleting QR:", err);
       // Force remove from localStorage anyway since backend may have already deleted it
       const forceRemove = confirm(
-        `❌ Server error: ${err.message}\n\n` +
+        `Server error: ${err.message}\n\n` +
         "The QR may already be deleted on the server.\n" +
         "Choose OK to remove it from this list anyway."
       );
@@ -266,7 +266,7 @@
         qrList.splice(index, 1);
         localStorage.setItem("queues", JSON.stringify(qrList));
         renderQRs();
-        alert("✅ QR entry removed from list.");
+        alert("QR entry removed from list.");
       }
     }
   }

@@ -21,6 +21,15 @@
 
   <!-- Right Panel -->
   <div class="right">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
     <h2>Create Account</h2>
     <form method="POST" action="{{ url_for('signup') }}" enctype="multipart/form-data">
       <label for="fullname">Full Name</label>
@@ -82,7 +91,26 @@
     document.getElementById("teacher_id_upload").addEventListener("change", function(event) {
       if (event.target.files.length > 0) {
         let fileName = event.target.files[0].name;
-        alert("✅ Teacher ID uploaded: " + fileName);
+        alert("Teacher ID uploaded: " + fileName);
+      }
+    });
+
+    // Auto-dismiss flash messages after 4 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+      const flashMessages = document.querySelector('.flash-messages');
+      if (flashMessages) {
+        setTimeout(() => {
+          flashMessages.style.opacity = '0';
+          flashMessages.style.transform = 'translate(-50%, -45%)';
+          setTimeout(() => flashMessages.remove(), 300);
+        }, 4000);
+        
+        // Also allow clicking anywhere to dismiss
+        flashMessages.addEventListener('click', function() {
+          flashMessages.style.opacity = '0';
+          flashMessages.style.transform = 'translate(-50%, -45%)';
+          setTimeout(() => flashMessages.remove(), 300);
+        });
       }
     });
   </script>
