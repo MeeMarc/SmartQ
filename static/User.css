@@ -924,41 +924,19 @@ html {
   opacity: 0.7;
 }
 
-/* =========================================================
-   READ-ONLY QR TEXTAREA STYLES
-========================================================= */
 .qr-display-box {
-  width: 100%;
-  background-color: #f5f7fb;
-  border: 1px solid #000;
-  border-radius: 10px;
-  padding: 14px 16px;
-  font-family: 'Montserrat', sans-serif;
-  cursor: not-allowed;
-  transition: all 0.3s ease;
-  box-sizing: border-box;
-  min-height: 70px;
+  width: 100%;                     /* Full width of container */
+  background-color: #f5f7fb;       /* Light gray-blue background */
+  border: 1px solid #000;          /* Solid black border */
+  border-radius: 10px;             /* Rounded corners */
+  padding: 14px 16px;              /* Internal spacing */
+  font-family: 'Montserrat', sans-serif; /* Custom font */
+  cursor: not-allowed;             /* Indicates read-only state */
+  transition: all 0.3s ease;       /* Smooth visual transition for hover/fill changes */
+  box-sizing: border-box;          /* Include padding/border in width */
+  min-height: 70px;                /* Ensures a minimum height */
 }
 
-.qr-display-box .doc-name {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  display: block;
-}
-
-.qr-display-box .doc-desc {
-  font-size: 1rem;
-  color: #888;
-  margin-top: 4px;
-  display: block;
-}
-
-.qr-display-box.filled {
-  background-color: #e9f9ee;
-  border-color: #28a745;
-  box-shadow: 0 0 8px rgba(40, 167, 69, 0.3);
-}
 
 /* =========================================================
    RESPONSIVE FIX
