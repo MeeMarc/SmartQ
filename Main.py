@@ -931,12 +931,29 @@ def queue_page(queue_slug, queue_number):
     queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
 
     if request.method == 'POST':
-        fullname = (request.form.get('fullname') or '').strip()
+        # Get individual name fields
+        lastname = (request.form.get('lastname') or '').strip()
+        firstname = (request.form.get('firstname') or '').strip()
+        middleinitial = (request.form.get('middleinitial') or '').strip()
+        suffix = (request.form.get('suffix') or '').strip()
+        
+        # Construct fullname from separate fields
+        # Format: "Lastname, Firstname M.I. Suffix"
+        name_parts = [lastname, firstname]
+        if middleinitial:
+            name_parts.append(middleinitial)
+        if suffix:
+            name_parts.append(suffix)
+        
+        fullname = ', '.join(name_parts[:2]) if len(name_parts) >= 2 else ' '.join(name_parts)
+        if len(name_parts) > 2:
+            fullname += ' ' + ' '.join(name_parts[2:])
+        
         phone = (request.form.get('phone') or '').strip()
         purpose = (request.form.get('purpose') or '').strip()
 
-        if not fullname or not phone:
-            flash("Please provide your full name and phone number to join the queue.", "error")
+        if not lastname or not firstname or not phone:
+            flash("Please provide your last name, first name, and phone number to join the queue.", "error")
             return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
         conn = None
