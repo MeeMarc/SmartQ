@@ -1066,7 +1066,7 @@ html {
 
 
 /* =========================================================
-   FULL NAME — 4 CONTAINER LAYOUT (NEW)
+   FULL NAME — 4 CONTAINER LAYOUT
 ========================================================= */
 .full-name {
   display: flex;
@@ -1095,7 +1095,7 @@ html {
 .name-container input {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid #000000;
+  border: 1px solid #000;
   border-radius: 10px;
   font-size: 1rem;
   background-color: #f5f7fb;
@@ -1110,7 +1110,7 @@ html {
   background-color: #ffffff;
 }
 
-/* Responsive layout for smaller screens */
+/* Responsive layout */
 @media (max-width: 820px) {
   .full-name .name-fields {
     grid-template-columns: repeat(2, 1fr);
