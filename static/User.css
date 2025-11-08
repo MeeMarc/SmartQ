@@ -274,38 +274,6 @@ header {
   }
 }
 
-@media (max-width: 480px) {
-  .queue-hero {
-    padding: 2.5rem 1rem; /* reduced padding for small phones */
-  }
-
-  .hero-text h1 {
-    font-size: 1.6rem; /* slightly smaller */
-  }
-
-  .hero-text p {
-    font-size: 0.95rem; /* slightly smaller */
-  }
-
-  .hero-chip {
-    font-size: 0.75rem; /* smaller chip */
-    padding: 0.45rem 0.9rem; /* reduce padding */
-  }
-
-  .queue-number-card {
-    min-width: 120px; /* smaller card */
-    padding: 0.85rem 1.2rem; /* reduce padding */
-  }
-
-  .queue-number-card strong {
-    font-size: 1.8rem; /* smaller number */
-  }
-
-  .hero-meta {
-    gap: 0.3rem; /* even tighter spacing */
-    align-items: center;
-  }
-}
 
 
 
