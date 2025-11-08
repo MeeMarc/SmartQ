@@ -483,7 +483,6 @@ header {
   .HomeIntroSection,
   .HomeHowItWorksSection {
     padding: 60px 20px;
-    min-height: auto;
   }
 
   .HomeIntroSection .HomeRow,
