@@ -117,19 +117,29 @@
     <input type="hidden" name="queue_number" value="{{ queue_number|default('', true) }}">
     <input type="hidden" name="queue_slug" value="{{ queue_slug|default('', true) }}">
 
-    <!-- Full Name (with hint inside field) -->
-    <div class="form-row">
-      <label for="fullname">Full Name:</label>
-      <div class="input-wrapper">
-        <input type="text" id="fullname" name="fullname" required>
-        <div class="name-hint">
-          <span>Last Name,</span>
-          <span>First Name</span>
-          <span>Middle Initial</span>
-          <span>Suffix</span>
-        </div>
-      </div>
+<!-- Full Name (split into 4 containers) -->
+<div class="form-row full-name">
+  <label>Full Name:</label>
+  <div class="name-fields">
+    <div class="name-container">
+      <label for="lastname">Last Name</label>
+      <input type="text" id="lastname" name="lastname" required>
     </div>
+    <div class="name-container">
+      <label for="firstname">First Name</label>
+      <input type="text" id="firstname" name="firstname" required>
+    </div>
+    <div class="name-container">
+      <label for="middleinitial">Middle Initial</label>
+      <input type="text" id="middleinitial" name="middleinitial" maxlength="1">
+    </div>
+    <div class="name-container">
+      <label for="suffix">Suffix</label>
+      <input type="text" id="suffix" name="suffix" placeholder="Jr., Sr., III">
+    </div>
+  </div>
+</div>
+
 
     <!-- Phone Number -->
     <div class="form-row">

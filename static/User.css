@@ -1063,3 +1063,62 @@ input[type="text"] {
 html {
   scroll-behavior: smooth;
 }
+
+
+/* =========================================================
+   FULL NAME — 4 CONTAINER LAYOUT (NEW)
+========================================================= */
+.full-name {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.full-name .name-fields {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.name-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.name-container label {
+  font-weight: 600;
+  color: #000;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+}
+
+.name-container input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #000000;
+  border-radius: 10px;
+  font-size: 1rem;
+  background-color: #f5f7fb;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.name-container input:focus {
+  border-color: #003366;
+  box-shadow: 0 0 8px rgba(0, 51, 102, 0.2);
+  outline: none;
+  background-color: #ffffff;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 820px) {
+  .full-name .name-fields {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .full-name .name-fields {
+    grid-template-columns: 1fr;
+  }
+}
