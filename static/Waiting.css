@@ -264,6 +264,12 @@ header {
 .queue-card.waiting {
   background: linear-gradient(135deg, #11998e, #38ef7d);
 }
+.queue-card.completed {
+  background: linear-gradient(135deg, #28a745, #20c997);
+}
+.queue-card.cancelled {
+  background: linear-gradient(135deg, #dc3545, #e55353);
+}
 .queue-card.turn {
   background: linear-gradient(135deg, #00c6ff, #0072ff);
 }
@@ -301,6 +307,57 @@ header {
   margin-top: 18px;
   font-size: 0.95rem;
   color: rgba(255, 255, 255, 0.9);
+}
+
+/* Status Display and Badge */
+.status-display {
+  margin: 18px 0;
+  font-size: 1.1rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-waiting {
+  background-color: rgba(255, 243, 205, 0.9);
+  color: #856404;
+}
+
+.status-completed {
+  background-color: rgba(212, 237, 218, 0.95);
+  color: #155724;
+}
+
+.status-cancelled {
+  background-color: rgba(248, 215, 218, 0.95);
+  color: #721c24;
+}
+
+/* Cancel Button */
+.cancel-btn {
+  margin-top: 20px;
+  padding: 12px 24px;
+  background-color: rgba(220, 53, 69, 0.9);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background-color: #c82333;
+  border-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 /* =========================================================
@@ -363,6 +420,20 @@ header {
     margin: 20px auto;
     font-size: 0.95rem;
   }
+
+  .cancel-btn {
+    width: 100%;
+    padding: 14px 20px;
+  }
+
+  .status-display {
+    font-size: 1rem;
+  }
+
+  .status-badge {
+    font-size: 0.85rem;
+    padding: 5px 12px;
+  }
 }
 
 @media (max-width: 600px) {
@@ -408,20 +479,122 @@ header {
     gap: 0.5rem;
   }
 
-  #historyContainer {
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-  }
-
   .queue-card {
     width: 100%;
     margin: 18px auto;
+    padding: 18px 15px;
   }
 
   .queue-name,
   .queue-purpose {
     font-size: 0.95rem;
+  }
+
+  .queue-card .number {
+    font-size: 2rem;
+  }
+
+  .cancel-btn {
+    width: 100%;
+    padding: 12px 18px;
+    font-size: 0.95rem;
+  }
+
+  .status-display {
+    font-size: 0.95rem;
+  }
+
+  .status-badge {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+  }
+}
+
+/* Enhanced mobile responsiveness for very small devices */
+@media (max-width: 380px) {
+  .queue-card {
+    width: 100%;
+    max-width: 100%;
+    margin: 15px auto;
+    padding: 16px 12px;
+  }
+
+  .queue-card h3 {
+    font-size: 1.1rem;
+  }
+
+  .queue-card .number {
+    font-size: 1.8rem;
+    margin: 12px 0;
+  }
+
+  .queue-card p {
+    font-size: 0.9rem;
+  }
+
+  .queue-name,
+  .queue-purpose {
+    font-size: 0.85rem;
+  }
+
+  .queue-note {
+    font-size: 0.85rem;
+  }
+
+  .cancel-btn {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+
+  .navbar {
+    padding: 0.75rem 1rem;
+  }
+
+  .logo {
+    font-size: 1.3rem;
+  }
+
+  .menu-toggle {
+    width: 26px;
+    height: 22px;
+  }
+
+  .navmenu {
+    width: 180px;
+  }
+
+  .navmenu a,
+  .navmenu button {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 320px) {
+  .queue-card {
+    padding: 14px 10px;
+    margin: 12px auto;
+  }
+
+  .queue-card h3 {
+    font-size: 1rem;
+  }
+
+  .queue-card .number {
+    font-size: 1.6rem;
+  }
+
+  .queue-card p {
+    font-size: 0.85rem;
+  }
+
+  .status-badge {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+  }
+
+  .cancel-btn {
+    padding: 10px 14px;
+    font-size: 0.85rem;
   }
 }
 
@@ -434,194 +607,130 @@ h4 {
   opacity: 0;
 }
 
-/* =========================================================
-   DIGITAL TICKET STUB
-========================================================= */
-.ticket-stub {
-  max-width: 500px;
-  margin: 40px auto;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-  animation: slideUp 0.6s ease-out;
-}
+/* Additional Mobile Fixes for Queue Number Visibility */
 
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.stub-header {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  padding: 20px;
-  text-align: center;
-  border-bottom: 2px dashed rgba(255, 255, 255, 0.3);
-}
-
-.stub-header h2 {
-  color: #ffffff;
-  font-size: 2rem;
-  font-weight: 700;
-  margin: 0;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.stub-subtitle {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.9rem;
-  margin: 5px 0 0 0;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-
-.stub-body {
-  padding: 30px 25px;
-  background: rgba(255, 255, 255, 0.95);
-}
-
-.stub-qr-placeholder {
-  text-align: center;
-  margin-bottom: 25px;
-}
-
-.stub-icon {
-  font-size: 4rem;
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-}
-
-.stub-info {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.stub-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 15px;
-  background: #f8f9fa;
-  border-radius: 10px;
-  border-left: 4px solid #667eea;
-}
-
-.stub-label {
-  font-size: 0.85rem;
-  color: #666;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stub-value {
-  font-size: 1rem;
-  color: #333;
-  font-weight: 600;
-  text-align: right;
-  word-break: break-word;
-  max-width: 60%;
-}
-
-.stub-status {
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stub-status.waiting {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 2px solid #ffeaa7;
-}
-
-.stub-status.completed {
-  background-color: #d4edda;
-  color: #155724;
-  border: 2px solid #c3e6cb;
-}
-
-.stub-footer {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  padding: 20px;
-  text-align: center;
-  border-top: 2px dashed rgba(255, 255, 255, 0.3);
-}
-
-.stub-footer p {
-  color: #ffffff;
-  margin: 5px 0;
-  font-size: 1rem;
-}
-
-.stub-footer strong {
-  font-weight: 700;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.stub-note {
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-/* Mobile responsive for ticket stub */
+/* Ensure queue number card is always visible and properly sized */
 @media (max-width: 768px) {
-  .ticket-stub {
-    max-width: 90%;
-    margin: 30px auto;
+  .queue-number-card {
+    /* Force better visibility */
+    display: block !important;
+    visibility: visible !important;
+    box-sizing: border-box;
+    /* Ensure it doesn't get clipped */
+    overflow: visible;
+    /* Add more prominent shadow for visibility */
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
   }
   
-  .stub-header h2 {
-    font-size: 1.6rem;
-  }
-  
-  .stub-body {
-    padding: 25px 20px;
-  }
-  
-  .stub-value {
-    font-size: 0.9rem;
-    max-width: 55%;
-  }
-  
-  .stub-icon {
-    font-size: 3rem;
+  /* Ensure the hero meta section doesn't cause layout issues */
+  .hero-meta {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
   }
 }
 
-@media (max-width: 480px) {
-  .stub-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+/* Specific fixes for iPhone SE, iPhone 12 Mini, and similar small devices */
+@media (max-width: 430px) and (min-width: 320px) {
+  .queue-number-card {
+    width: calc(100% - 2rem);
+    max-width: 240px;
+    min-width: unset;
+    margin: 0 auto;
+    padding: 1rem 1.5rem;
+    /* Ensure proper stacking context */
+    position: relative;
+    z-index: 10;
   }
-  
-  .stub-value {
+
+  .queue-number-card span {
+    font-size: 0.85rem;
+    display: block;
+    font-weight: 600;
+  }
+
+  .queue-number-card strong {
+    font-size: 2rem;
+    display: block;
+    line-height: 1.2;
+  }
+}
+
+/* Fix for very narrow devices (older phones, small screens) */
+@media (max-width: 360px) {
+  body {
+    min-width: 320px;
+  }
+
+  .queue-hero {
+    min-height: auto;
+    padding: 2rem 0.5rem !important;
+  }
+
+  .hero-content {
+    width: 100%;
     max-width: 100%;
-    text-align: left;
   }
-  
-  .stub-label {
+
+  .queue-number-card {
+    width: calc(100% - 1rem);
+    max-width: 220px;
+    padding: 0.9rem 1.3rem;
+  }
+
+  .queue-number-card span {
     font-size: 0.8rem;
   }
+
+  .queue-number-card strong {
+    font-size: 1.8rem;
+  }
 }
+
+/* Landscape orientation fixes for mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  .queue-hero {
+    padding: 1.5rem 1rem;
+  }
+
+  .hero-content {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .hero-text h1 {
+    font-size: 1.4rem;
+  }
+
+  .queue-number-card {
+    min-width: 120px;
+    padding: 0.7rem 1rem;
+  }
+
+  .queue-number-card strong {
+    font-size: 1.5rem;
+  }
+}
+
+/* Ensure form elements are also properly sized on all devices */
+@media (max-width: 450px) {
+  .paper-form {
+    width: calc(100% - 2rem);
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 24px 18px;
+  }
+
+  .full-name .name-fields {
+    gap: 10px;
+  }
+
+  .paper-form input,
+  .paper-form textarea,
+  .paper-form select {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
