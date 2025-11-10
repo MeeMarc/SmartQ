@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Create Queue | SmartQ</title>
+  <!-- Updated 2025-11-10: Service time, schedule, and staff management -->
   <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/CreateQ.css') }}" />
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
 </head>
@@ -41,15 +42,34 @@
           <em>✓ URL will be automatically generated based on Queue Type</em>
         </p>
 
-        <!-- 🆕 NEW CAPACITY FEATURE -->
-        <label for="dailyCapacity">Total Users Per Day:</label>
-        <input type="number" id="dailyCapacity" min="1" placeholder="e.g. 20" required>
+        <!-- Average Service Time per Customer -->
+        <label for="avgServiceTime">Average Service Time per Customer (in minutes):</label>
+        <input type="number" id="avgServiceTime" min="1" placeholder="e.g. 15" required>
 
-        <label>Split Between:</label>
-        <div class="split-container">
-          <input type="number" id="morningCount" min="0" placeholder="Morning (e.g. 10)" required>
-          <input type="number" id="afternoonCount" min="0" placeholder="Afternoon (e.g. 10)" required>
+        <!-- Total Available Service Time -->
+        <label>Total Available Service Time:</label>
+        <div class="time-slots-container">
+          <div class="time-slot">
+            <label for="morningStart" style="font-size: 0.9rem; font-weight: 500;">Morning Start:</label>
+            <input type="time" id="morningStart" value="08:00" required>
+          </div>
+          <div class="time-slot">
+            <label for="morningEnd" style="font-size: 0.9rem; font-weight: 500;">Morning End (Lunch Break):</label>
+            <input type="time" id="morningEnd" value="12:00" required>
+          </div>
+          <div class="time-slot">
+            <label for="afternoonStart" style="font-size: 0.9rem; font-weight: 500;">Afternoon Start:</label>
+            <input type="time" id="afternoonStart" value="13:00" required>
+          </div>
+          <div class="time-slot">
+            <label for="afternoonEnd" style="font-size: 0.9rem; font-weight: 500;">Afternoon End (Time Out):</label>
+            <input type="time" id="afternoonEnd" value="17:00" required>
+          </div>
         </div>
+
+        <!-- Number of Staff/Window -->
+        <label for="staffCount">Number of Staff/Windows:</label>
+        <input type="number" id="staffCount" min="1" placeholder="e.g. 3" required>
 
         <div class="button-container">
           <button type="submit">Generate QR</button>
@@ -83,8 +103,11 @@
         <h4>${item.type}</h4>
         <p>${item.purpose}</p>
         ${item.queueNumber ? `<p><strong>Queue #${item.queueNumber}</strong></p>` : ''}
-        <p><strong>Capacity:</strong> ${item.dailyCapacity} total  
-        (Morning: ${item.morningCount}, Afternoon: ${item.afternoonCount})</p>
+        <p><strong>Avg Service Time:</strong> ${item.avgServiceTime} min</p>
+        <p><strong>Staff/Windows:</strong> ${item.staffCount}</p>
+        <p><strong>Schedule:</strong><br>
+        Morning: ${item.morningStart} - ${item.morningEnd}<br>
+        Afternoon: ${item.afternoonStart} - ${item.afternoonEnd}</p>
         <div id="qr${index}"></div>
         <p><small><strong>URL:</strong> ${item.link}</small></p>
         <div class="qr-actions">
@@ -110,12 +133,24 @@
 
     const type = document.getElementById("queueType").value.trim();
     const purpose = document.getElementById("queuePurpose").value.trim();
-    const dailyCapacity = parseInt(document.getElementById("dailyCapacity").value);
-    const morningCount = parseInt(document.getElementById("morningCount").value);
-    const afternoonCount = parseInt(document.getElementById("afternoonCount").value);
+    const avgServiceTime = parseInt(document.getElementById("avgServiceTime").value);
+    const morningStart = document.getElementById("morningStart").value;
+    const morningEnd = document.getElementById("morningEnd").value;
+    const afternoonStart = document.getElementById("afternoonStart").value;
+    const afternoonEnd = document.getElementById("afternoonEnd").value;
+    const staffCount = parseInt(document.getElementById("staffCount").value);
 
-    if (morningCount + afternoonCount !== dailyCapacity) {
-      alert("Morning + Afternoon counts must equal Total Users Per Day!");
+    // Validate time slots
+    if (morningStart >= morningEnd) {
+      alert("Morning start time must be before morning end time!");
+      return;
+    }
+    if (afternoonStart >= afternoonEnd) {
+      alert("Afternoon start time must be before afternoon end time!");
+      return;
+    }
+    if (morningEnd > afternoonStart) {
+      alert("Please ensure there's a break between morning and afternoon sessions!");
       return;
     }
 
@@ -123,7 +158,7 @@
     fetch("/generate_qr_db", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&dailyCapacity=${dailyCapacity}&morningCount=${morningCount}&afternoonCount=${afternoonCount}`
+      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&avgServiceTime=${avgServiceTime}&morningStart=${encodeURIComponent(morningStart)}&morningEnd=${encodeURIComponent(morningEnd)}&afternoonStart=${encodeURIComponent(afternoonStart)}&afternoonEnd=${encodeURIComponent(afternoonEnd)}&staffCount=${staffCount}`
     })
     .then(res => {
       if (!res.ok) {
@@ -145,9 +180,12 @@
         type, 
         purpose, 
         link: data.queue_link || "#", 
-        dailyCapacity, 
-        morningCount, 
-        afternoonCount,
+        avgServiceTime,
+        morningStart,
+        morningEnd,
+        afternoonStart,
+        afternoonEnd,
+        staffCount,
         queueNumber: data.queue_number || 1,
         qrId: data.qr_id
       };
@@ -294,8 +332,11 @@
           box.innerHTML = `
             <h4>${item.queue_type}</h4>
             <p>${item.queue_purpose}</p>
-            <p><strong>Capacity:</strong> ${item.daily_capacity} total  
-            (Morning: ${item.morning_count}, Afternoon: ${item.afternoon_count})</p>
+            <p><strong>Avg Service Time:</strong> ${item.avg_service_time || 'N/A'} min</p>
+            <p><strong>Staff/Windows:</strong> ${item.staff_count || 'N/A'}</p>
+            <p><strong>Schedule:</strong><br>
+            Morning: ${item.morning_start || 'N/A'} - ${item.morning_end || 'N/A'}<br>
+            Afternoon: ${item.afternoon_start || 'N/A'} - ${item.afternoon_end || 'N/A'}</p>
             <div id="historyQR${item.id}"></div>
             <p><small>${item.queue_link}</small></p>
             <p><small>Created by: ${item.created_by} | ${item.created_at}</small></p>
