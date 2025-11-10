@@ -380,7 +380,9 @@ def generate_ticket_reference(queue_slug, entry_id):
     token = hashlib.sha1(token_src.encode("utf-8")).hexdigest()[:6].upper()
     return f"{base}-{token}"
 
-def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None):
+def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None, 
+             avg_service_time=None, morning_start=None, morning_end=None, 
+             afternoon_start=None, afternoon_end=None, staff_count=None):
     """Save QR to database and return the inserted ID."""
     try:
         print(f"save_qr called with: type='{queue_type}', purpose='{queue_purpose}', link='{queue_link}', created_by='{created_by}'")
@@ -396,8 +398,14 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
         try:
             print("Attempting INSERT with RETURNING...")
             cur.execute(
-                "INSERT INTO qr_history (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s) RETURNING id",
-                (queue_type, queue_purpose, queue_link, created_by)
+                """INSERT INTO qr_history 
+                (queue_type, queue_purpose, queue_link, created_by, 
+                 avg_service_time, morning_start, morning_end, 
+                 afternoon_start, afternoon_end, staff_count) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                (queue_type, queue_purpose, queue_link, created_by,
+                 avg_service_time, morning_start, morning_end,
+                 afternoon_start, afternoon_end, staff_count)
             )
             qr_id = cur.fetchone()[0]
             print(f"INSERT successful with RETURNING, got ID: {qr_id}")
@@ -408,8 +416,14 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
             traceback.print_exc()
             try:
                 cur.execute(
-                    "INSERT INTO qr_history (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s)",
-                    (queue_type, queue_purpose, queue_link, created_by)
+                    """INSERT INTO qr_history 
+                    (queue_type, queue_purpose, queue_link, created_by,
+                     avg_service_time, morning_start, morning_end,
+                     afternoon_start, afternoon_end, staff_count) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (queue_type, queue_purpose, queue_link, created_by,
+                     avg_service_time, morning_start, morning_end,
+                     afternoon_start, afternoon_end, staff_count)
                 )
                 # Get the last inserted ID
                 cur.execute("SELECT LASTVAL()")
@@ -428,8 +442,14 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
         try:
             print("Inserting into temp_qr...")
             cur.execute(
-                "INSERT INTO temp_qr (queue_type, queue_purpose, queue_link, created_by) VALUES (%s, %s, %s, %s)",
-                (queue_type, queue_purpose, queue_link, created_by)
+                """INSERT INTO temp_qr 
+                (queue_type, queue_purpose, queue_link, created_by,
+                 avg_service_time, morning_start, morning_end,
+                 afternoon_start, afternoon_end, staff_count) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (queue_type, queue_purpose, queue_link, created_by,
+                 avg_service_time, morning_start, morning_end,
+                 afternoon_start, afternoon_end, staff_count)
             )
             print("temp_qr insert successful")
         except Exception as temp_error:
@@ -460,7 +480,17 @@ def generate_qr_db():
         queue_purpose = request.form.get('purpose', '').strip()
         created_by = session.get('user_email', 'Unknown')
         
+        # Get the new parameters
+        avg_service_time = request.form.get('avgServiceTime', '').strip()
+        morning_start = request.form.get('morningStart', '').strip()
+        morning_end = request.form.get('morningEnd', '').strip()
+        afternoon_start = request.form.get('afternoonStart', '').strip()
+        afternoon_end = request.form.get('afternoonEnd', '').strip()
+        staff_count = request.form.get('staffCount', '').strip()
+        
         print(f"Queue Type: '{queue_type}', Purpose: '{queue_purpose}', Created By: '{created_by}'")
+        print(f"Avg Service Time: {avg_service_time}, Staff Count: {staff_count}")
+        print(f"Morning: {morning_start} - {morning_end}, Afternoon: {afternoon_start} - {afternoon_end}")
         
         if not queue_type or not queue_purpose:
             error_msg = "Queue Type and Purpose are required"
@@ -493,9 +523,19 @@ def generate_qr_db():
         queue_link = f"{base}/queue/{queue_slug}/{queue_number}"
         print(f"Generated queue link: {queue_link}")
         
+        # Convert numeric fields to int or None
+        try:
+            avg_service_time = int(avg_service_time) if avg_service_time else None
+            staff_count = int(staff_count) if staff_count else None
+        except ValueError:
+            avg_service_time = None
+            staff_count = None
+        
         # Save QR and get the ID
         print("Saving QR to database...")
-        qr_id = save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number)
+        qr_id = save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number,
+                       avg_service_time, morning_start or None, morning_end or None,
+                       afternoon_start or None, afternoon_end or None, staff_count)
         print(f"QR saved with ID: {qr_id}")
         
         if qr_id is None:
@@ -659,7 +699,9 @@ def qr_history_data():
         cur = conn.cursor()
         # Join qr_history with users table to get fullname
         cur.execute("""
-            SELECT h.id, h.queue_type, h.queue_purpose, h.queue_link, u.fullname, h.created_at
+            SELECT h.id, h.queue_type, h.queue_purpose, h.queue_link, u.fullname, h.created_at,
+                   h.avg_service_time, h.morning_start, h.morning_end, 
+                   h.afternoon_start, h.afternoon_end, h.staff_count
             FROM qr_history h
             LEFT JOIN users u ON h.created_by = u.email
             ORDER BY h.created_at DESC
@@ -676,7 +718,13 @@ def qr_history_data():
                 "queue_purpose": row[2],
                 "queue_link": row[3],
                 "created_by": row[4] if row[4] else row[3],  # fallback if fullname not found
-                "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S")
+                "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S"),
+                "avg_service_time": row[6],
+                "morning_start": row[7],
+                "morning_end": row[8],
+                "afternoon_start": row[9],
+                "afternoon_end": row[10],
+                "staff_count": row[11]
             })
         return jsonify(history)
     except Exception as e:
