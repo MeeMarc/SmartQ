@@ -797,6 +797,21 @@ def temp_qr_data():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        
+        # Check if temp_qr table exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'temp_qr'
+            )
+        """)
+        table_exists = cur.fetchone()[0]
+        
+        if not table_exists:
+            cur.close()
+            conn.close()
+            return jsonify([])
+        
         cur.execute("""
             SELECT id, queue_type, queue_purpose, queue_link, created_by
             FROM temp_qr
@@ -818,6 +833,8 @@ def temp_qr_data():
         return jsonify(active_qrs)
     except Exception as e:
         print(f"Error fetching temp QR data: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify([])
 
 @app.route('/qr_history_data', methods=['GET'])
@@ -825,39 +842,64 @@ def qr_history_data():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        # Join qr_history with users table to get fullname
+        
+        # First check if queue_limit column exists
         cur.execute("""
-            SELECT h.id, h.queue_type, h.queue_purpose, h.queue_link, u.fullname, h.created_at,
-                   h.avg_service_time, h.morning_start, h.morning_end, 
-                   h.afternoon_start, h.afternoon_end, h.staff_count, h.queue_limit
-            FROM qr_history h
-            LEFT JOIN users u ON h.created_by = u.email
-            ORDER BY h.created_at DESC
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'qr_history' AND column_name = 'queue_limit'
         """)
+        has_queue_limit = cur.fetchone() is not None
+        
+        # Build query based on column existence
+        if has_queue_limit:
+            cur.execute("""
+                SELECT h.id, h.queue_type, h.queue_purpose, h.queue_link, u.fullname, h.created_at,
+                       h.avg_service_time, h.morning_start, h.morning_end, 
+                       h.afternoon_start, h.afternoon_end, h.staff_count, h.queue_limit
+                FROM qr_history h
+                LEFT JOIN users u ON h.created_by = u.email
+                ORDER BY h.created_at DESC
+            """)
+        else:
+            # Fallback for older schema without queue_limit
+            cur.execute("""
+                SELECT h.id, h.queue_type, h.queue_purpose, h.queue_link, u.fullname, h.created_at,
+                       h.avg_service_time, h.morning_start, h.morning_end, 
+                       h.afternoon_start, h.afternoon_end, h.staff_count
+                FROM qr_history h
+                LEFT JOIN users u ON h.created_by = u.email
+                ORDER BY h.created_at DESC
+            """)
+        
         rows = cur.fetchall()
         cur.close()
         conn.close()
 
         history = []
         for row in rows:
-            history.append({
+            history_item = {
                 "id": row[0],
                 "queue_type": row[1],
                 "queue_purpose": row[2],
                 "queue_link": row[3],
-                "created_by": row[4] if row[4] else row[3],  # fallback if fullname not found
-                "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S"),
-                "avg_service_time": row[6],
-                "morning_start": row[7],
-                "morning_end": row[8],
-                "afternoon_start": row[9],
-                "afternoon_end": row[10],
-                "staff_count": row[11],
-                "queue_limit": row[12]
-            })
+                "created_by": row[4] if row[4] else "Unknown",
+                "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S") if row[5] else "N/A",
+                "avg_service_time": row[6] if len(row) > 6 else None,
+                "morning_start": row[7] if len(row) > 7 else None,
+                "morning_end": row[8] if len(row) > 8 else None,
+                "afternoon_start": row[9] if len(row) > 9 else None,
+                "afternoon_end": row[10] if len(row) > 10 else None,
+                "staff_count": row[11] if len(row) > 11 else None,
+                "queue_limit": row[12] if has_queue_limit and len(row) > 12 else None
+            }
+            history.append(history_item)
+        
         return jsonify(history)
     except Exception as e:
         print(f"Error fetching QR history: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify([])
 
 
