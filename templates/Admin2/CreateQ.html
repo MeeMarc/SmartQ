@@ -32,8 +32,8 @@
     <div class="HomeRightContainer">
       <form id="qrForm">
         <!-- ========== SECTION 1: Basic Information ========== -->
-        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-          <h3 style="margin-top: 0; margin-bottom: 15px; color: #333; font-size: 1.1rem; border-bottom: 2px solid #007bff; padding-bottom: 8px;">📋 Basic Information</h3>
+        <div class="form-section" style="background: #f8f9fa; border: 2px solid #007bff;">
+          <h3 style="border-bottom-color: #007bff;">📋 Basic Information</h3>
           
           <label for="queueType">Queue Type:</label>
           <input type="text" id="queueType" placeholder="e.g. Requirements Submission" required>
@@ -42,60 +42,66 @@
           <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
 
           <!-- URL will be auto-generated based on Queue Type -->
-          <p style="color: #666; font-size: 0.9rem; margin-top: -10px; margin-bottom: 0;">
-            <em>✓ URL will be automatically generated based on Queue Type</em>
+          <p style="color: #666; font-style: italic;">
+            ✓ URL will be automatically generated based on Queue Type
           </p>
         </div>
 
         <!-- ========== SECTION 2: Queue Capacity Inputs ========== -->
-        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #ffc107;">
-          <h3 style="margin-top: 0; margin-bottom: 15px; color: #333; font-size: 1.1rem; border-bottom: 2px solid #ffc107; padding-bottom: 8px;">⚙️ Queue Capacity Settings</h3>
+        <div class="form-section" style="background: #fff3cd; border: 2px solid #ffc107;">
+          <h3 style="border-bottom-color: #ffc107;">⚙️ Queue Capacity Settings</h3>
           
           <!-- Average Service Time per Customer -->
-          <label for="avgServiceTime"><strong>1.</strong> Average Service Time per Customer (minutes):</label>
+          <label for="avgServiceTime">
+            <strong>1.</strong> Average Service Time per Customer (minutes):
+          </label>
           <input type="number" id="avgServiceTime" min="1" placeholder="e.g. 15" required>
 
           <!-- Total Available Service Time -->
-          <label style="margin-top: 15px;"><strong>2.</strong> Total Available Service Time:</label>
+          <label>
+            <strong>2.</strong> Total Available Service Time:
+          </label>
           <div class="time-slots-container">
             <div class="time-slot">
-              <label for="morningStart" style="font-size: 0.9rem; font-weight: 500;">Morning Start:</label>
+              <label for="morningStart">Morning Start:</label>
               <input type="time" id="morningStart" value="08:00" required>
             </div>
             <div class="time-slot">
-              <label for="morningEnd" style="font-size: 0.9rem; font-weight: 500;">Morning End (Lunch Break):</label>
+              <label for="morningEnd">Morning End<br>(Lunch Break):</label>
               <input type="time" id="morningEnd" value="12:00" required>
             </div>
             <div class="time-slot">
-              <label for="afternoonStart" style="font-size: 0.9rem; font-weight: 500;">Afternoon Start:</label>
+              <label for="afternoonStart">Afternoon Start:</label>
               <input type="time" id="afternoonStart" value="13:00" required>
             </div>
             <div class="time-slot">
-              <label for="afternoonEnd" style="font-size: 0.9rem; font-weight: 500;">Afternoon End (Time Out):</label>
+              <label for="afternoonEnd">Afternoon End<br>(Time Out):</label>
               <input type="time" id="afternoonEnd" value="17:00" required>
             </div>
           </div>
 
           <!-- Number of Staff/Window -->
-          <label for="staffCount" style="margin-top: 15px;"><strong>3.</strong> Number of Staff/Windows:</label>
+          <label for="staffCount">
+            <strong>3.</strong> Number of Staff/Windows:
+          </label>
           <input type="number" id="staffCount" min="1" placeholder="e.g. 3" required>
         </div>
 
         <!-- ========== SECTION 3: Auto-calculated Queue Limit ========== -->
-        <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #28a745;">
-          <h3 style="margin-top: 0; margin-bottom: 10px; color: #333; font-size: 1.1rem; border-bottom: 2px solid #28a745; padding-bottom: 8px;">📊 Calculated Queue Limit</h3>
+        <div class="form-section" style="background: #d4edda; border: 2px solid #28a745;">
+          <h3 style="border-bottom-color: #28a745;">📊 Calculated Queue Limit</h3>
           
           <label for="queueLimit">Queue Limit (Customers per Day):</label>
-          <input type="number" id="queueLimit" readonly placeholder="Will be calculated automatically" style="background-color: #e9ecef; cursor: not-allowed; font-size: 1.1rem; font-weight: bold; color: #155724;">
+          <input type="number" id="queueLimit" readonly placeholder="Will be calculated automatically" style="font-size: 1.1rem;">
           
-          <div style="background: #fff; padding: 10px; border-radius: 5px; margin-top: 10px; border-left: 4px solid #28a745;">
-            <p style="color: #155724; font-size: 0.9rem; margin: 0; line-height: 1.6;">
+          <div class="formula-box">
+            <p>
               <strong>Formula:</strong><br>
               Queue Limit = (Total Available Service Time ÷ Average Service Time per Customer) × Number of Staff
             </p>
           </div>
           
-          <p style="color: #666; font-size: 0.85rem; margin-top: 10px; margin-bottom: 0; font-style: italic;">
+          <p style="color: #666; font-size: 0.88rem; font-style: italic; margin-top: 12px; margin-bottom: 0;">
             ℹ️ This field is automatically calculated and cannot be edited manually.
           </p>
         </div>
