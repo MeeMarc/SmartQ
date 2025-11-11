@@ -185,119 +185,97 @@
       // Set up terms modal scroll detection
       setupTermsModal();
     });
-    
-    // Terms and Conditions Modal Functions
-    function openTermsModal() {
-      const modal = document.getElementById('termsModal');
-      if (!modal) return;
-      
-      modal.style.display = 'flex';
-      document.body.style.overflow = 'hidden'; // Prevent background scrolling
-      
-      // Reset scroll position and button state
-      const termsContent = document.getElementById('termsContent');
-      const agreeBtn = document.getElementById('agreeBtn');
-      const scrollIndicator = document.getElementById('scrollIndicator');
-      
-      if (termsContent) {
-        termsContent.scrollTop = 0;
-      }
-      
-      if (agreeBtn) {
-        agreeBtn.disabled = true;
-        agreeBtn.style.backgroundColor = '#6c757d';
-        agreeBtn.style.cursor = 'not-allowed';
-      }
-      
-      if (scrollIndicator) {
-        scrollIndicator.textContent = '⚠️ Please scroll to the bottom to read all terms';
-        scrollIndicator.style.color = '#ff6b6b';
-      }
-      
-      // Check scroll position after a brief delay to ensure DOM is ready
-      setTimeout(checkScrollPosition, 100);
-      setTimeout(checkScrollPosition, 300);
-      setTimeout(checkScrollPosition, 500);
+  </script>
+
+
+  <script>
+  // Open Terms Modal
+  function openTermsModal() {
+    const modal = document.getElementById('termsModal');
+    const termsContent = document.getElementById('termsContent');
+    const agreeBtn = document.getElementById('agreeBtn');
+    const scrollIndicator = document.getElementById('scrollIndicator');
+
+    if (!modal || !termsContent || !agreeBtn || !scrollIndicator) return;
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    // Reset
+    termsContent.scrollTop = 0;
+    agreeBtn.disabled = true;
+    agreeBtn.style.backgroundColor = '#6c757d';
+    agreeBtn.style.cursor = 'not-allowed';
+    scrollIndicator.textContent = '⚠️ Please scroll to the bottom to read all terms';
+    scrollIndicator.style.color = '#ff6b6b';
+
+    // Make sure the scroll event listener is added fresh
+    termsContent.removeEventListener('scroll', checkScrollPosition);
+    termsContent.addEventListener('scroll', checkScrollPosition, { passive: true });
+
+    // Double-check scroll position after rendering
+    setTimeout(checkScrollPosition, 300);
+  }
+
+  // Close Terms Modal
+  function closeTermsModal() {
+    const modal = document.getElementById('termsModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+  }
+
+  // Scroll check logic
+  function checkScrollPosition() {
+    const termsContent = document.getElementById('termsContent');
+    const agreeBtn = document.getElementById('agreeBtn');
+    const scrollIndicator = document.getElementById('scrollIndicator');
+
+    if (!termsContent || !agreeBtn || !scrollIndicator) return;
+
+    const scrollTop = termsContent.scrollTop;
+    const scrollHeight = termsContent.scrollHeight;
+    const clientHeight = termsContent.clientHeight;
+
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isScrolledToBottom = distanceFromBottom <= 30;
+    const contentFits = scrollHeight <= clientHeight;
+
+    if (isScrolledToBottom || contentFits) {
+      agreeBtn.disabled = false;
+      agreeBtn.style.backgroundColor = '#28a745';
+      agreeBtn.style.cursor = 'pointer';
+      scrollIndicator.textContent = '✅ You have read all terms. You may now agree.';
+      scrollIndicator.style.color = '#28a745';
+    } else {
+      agreeBtn.disabled = true;
+      agreeBtn.style.backgroundColor = '#6c757d';
+      agreeBtn.style.cursor = 'not-allowed';
+      scrollIndicator.textContent = '⚠️ Please scroll to the bottom to read all terms';
+      scrollIndicator.style.color = '#ff6b6b';
     }
-    
-    function closeTermsModal() {
-      const modal = document.getElementById('termsModal');
-      modal.style.display = 'none';
-      document.body.style.overflow = 'auto'; // Restore scrolling
-    }
-    
-    function checkScrollPosition() {
-      const termsContent = document.getElementById('termsContent');
-      const agreeBtn = document.getElementById('agreeBtn');
-      const scrollIndicator = document.getElementById('scrollIndicator');
-      
-      if (!termsContent || !agreeBtn || !scrollIndicator) {
-        return;
-      }
-      
-      // Get scroll measurements
-      const scrollTop = termsContent.scrollTop;
-      const scrollHeight = termsContent.scrollHeight;
-      const clientHeight = termsContent.clientHeight;
-      
-      // Calculate if scrolled to bottom (with 30px tolerance for better UX)
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-      const isScrolledToBottom = distanceFromBottom <= 30;
-      const contentFits = scrollHeight <= clientHeight;
-      
-      if (isScrolledToBottom || contentFits) {
-        // Content is scrolled to bottom OR content is short enough to fit
-        agreeBtn.disabled = false;
-        agreeBtn.style.backgroundColor = '#28a745';
-        agreeBtn.style.cursor = 'pointer';
-        scrollIndicator.textContent = '✅ You have read all terms. You may now agree.';
-        scrollIndicator.style.color = '#28a745';
-      } else {
-        agreeBtn.disabled = true;
-        agreeBtn.style.backgroundColor = '#6c757d';
-        agreeBtn.style.cursor = 'not-allowed';
-        scrollIndicator.textContent = '⚠️ Please scroll to the bottom to read all terms';
-        scrollIndicator.style.color = '#ff6b6b';
-      }
-    }
-    
-    function setupTermsModal() {
-      const termsContent = document.getElementById('termsContent');
-      const agreeBtn = document.getElementById('agreeBtn');
-      const scrollIndicator = document.getElementById('scrollIndicator');
-      
-      if (!termsContent || !agreeBtn || !scrollIndicator) {
-        console.error('Terms modal elements not found');
-        return;
-      }
-      
-      // Check scroll position on scroll event (use passive for better performance)
-      termsContent.addEventListener('scroll', checkScrollPosition, { passive: true });
-      
-      // Also check on window resize (modal might resize)
-      window.addEventListener('resize', checkScrollPosition);
-      
-      // Close modal when clicking outside
-      const modal = document.getElementById('termsModal');
-      if (modal) {
-        modal.addEventListener('click', function(e) {
-          if (e.target === modal) {
-            closeTermsModal();
-          }
-        });
-      }
-    }
-    
-    function acceptTerms() {
-      // Check the terms checkbox
-      const termsCheckbox = document.getElementById('terms');
+  }
+
+  // Accept Terms (called when clicking "I Agree")
+  function acceptTerms() {
+    const termsCheckbox = document.getElementById('terms');
+    if (termsCheckbox) {
       termsCheckbox.checked = true;
       termsCheckbox.disabled = false;
-      
-      // Close the modal
-      closeTermsModal();
     }
-  </script>
+    closeTermsModal();
+  }
+
+  // Setup once DOM is ready
+  document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('termsModal');
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeTermsModal();
+      });
+    }
+  });
+</script>
+
 
 </body>
 </html>
