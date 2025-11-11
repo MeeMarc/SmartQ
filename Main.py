@@ -448,7 +448,7 @@ def get_queue_limit(queue_slug, queue_number):
         return None
 
 def get_queue_entry_count(queue_slug, queue_number):
-    """Count the number of entries in a queue."""
+    """Count the number of active (waiting) entries in a queue."""
     try:
         conn = get_db_connection()
         if conn is None:
@@ -456,8 +456,9 @@ def get_queue_entry_count(queue_slug, queue_number):
         
         ensure_queue_entries_table(conn)
         cur = conn.cursor()
+        # Only count entries with status = 'waiting' (exclude cancelled, rescheduled, completed)
         cur.execute(
-            "SELECT COUNT(*) FROM queue_entries WHERE queue_slug = %s AND queue_number = %s",
+            "SELECT COUNT(*) FROM queue_entries WHERE queue_slug = %s AND queue_number = %s AND status = 'waiting'",
             (queue_slug, queue_number)
         )
         count = cur.fetchone()[0]
