@@ -70,8 +70,33 @@
       }
     }
 
-    // Auto-dismiss flash messages after 5 seconds
+    // Remember Me functionality
     document.addEventListener('DOMContentLoaded', function() {
+      // Load saved email if "Remember Me" was checked previously
+      const savedEmail = localStorage.getItem('rememberedEmail');
+      const rememberCheckbox = document.getElementById('remember');
+      const emailInput = document.getElementById('email');
+      
+      if (savedEmail) {
+        emailInput.value = savedEmail;
+        rememberCheckbox.checked = true;
+      }
+      
+      // Handle form submission - save email if "Remember Me" is checked
+      const loginForm = document.querySelector('form[method="POST"]');
+      if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+          if (rememberCheckbox.checked) {
+            // Save email to localStorage
+            localStorage.setItem('rememberedEmail', emailInput.value);
+          } else {
+            // Remove saved email if "Remember Me" is unchecked
+            localStorage.removeItem('rememberedEmail');
+          }
+        });
+      }
+
+      // Auto-dismiss flash messages after 5 seconds
       const flashMessages = document.getElementById('logoutFlashMessage') || document.querySelector('.flash-messages');
       if (flashMessages) {
         setTimeout(() => {

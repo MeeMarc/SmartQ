@@ -5,7 +5,8 @@ import smtplib
 import hashlib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response
+from datetime import timedelta
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 import psycopg2
@@ -19,6 +20,7 @@ load_dotenv()  # Load variables from .env if present (local dev)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-insecure-secret")  # for flash messages
+app.permanent_session_lifetime = timedelta(days=30)  # 30 days for "Remember Me"
 
 # Make Flask respect X-Forwarded-* headers on Render so url_for(..., _external=True)
 # uses the correct scheme/host (https and your subdomain)
@@ -95,6 +97,7 @@ def login():
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
+        remember_me = request.form.get('remember') == 'on'  # Check if "Remember Me" is checked
 
         try:
             conn = get_db_connection()
@@ -115,6 +118,12 @@ def login():
             # Store user info in session
             session['user_email'] = email
             session['user_fullname'] = user[1]
+            
+            # If "Remember Me" is checked, make session permanent (30 days)
+            if remember_me:
+                session.permanent = True
+            else:
+                session.permanent = False  # Session expires when browser closes
 
             flash("Login successful!", "login")
             return redirect(url_for('homepage'))
