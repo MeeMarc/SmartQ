@@ -1036,6 +1036,58 @@ def update_queue_status():
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/cancel_queue_entry/<int:entry_id>', methods=['POST'])
+def cancel_queue_entry(entry_id):
+    """Cancel a queue entry by setting its status to 'cancelled'."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        # Check if entry exists and is not already cancelled/completed
+        cur.execute(
+            "SELECT status FROM queue_entries WHERE id = %s",
+            (entry_id,)
+        )
+        row = cur.fetchone()
+        
+        if not row:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Entry not found"}), 404
+        
+        current_status = row[0] or "waiting"
+        if current_status in ['cancelled', 'completed']:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": f"Entry is already {current_status}"}), 400
+        
+        # Update status to cancelled
+        cur.execute(
+            "UPDATE queue_entries SET status = 'cancelled' WHERE id = %s",
+            (entry_id,)
+        )
+        
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Failed to cancel entry"}), 500
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({"status": "success", "message": "Registration cancelled successfully"})
+    except Exception as e:
+        print(f"Error cancelling queue entry: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/add_candidate_modal', methods=['POST'])
 def add_candidate_modal():
     data = request.get_json()

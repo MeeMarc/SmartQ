@@ -50,7 +50,11 @@
     
     <!-- Cancel Button -->
     {% if entry.status != 'cancelled' and entry.status != 'completed' %}
-    <button class="cancel-btn" onclick="confirmCancel()">Cancel Registration</button>
+    <button class="cancel-btn" 
+            data-entry-id="{{ entry.id }}"
+            data-queue-slug="{{ queue_slug }}"
+            data-queue-number="{{ queue_number }}"
+            onclick="confirmCancel(this)">Cancel Registration</button>
     {% endif %}
   </section>
 
@@ -69,11 +73,11 @@
   }
 
   // === CANCEL REGISTRATION ===
-  function confirmCancel() {
+  function confirmCancel(button) {
     if (confirm("Are you sure you want to cancel your registration? This action cannot be undone.")) {
-      const entryId = {{ entry.id }};
-      const queueSlug = "{{ queue_slug }}";
-      const queueNumber = {{ queue_number }};
+      const entryId = button.getAttribute('data-entry-id');
+      const queueSlug = button.getAttribute('data-queue-slug');
+      const queueNumber = button.getAttribute('data-queue-number');
       
       fetch(`/cancel_queue_entry/${entryId}`, {
         method: 'POST',
@@ -81,18 +85,27 @@
           'Content-Type': 'application/json'
         }
       })
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(data => {
+            throw new Error(data.message || 'Failed to cancel registration');
+          }).catch(() => {
+            throw new Error(`Server error: ${response.status}`);
+          });
+        }
+        return response.json();
+      })
       .then(data => {
         if (data.status === 'success') {
           alert('✅ Registration cancelled successfully!');
           window.location.reload();
         } else {
-          alert('❌ Error: ' + data.message);
+          alert('❌ Error: ' + (data.message || 'Unknown error'));
         }
       })
       .catch(error => {
         console.error('Error:', error);
-        alert('❌ Failed to cancel registration. Please try again.');
+        alert('❌ Failed to cancel registration: ' + error.message);
       });
     }
   }
