@@ -49,7 +49,7 @@
       <input type="hidden" id="modalQRLink">
       <label for="fullname">Full Name: <span style="color: red;">*</span></label>
       <input type="text" id="fullname" placeholder="Last Name, First Name" required>
-      <p style="font-size: 0.85rem; color: #666; margin-top: -8px; margin-bottom: 12px; font-style: italic;">Format: Last Name, First Name</p>
+      
       <label for="phone">Phone: <span style="color: red;">*</span></label>
       <input type="text" id="phone" placeholder="09*********" required>
       <button type="submit">Submit</button>
@@ -122,9 +122,28 @@ function fetchQRList() {
             const box = document.createElement("div");
             box.className = "qr-box";
             box.style.opacity = isActive ? "1" : "0.6"; // Dim inactive ones
+            
+            // Format date from database (YYYY-MM-DD HH:MM:SS) to readable format
+            let formattedDate = 'N/A';
+            if (qr.created_at && qr.created_at !== 'N/A') {
+              try {
+                const date = new Date(qr.created_at);
+                formattedDate = date.toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+              } catch (e) {
+                formattedDate = qr.created_at; // Fallback to original if parsing fails
+              }
+            }
+            
             box.innerHTML = `
               <h4>${qr.queue_type} ${!isActive ? '<span style="color: #999; font-size: 0.8em;">(Removed)</span>' : ''}</h4>
               <p>${qr.queue_purpose}</p>
+              <p><strong>Created:</strong> ${formattedDate}</p>
               <div id="qr${qr.id}"></div>
               <p><small><a href="${qr.queue_link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${qr.queue_link}</a></small></p>
               ${isActive ? `
@@ -149,9 +168,28 @@ function fetchQRList() {
           data.forEach(qr => {
             const box = document.createElement("div");
             box.className = "qr-box";
+            
+            // Format date from database (YYYY-MM-DD HH:MM:SS) to readable format
+            let formattedDate = 'N/A';
+            if (qr.created_at && qr.created_at !== 'N/A') {
+              try {
+                const date = new Date(qr.created_at);
+                formattedDate = date.toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+              } catch (e) {
+                formattedDate = qr.created_at; // Fallback to original if parsing fails
+              }
+            }
+            
             box.innerHTML = `
               <h4>${qr.queue_type}</h4>
               <p>${qr.queue_purpose}</p>
+              <p><strong>Created:</strong> ${formattedDate}</p>
               <div id="qr${qr.id}"></div>
               <p><small><a href="${qr.queue_link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${qr.queue_link}</a></small></p>
               <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>

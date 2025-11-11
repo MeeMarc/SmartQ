@@ -147,10 +147,14 @@
         ? `${item.serviceMinutes}m ${item.serviceSeconds}s`
         : `${item.avgServiceTime || 'N/A'} min`;
 
+      // Format date for display
+      const displayDate = item.created_at || 'N/A';
+      
       box.innerHTML = `
         <h4>${item.type}</h4>
         <p>${item.purpose}</p>
         ${item.queueNumber ? `<p><strong>Queue #${item.queueNumber}</strong></p>` : ''}
+        <p><strong>Created:</strong> ${displayDate}</p>
         <p><strong>Avg Service Time:</strong> ${serviceTimeDisplay}</p>
         <p><strong>Staff/Windows:</strong> ${item.staffCount}</p>
         <p><strong>Queue Limit:</strong> ${item.queueLimit || 'N/A'} customers/day</p>
@@ -299,6 +303,15 @@
       console.log("QR saved with auto-generated URL:", data);
       
       // Add to local list with auto-generated link
+      const now = new Date();
+      const formattedDate = now.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
       const newQR = { 
         type, 
         purpose, 
@@ -313,7 +326,8 @@
         staffCount,
         queueLimit,
         queueNumber: data.queue_number || 1,
-        qrId: data.qr_id
+        qrId: data.qr_id,
+        created_at: formattedDate
       };
       qrList.push(newQR);
       localStorage.setItem("queues", JSON.stringify(qrList));
@@ -492,9 +506,27 @@
               serviceTimeDisplay = 'N/A';
             }
             
+            // Format date from database (YYYY-MM-DD HH:MM:SS) to readable format
+            let formattedDate = 'N/A';
+            if (item.created_at && item.created_at !== 'N/A') {
+              try {
+                const date = new Date(item.created_at);
+                formattedDate = date.toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+              } catch (e) {
+                formattedDate = item.created_at; // Fallback to original if parsing fails
+              }
+            }
+            
             box.innerHTML = `
               <h4>${item.queue_type}</h4>
               <p>${item.queue_purpose}</p>
+              <p><strong>Created:</strong> ${formattedDate}</p>
               <p><strong>Avg Service Time:</strong> ${serviceTimeDisplay}</p>
               <p><strong>Staff/Windows:</strong> ${item.staff_count || 'N/A'}</p>
               <p><strong>Queue Limit:</strong> ${item.queue_limit || 'N/A'} customers/day</p>
@@ -503,7 +535,7 @@
               Afternoon: ${item.afternoon_start || 'N/A'} - ${item.afternoon_end || 'N/A'}</p>
               <div id="historyQR${item.id}"></div>
               <p><small><a href="${item.queue_link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${item.queue_link}</a></small></p>
-              <p><small>Created by: ${item.created_by} | ${item.created_at}</small></p>
+              <p><small>Created by: ${item.created_by}</small></p>
             `;
             container.appendChild(box);
 

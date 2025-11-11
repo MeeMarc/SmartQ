@@ -829,7 +829,7 @@ def temp_qr_data():
             return jsonify([])
         
         cur.execute("""
-            SELECT id, queue_type, queue_purpose, queue_link, created_by
+            SELECT id, queue_type, queue_purpose, queue_link, created_by, created_at
             FROM temp_qr
             ORDER BY created_at DESC
         """)
@@ -844,7 +844,8 @@ def temp_qr_data():
                 "queue_type": row[1],
                 "queue_purpose": row[2],
                 "queue_link": row[3],
-                "created_by": row[4]
+                "created_by": row[4],
+                "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S") if row[5] else "N/A"
             })
         return jsonify(active_qrs)
     except Exception as e:
