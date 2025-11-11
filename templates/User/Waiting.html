@@ -39,14 +39,18 @@
       {% endif %}
     </h3>
     <div class="number">{{ queue_number }}</div>
+    {% if entry.status != 'cancelled' %}
     <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
     {% if queue_purpose %}
     <p class="queue-purpose">{{ queue_purpose }}</p>
     {% endif %}
+    {% endif %}
     <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
     <p>Your ticket reference: <strong>{{ ticket_reference }}</strong></p>
     <p class="status-display">Status: <span class="status-badge status-{{ entry.status|default('waiting') }}">{{ entry.status|default('waiting')|capitalize }}</span></p>
+    {% if entry.status != 'cancelled' %}
     <p class="queue-note">Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.</p>
+    {% endif %}
     
     <!-- Download Ticket Button -->
     {% if entry.status != 'cancelled' %}
