@@ -131,7 +131,7 @@ function fetchQRList() {
               <h4>${qr.queue_type} ${!isActive ? '<span style="color: #999; font-size: 0.8em;">(Removed)</span>' : ''}</h4>
               <p>${qr.queue_purpose}</p>
               <div id="qr${qr.id}"></div>
-              <p><small>${qr.queue_link}</small></p>
+              <p><small><a href="${qr.queue_link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${qr.queue_link}</a></small></p>
               ${isActive ? `
                 <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>
                 <button onclick="viewScans(${qr.id})">View Scans</button>
@@ -158,7 +158,7 @@ function fetchQRList() {
               <h4>${qr.queue_type}</h4>
               <p>${qr.queue_purpose}</p>
               <div id="qr${qr.id}"></div>
-              <p><small>${qr.queue_link}</small></p>
+              <p><small><a href="${qr.queue_link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${qr.queue_link}</a></small></p>
               <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>
               <button onclick="viewScans(${qr.id})">View Scans</button>
             `;
