@@ -123,7 +123,7 @@
 
     <!-- RIGHT: Generated QRs -->
     <div class="HomeLeftContainer">
-      <h3>Generated Queues</h3>
+      <h3 id="qrContainerTitle">Generated Queues</h3>
       <div class="qr-container" id="qrContainer"></div>
     </div>
   </div>
@@ -446,55 +446,82 @@
     link.click();
   }
 
-  // View QR History
+  // View QR History with toggle functionality
   const viewHistoryBtn = document.getElementById("viewHistoryBtn");
+  const qrContainerTitle = document.getElementById("qrContainerTitle");
+  let isShowingHistory = false;
+
   viewHistoryBtn.addEventListener("click", () => {
-    fetch("/qr_history_data")
-      .then(response => response.json())
-      .then(data => {
-        container.innerHTML = "";
-        data.forEach(item => {
-          const box = document.createElement("div");
-          box.className = "qr-box";
+    if (isShowingHistory) {
+      // Show generated queues again
+      renderQRs();
+      viewHistoryBtn.textContent = "View QR History";
+      qrContainerTitle.textContent = "Generated Queues";
+      isShowingHistory = false;
+    } else {
+      // Show history
+      fetch("/qr_history_data")
+        .then(response => response.json())
+        .then(data => {
+          container.innerHTML = "";
+          qrContainerTitle.textContent = "QR History";
           
-          // Format service time - if it's a decimal, show as MM:SS, otherwise show as minutes
-          let serviceTimeDisplay;
-          if (item.avg_service_time) {
-            const totalMinutes = parseFloat(item.avg_service_time);
-            const minutes = Math.floor(totalMinutes);
-            const seconds = Math.round((totalMinutes - minutes) * 60);
-            if (seconds > 0) {
-              serviceTimeDisplay = `${minutes}m ${seconds}s`;
-            } else {
-              serviceTimeDisplay = `${minutes} min`;
-            }
-          } else {
-            serviceTimeDisplay = 'N/A';
+          if (data.length === 0) {
+            container.innerHTML = "<p style='text-align: center; color: #666; padding: 20px;'>No history available yet.</p>";
+            viewHistoryBtn.textContent = "View Generated Queues";
+            isShowingHistory = true;
+            return;
           }
           
-          box.innerHTML = `
-            <h4>${item.queue_type}</h4>
-            <p>${item.queue_purpose}</p>
-            <p><strong>Avg Service Time:</strong> ${serviceTimeDisplay}</p>
-            <p><strong>Staff/Windows:</strong> ${item.staff_count || 'N/A'}</p>
-            <p><strong>Queue Limit:</strong> ${item.queue_limit || 'N/A'} customers/day</p>
-            <p><strong>Schedule:</strong><br>
-            Morning: ${item.morning_start || 'N/A'} - ${item.morning_end || 'N/A'}<br>
-            Afternoon: ${item.afternoon_start || 'N/A'} - ${item.afternoon_end || 'N/A'}</p>
-            <div id="historyQR${item.id}"></div>
-            <p><small>${item.queue_link}</small></p>
-            <p><small>Created by: ${item.created_by} | ${item.created_at}</small></p>
-          `;
-          container.appendChild(box);
+          data.forEach(item => {
+            const box = document.createElement("div");
+            box.className = "qr-box";
+            
+            // Format service time - if it's a decimal, show as MM:SS, otherwise show as minutes
+            let serviceTimeDisplay;
+            if (item.avg_service_time) {
+              const totalMinutes = parseFloat(item.avg_service_time);
+              const minutes = Math.floor(totalMinutes);
+              const seconds = Math.round((totalMinutes - minutes) * 60);
+              if (seconds > 0) {
+                serviceTimeDisplay = `${minutes}m ${seconds}s`;
+              } else {
+                serviceTimeDisplay = `${minutes} min`;
+              }
+            } else {
+              serviceTimeDisplay = 'N/A';
+            }
+            
+            box.innerHTML = `
+              <h4>${item.queue_type}</h4>
+              <p>${item.queue_purpose}</p>
+              <p><strong>Avg Service Time:</strong> ${serviceTimeDisplay}</p>
+              <p><strong>Staff/Windows:</strong> ${item.staff_count || 'N/A'}</p>
+              <p><strong>Queue Limit:</strong> ${item.queue_limit || 'N/A'} customers/day</p>
+              <p><strong>Schedule:</strong><br>
+              Morning: ${item.morning_start || 'N/A'} - ${item.morning_end || 'N/A'}<br>
+              Afternoon: ${item.afternoon_start || 'N/A'} - ${item.afternoon_end || 'N/A'}</p>
+              <div id="historyQR${item.id}"></div>
+              <p><small>${item.queue_link}</small></p>
+              <p><small>Created by: ${item.created_by} | ${item.created_at}</small></p>
+            `;
+            container.appendChild(box);
 
-          new QRCode(document.getElementById(`historyQR${item.id}`), {
-            text: item.queue_link,
-            width: 128,
-            height: 128
+            new QRCode(document.getElementById(`historyQR${item.id}`), {
+              text: item.queue_link,
+              width: 128,
+              height: 128
+            });
           });
+          
+          viewHistoryBtn.textContent = "View Generated Queues";
+          isShowingHistory = true;
+        })
+        .catch(err => {
+          console.error(err);
+          alert("Error loading QR history. Please try again.");
         });
-      })
-      .catch(err => console.error(err));
+    }
   });
 </script>
 </body>
