@@ -46,20 +46,20 @@
       
       <!-- Queue Status Display -->
       {% if queue_limit is defined and queue_limit and queue_limit > 0 %}
-      <div class="queue-status-banner" style="margin-top: 15px; padding: 12px 20px; border-radius: 8px; {% if queue_full %}background: #ffe0e0; border: 2px solid #ff4444;{% else %}background: #e0f7fa; border: 2px solid #00acc1;{% endif %}">
-        <strong style="font-size: 1.1rem;">Queue Status:</strong>
-        <span style="font-size: 1.05rem; margin-left: 10px;">
+      <div class="queue-status-banner {% if queue_full %}queue-full{% else %}queue-available{% endif %}">
+        <strong class="status-label">Queue Status:</strong>
+        <span class="status-info">
           {% if queue_full %}
-            <span style="color: #c62828; font-weight: 600;">🚫 FULL - {{ current_count }}/{{ queue_limit }} slots taken</span>
+            <span class="status-full">🚫 FULL - {{ current_count }}/{{ queue_limit }} slots taken</span>
           {% else %}
-            <span style="color: #00796b; font-weight: 600;">✅ {{ queue_limit - current_count }} slots available ({{ current_count }}/{{ queue_limit }})</span>
+            <span class="status-available">✅ {{ queue_limit - current_count }} slots available ({{ current_count }}/{{ queue_limit }})</span>
           {% endif %}
         </span>
       </div>
       
       {% if queue_full %}
-      <div class="queue-full-notice" style="margin-top: 12px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px;">
-        <p style="margin: 0; font-weight: 600; color: #856404;">
+      <div class="queue-full-notice">
+        <p>
           ⚠️ <strong>Queue Full:</strong> This queue has reached maximum capacity. However, if you've already registered, you can retrieve your ticket by entering your phone number below.
         </p>
       </div>
