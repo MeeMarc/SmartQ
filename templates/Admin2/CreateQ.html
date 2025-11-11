@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Create Queue | SmartQ</title>
-  <!-- Updated 2025-11-10: Service time, schedule, and staff management -->
+  <!-- Updated 2025-01-10: Service time, schedule, staff management, and auto-calculated queue limit -->
   <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/CreateQ.css') }}" />
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
 </head>
@@ -31,45 +31,74 @@
     <!-- LEFT: Form -->
     <div class="HomeRightContainer">
       <form id="qrForm">
-        <label for="queueType">Queue Type:</label>
-        <input type="text" id="queueType" placeholder="e.g. Requirements Submission" required>
+        <!-- ========== SECTION 1: Basic Information ========== -->
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="margin-top: 0; margin-bottom: 15px; color: #333; font-size: 1.1rem; border-bottom: 2px solid #007bff; padding-bottom: 8px;">📋 Basic Information</h3>
+          
+          <label for="queueType">Queue Type:</label>
+          <input type="text" id="queueType" placeholder="e.g. Requirements Submission" required>
 
-        <label for="queuePurpose">Queue Purpose / Description:</label>
-        <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
+          <label for="queuePurpose">Queue Purpose / Description:</label>
+          <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
 
-        <!-- URL will be auto-generated based on Queue Type -->
-        <p style="color: #666; font-size: 0.9rem; margin-top: -10px; margin-bottom: 15px;">
-          <em>✓ URL will be automatically generated based on Queue Type</em>
-        </p>
-
-        <!-- Average Service Time per Customer -->
-        <label for="avgServiceTime">Average Service Time per Customer (in minutes):</label>
-        <input type="number" id="avgServiceTime" min="1" placeholder="e.g. 15" required>
-
-        <!-- Total Available Service Time -->
-        <label>Total Available Service Time:</label>
-        <div class="time-slots-container">
-          <div class="time-slot">
-            <label for="morningStart" style="font-size: 0.9rem; font-weight: 500;">Morning Start:</label>
-            <input type="time" id="morningStart" value="08:00" required>
-          </div>
-          <div class="time-slot">
-            <label for="morningEnd" style="font-size: 0.9rem; font-weight: 500;">Morning End (Lunch Break):</label>
-            <input type="time" id="morningEnd" value="12:00" required>
-          </div>
-          <div class="time-slot">
-            <label for="afternoonStart" style="font-size: 0.9rem; font-weight: 500;">Afternoon Start:</label>
-            <input type="time" id="afternoonStart" value="13:00" required>
-          </div>
-          <div class="time-slot">
-            <label for="afternoonEnd" style="font-size: 0.9rem; font-weight: 500;">Afternoon End (Time Out):</label>
-            <input type="time" id="afternoonEnd" value="17:00" required>
-          </div>
+          <!-- URL will be auto-generated based on Queue Type -->
+          <p style="color: #666; font-size: 0.9rem; margin-top: -10px; margin-bottom: 0;">
+            <em>✓ URL will be automatically generated based on Queue Type</em>
+          </p>
         </div>
 
-        <!-- Number of Staff/Window -->
-        <label for="staffCount">Number of Staff/Windows:</label>
-        <input type="number" id="staffCount" min="1" placeholder="e.g. 3" required>
+        <!-- ========== SECTION 2: Queue Capacity Inputs ========== -->
+        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #ffc107;">
+          <h3 style="margin-top: 0; margin-bottom: 15px; color: #333; font-size: 1.1rem; border-bottom: 2px solid #ffc107; padding-bottom: 8px;">⚙️ Queue Capacity Settings</h3>
+          
+          <!-- Average Service Time per Customer -->
+          <label for="avgServiceTime"><strong>1.</strong> Average Service Time per Customer (minutes):</label>
+          <input type="number" id="avgServiceTime" min="1" placeholder="e.g. 15" required>
+
+          <!-- Total Available Service Time -->
+          <label style="margin-top: 15px;"><strong>2.</strong> Total Available Service Time:</label>
+          <div class="time-slots-container">
+            <div class="time-slot">
+              <label for="morningStart" style="font-size: 0.9rem; font-weight: 500;">Morning Start:</label>
+              <input type="time" id="morningStart" value="08:00" required>
+            </div>
+            <div class="time-slot">
+              <label for="morningEnd" style="font-size: 0.9rem; font-weight: 500;">Morning End (Lunch Break):</label>
+              <input type="time" id="morningEnd" value="12:00" required>
+            </div>
+            <div class="time-slot">
+              <label for="afternoonStart" style="font-size: 0.9rem; font-weight: 500;">Afternoon Start:</label>
+              <input type="time" id="afternoonStart" value="13:00" required>
+            </div>
+            <div class="time-slot">
+              <label for="afternoonEnd" style="font-size: 0.9rem; font-weight: 500;">Afternoon End (Time Out):</label>
+              <input type="time" id="afternoonEnd" value="17:00" required>
+            </div>
+          </div>
+
+          <!-- Number of Staff/Window -->
+          <label for="staffCount" style="margin-top: 15px;"><strong>3.</strong> Number of Staff/Windows:</label>
+          <input type="number" id="staffCount" min="1" placeholder="e.g. 3" required>
+        </div>
+
+        <!-- ========== SECTION 3: Auto-calculated Queue Limit ========== -->
+        <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #28a745;">
+          <h3 style="margin-top: 0; margin-bottom: 10px; color: #333; font-size: 1.1rem; border-bottom: 2px solid #28a745; padding-bottom: 8px;">📊 Calculated Queue Limit</h3>
+          
+          <label for="queueLimit">Queue Limit (Customers per Day):</label>
+          <input type="number" id="queueLimit" readonly placeholder="Will be calculated automatically" style="background-color: #e9ecef; cursor: not-allowed; font-size: 1.1rem; font-weight: bold; color: #155724;">
+          
+          <div style="background: #fff; padding: 10px; border-radius: 5px; margin-top: 10px; border-left: 4px solid #28a745;">
+            <p style="color: #155724; font-size: 0.9rem; margin: 0; line-height: 1.6;">
+              <strong>Formula:</strong><br>
+              Queue Limit = (Total Available Service Time ÷ Average Service Time per Customer) × Number of Staff
+            </p>
+          </div>
+          
+          <p style="color: #666; font-size: 0.85rem; margin-top: 10px; margin-bottom: 0; font-style: italic;">
+            ℹ️ This field is automatically calculated and cannot be edited manually.
+          </p>
+        </div>
 
         <div class="button-container">
           <button type="submit">Generate QR</button>
@@ -105,6 +134,7 @@
         ${item.queueNumber ? `<p><strong>Queue #${item.queueNumber}</strong></p>` : ''}
         <p><strong>Avg Service Time:</strong> ${item.avgServiceTime} min</p>
         <p><strong>Staff/Windows:</strong> ${item.staffCount}</p>
+        <p><strong>Queue Limit:</strong> ${item.queueLimit || 'N/A'} customers/day</p>
         <p><strong>Schedule:</strong><br>
         Morning: ${item.morningStart} - ${item.morningEnd}<br>
         Afternoon: ${item.afternoonStart} - ${item.afternoonEnd}</p>
@@ -127,6 +157,52 @@
 
   renderQRs();
 
+  // Auto-calculate Queue Limit
+  function calculateQueueLimit() {
+    const avgServiceTime = parseInt(document.getElementById("avgServiceTime").value) || 0;
+    const morningStart = document.getElementById("morningStart").value;
+    const morningEnd = document.getElementById("morningEnd").value;
+    const afternoonStart = document.getElementById("afternoonStart").value;
+    const afternoonEnd = document.getElementById("afternoonEnd").value;
+    const staffCount = parseInt(document.getElementById("staffCount").value) || 0;
+
+    // Calculate total available time in minutes
+    let totalMinutes = 0;
+    
+    if (morningStart && morningEnd) {
+      const morningStartTime = new Date(`1970-01-01T${morningStart}`);
+      const morningEndTime = new Date(`1970-01-01T${morningEnd}`);
+      const morningMinutes = (morningEndTime - morningStartTime) / (1000 * 60);
+      if (morningMinutes > 0) totalMinutes += morningMinutes;
+    }
+    
+    if (afternoonStart && afternoonEnd) {
+      const afternoonStartTime = new Date(`1970-01-01T${afternoonStart}`);
+      const afternoonEndTime = new Date(`1970-01-01T${afternoonEnd}`);
+      const afternoonMinutes = (afternoonEndTime - afternoonStartTime) / (1000 * 60);
+      if (afternoonMinutes > 0) totalMinutes += afternoonMinutes;
+    }
+
+    // Calculate queue limit
+    if (avgServiceTime > 0 && totalMinutes > 0 && staffCount > 0) {
+      const queueLimit = Math.floor((totalMinutes / avgServiceTime) * staffCount);
+      document.getElementById("queueLimit").value = queueLimit;
+    } else {
+      document.getElementById("queueLimit").value = "";
+    }
+  }
+
+  // Add event listeners to recalculate when inputs change
+  document.getElementById("avgServiceTime").addEventListener("input", calculateQueueLimit);
+  document.getElementById("morningStart").addEventListener("change", calculateQueueLimit);
+  document.getElementById("morningEnd").addEventListener("change", calculateQueueLimit);
+  document.getElementById("afternoonStart").addEventListener("change", calculateQueueLimit);
+  document.getElementById("afternoonEnd").addEventListener("change", calculateQueueLimit);
+  document.getElementById("staffCount").addEventListener("input", calculateQueueLimit);
+  
+  // Initial calculation on page load
+  calculateQueueLimit();
+
   // Handle QR creation
   form.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -139,6 +215,7 @@
     const afternoonStart = document.getElementById("afternoonStart").value;
     const afternoonEnd = document.getElementById("afternoonEnd").value;
     const staffCount = parseInt(document.getElementById("staffCount").value);
+    const queueLimit = parseInt(document.getElementById("queueLimit").value) || 0;
 
     // Validate time slots
     if (morningStart >= morningEnd) {
@@ -158,7 +235,7 @@
     fetch("/generate_qr_db", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&avgServiceTime=${avgServiceTime}&morningStart=${encodeURIComponent(morningStart)}&morningEnd=${encodeURIComponent(morningEnd)}&afternoonStart=${encodeURIComponent(afternoonStart)}&afternoonEnd=${encodeURIComponent(afternoonEnd)}&staffCount=${staffCount}`
+      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&avgServiceTime=${avgServiceTime}&morningStart=${encodeURIComponent(morningStart)}&morningEnd=${encodeURIComponent(morningEnd)}&afternoonStart=${encodeURIComponent(afternoonStart)}&afternoonEnd=${encodeURIComponent(afternoonEnd)}&staffCount=${staffCount}&queueLimit=${queueLimit}`
     })
     .then(res => {
       if (!res.ok) {
@@ -186,6 +263,7 @@
         afternoonStart,
         afternoonEnd,
         staffCount,
+        queueLimit,
         queueNumber: data.queue_number || 1,
         qrId: data.qr_id
       };
@@ -193,6 +271,7 @@
       localStorage.setItem("queues", JSON.stringify(qrList));
       renderQRs();
       form.reset();
+      calculateQueueLimit(); // Clear the queue limit after reset
     })
     .catch(err => {
       console.error("Error generating QR:", err);
@@ -334,6 +413,7 @@
             <p>${item.queue_purpose}</p>
             <p><strong>Avg Service Time:</strong> ${item.avg_service_time || 'N/A'} min</p>
             <p><strong>Staff/Windows:</strong> ${item.staff_count || 'N/A'}</p>
+            <p><strong>Queue Limit:</strong> ${item.queue_limit || 'N/A'} customers/day</p>
             <p><strong>Schedule:</strong><br>
             Morning: ${item.morning_start || 'N/A'} - ${item.morning_end || 'N/A'}<br>
             Afternoon: ${item.afternoon_start || 'N/A'} - ${item.afternoon_end || 'N/A'}</p>
