@@ -157,18 +157,25 @@
     </div>
 
     {% if not queue_full %}
-    <!-- ✅ Full Name (with hint inside field) - Only required for new registrations -->
-    <div class="form-row" id="fullnameRow">
-      <label for="fullname">Full Name: <span style="color: red;">*</span></label>
-      <div class="input-wrapper">
-        <input type="text" id="fullname" name="fullname" required>
-        <div class="name-hint">
-          <span>Last Name,</span>
-          <span>First Name</span>
-          <span>Middle Initial</span>
-          <span>Suffix</span>
-        </div>
-      </div>
+    <!-- ✅ Name Fields - Separated -->
+    <div class="form-row">
+      <label for="lastname">Last Name: <span style="color: red;">*</span></label>
+      <input type="text" id="lastname" name="lastname" placeholder="Dela Cruz" required>
+    </div>
+
+    <div class="form-row">
+      <label for="firstname">First Name: <span style="color: red;">*</span></label>
+      <input type="text" id="firstname" name="firstname" placeholder="Juan" required>
+    </div>
+
+    <div class="form-row">
+      <label for="middleinitial">Middle Initial:</label>
+      <input type="text" id="middleinitial" name="middleinitial" placeholder="A" maxlength="2">
+    </div>
+
+    <div class="form-row">
+      <label for="suffix">Suffix (if applicable):</label>
+      <input type="text" id="suffix" name="suffix" placeholder="Jr., Sr., III (optional)" maxlength="10">
     </div>
 
     <!-- ✅ Purpose -->
