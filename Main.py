@@ -64,6 +64,12 @@ def signup():
         email = request.form['email']
         password = request.form['password']
         confirm = request.form['confirm_password']
+        terms_accepted = request.form.get('terms') == 'on'
+
+        # Validate terms and conditions acceptance
+        if not terms_accepted:
+            flash("You must agree to the Terms and Conditions to create an account.")
+            return redirect(url_for('signup'))
 
         if password != confirm:
             flash("Passwords do not match.")
