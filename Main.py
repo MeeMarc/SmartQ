@@ -1407,26 +1407,95 @@ def reschedule_queue_entry(entry_id):
 
 @app.route('/add_candidate_modal', methods=['POST'])
 def add_candidate_modal():
+    """Add a candidate directly to queue_entries from the admin modal."""
     data = request.get_json()
-    fullname = data.get('fullname')
-    phone = data.get('phone')
-    timeslot = data.get('timeslot')
-    qr_link = data.get('link')
+    fullname = data.get('fullname', '').strip()
+    phone = data.get('phone', '').strip()
+    qr_link = data.get('link', '').strip()
+
+    if not fullname or not phone or not qr_link:
+        return jsonify({"status": "error", "message": "Full name, phone, and queue link are required"}), 400
 
     try:
+        # Parse queue_link to get queue_slug and queue_number
+        # Format: https://domain.com/queue/<slug>/<number>
+        match = re.search(r'/queue/([^/]+)/(\d+)', qr_link)
+        if not match:
+            return jsonify({"status": "error", "message": "Invalid queue link format"}), 400
+        
+        queue_slug = match.group(1)
+        queue_number = int(match.group(2))
+        
+        # Get queue metadata
+        queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
+        
         conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
         cur = conn.cursor()
-        # Save candidate and link to QR
-        cur.execute("INSERT INTO candidates (fullname, phone, timeslot, purpose, qr_link) VALUES (%s,%s,%s,%s,%s)",
-                    (fullname, phone, timeslot, f"Linked to QR", qr_link))
+        
+        # Check queue limit
+        queue_limit = get_queue_limit(queue_slug, queue_number)
+        current_count = get_queue_entry_count(queue_slug, queue_number)
+        
+        if queue_limit is not None and queue_limit > 0 and current_count >= queue_limit:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Queue is full. Cannot add more candidates."}), 400
+        
+        # Check if user already has an entry
+        existing_entry = check_existing_entry(queue_slug, queue_number, phone)
+        if existing_entry:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "A user with this phone number already exists in this queue."}), 400
+        
+        # Insert into queue_entries
+        cur.execute(
+            """
+            INSERT INTO queue_entries (
+                queue_slug, queue_number, queue_type, queue_purpose,
+                fullname, phone, purpose, status
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting')
+            RETURNING id
+            """,
+            (
+                queue_slug,
+                queue_number,
+                queue_type,
+                queue_purpose,
+                fullname,
+                phone,
+                "Added via Admin Panel",  # Purpose field
+            )
+        )
+        
+        entry_id = cur.fetchone()[0]
         conn.commit()
+        
+        # Get QR ID for response
         cur.execute("SELECT id FROM temp_qr WHERE queue_link=%s", (qr_link,))
-        qr_id = cur.fetchone()[0]
+        qr_row = cur.fetchone()
+        qr_id = qr_row[0] if qr_row else None
+        
+        # Also check qr_history
+        if not qr_id:
+            cur.execute("SELECT id FROM qr_history WHERE queue_link=%s", (qr_link,))
+            qr_row = cur.fetchone()
+            qr_id = qr_row[0] if qr_row else None
+        
         cur.close()
         conn.close()
-        return jsonify({"status": "success", "qr_id": qr_id})
+        
+        return jsonify({"status": "success", "qr_id": qr_id, "entry_id": entry_id})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
+        print(f"Error adding candidate: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
     
 @app.route('/migrate_db')
 def migrate_db():

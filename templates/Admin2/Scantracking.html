@@ -47,16 +47,11 @@
     <h3>Add Candidate</h3>
     <form id="candidateForm">
       <input type="hidden" id="modalQRLink">
-      <label for="fullname">Full Name:</label>
-      <input type="text" id="fullname" required>
-      <label for="phone">Phone:</label>
-      <input type="text" id="phone" required>
-      <label for="timeslot">Timeslot:</label>
-      <select id="timeslot" required>
-        <option value="Morning">Morning</option>
-        <option value="Afternoon">Afternoon</option>
-        <option value="Evening">Evening</option>
-      </select>
+      <label for="fullname">Full Name: <span style="color: red;">*</span></label>
+      <input type="text" id="fullname" placeholder="Last Name, First Name" required>
+      <p style="font-size: 0.85rem; color: #666; margin-top: -8px; margin-bottom: 12px; font-style: italic;">Format: Last Name, First Name</p>
+      <label for="phone">Phone: <span style="color: red;">*</span></label>
+      <input type="text" id="phone" placeholder="09*********" required>
       <button type="submit">Submit</button>
     </form>
   </div>
@@ -196,9 +191,8 @@ function closeModal() {
 candidateForm.addEventListener("submit", function(e) {
   e.preventDefault();
   const data = {
-    fullname: document.getElementById("fullname").value,
-    phone: document.getElementById("phone").value,
-    timeslot: document.getElementById("timeslot").value,
+    fullname: document.getElementById("fullname").value.trim(),
+    phone: document.getElementById("phone").value.trim(),
     link: modalQRLink.value
   };
 
