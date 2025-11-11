@@ -360,6 +360,32 @@ header {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
+.reschedule-btn {
+  margin-top: 20px;
+  padding: 12px 24px;
+  background-color: rgba(0, 123, 255, 0.9);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.reschedule-btn:hover {
+  background-color: #0056b3;
+  border-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.reschedule-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 /* =========================================================
    MOBILE RESPONSIVE (✅ added improvements)
 ========================================================= */

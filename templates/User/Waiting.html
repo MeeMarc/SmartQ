@@ -48,13 +48,19 @@
     <p class="status-display">Status: <span class="status-badge status-{{ entry.status|default('waiting') }}">{{ entry.status|default('waiting')|capitalize }}</span></p>
     <p class="queue-note">Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.</p>
     
-    <!-- Cancel Button -->
+    <!-- Action Buttons -->
     {% if entry.status != 'cancelled' and entry.status != 'completed' %}
-    <button class="cancel-btn" 
-            data-entry-id="{{ entry.id }}"
-            data-queue-slug="{{ queue_slug }}"
-            data-queue-number="{{ queue_number }}"
-            onclick="confirmCancel(this)">Cancel Registration</button>
+    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+      <button class="cancel-btn" 
+              data-entry-id="{{ entry.id }}"
+              data-queue-slug="{{ queue_slug }}"
+              data-queue-number="{{ queue_number }}"
+              onclick="confirmCancel(this)">Cancel Registration</button>
+      <button class="reschedule-btn" 
+              data-entry-id="{{ entry.id }}"
+              data-queue-type="{{ queue_type }}"
+              onclick="confirmReschedule(this)">Reschedule</button>
+    </div>
     {% endif %}
   </section>
 
@@ -106,6 +112,63 @@
       .catch(error => {
         console.error('Error:', error);
         alert('❌ Failed to cancel registration: ' + error.message);
+      });
+    }
+  }
+
+  // === RESCHEDULE REGISTRATION ===
+  function confirmReschedule(button) {
+    const entryId = button.getAttribute('data-entry-id');
+    const queueType = button.getAttribute('data-queue-type');
+    
+    const message = `Are you sure you want to reschedule?\n\n` +
+      `• Your current slot will be freed for another person\n` +
+      `• You'll be automatically moved to the next ${queueType} queue\n` +
+      `• If no next queue exists yet, you'll be enrolled when it's created\n` +
+      `• You can only reschedule once per 24 hours\n\n` +
+      `Continue with reschedule?`;
+    
+    if (confirm(message)) {
+      button.disabled = true;
+      button.textContent = 'Rescheduling...';
+      
+      fetch(`/reschedule_queue_entry/${entryId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(data => {
+            throw new Error(data.message || 'Failed to reschedule');
+          }).catch(() => {
+            throw new Error(`Server error: ${response.status}`);
+          });
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (data.status === 'success') {
+          // User was moved to next queue
+          alert('✅ ' + data.message);
+          // Redirect to new queue waiting page
+          window.location.href = `/queue/${data.new_queue_slug}/${data.new_queue_number}/waiting/${data.new_entry_id}`;
+        } else if (data.status === 'pending') {
+          // User is pending - show message and reload
+          alert('⏳ ' + data.message);
+          window.location.reload();
+        } else {
+          alert('❌ Error: ' + (data.message || 'Unknown error'));
+          button.disabled = false;
+          button.textContent = 'Reschedule';
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Failed to reschedule: ' + error.message);
+        button.disabled = false;
+        button.textContent = 'Reschedule';
       });
     }
   }

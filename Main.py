@@ -320,7 +320,10 @@ def ensure_queue_entries_table(conn):
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS phone VARCHAR(50)",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS purpose TEXT",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'waiting'",
-            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP"
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS reschedule_status VARCHAR(50)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS rescheduled_to_queue_number INTEGER",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS last_rescheduled_at TIMESTAMP WITHOUT TIME ZONE"
         ]
 
         for stmt in column_statements:
@@ -665,6 +668,9 @@ def generate_qr_db():
                        avg_service_time, morning_start or None, morning_end or None,
                        afternoon_start or None, afternoon_end or None, staff_count, queue_limit)
         print(f"QR saved with ID: {qr_id}")
+        
+        # Auto-enroll pending reschedules for this queue type
+        auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type)
         
         if qr_id is None:
             error_msg = "Failed to save QR to database. Check server logs for details."
@@ -1084,6 +1090,307 @@ def cancel_queue_entry(entry_id):
         return jsonify({"status": "success", "message": "Registration cancelled successfully"})
     except Exception as e:
         print(f"Error cancelling queue entry: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+def find_next_available_queue(queue_type, current_queue_number):
+    """Find the next available queue of the same type."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return None
+        
+        cur = conn.cursor()
+        
+        # Find the next queue number of the same type (greater than current)
+        # Check both qr_history and temp_qr
+        cur.execute(
+            """
+            SELECT queue_number, queue_slug
+            FROM (
+                SELECT queue_number, queue_slug FROM qr_history 
+                WHERE queue_type = %s AND queue_number > %s
+                UNION
+                SELECT queue_number, queue_slug FROM temp_qr 
+                WHERE queue_type = %s AND queue_number > %s
+            ) AS combined
+            ORDER BY queue_number ASC
+            LIMIT 1
+            """,
+            (queue_type, current_queue_number, queue_type, current_queue_number)
+        )
+        
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if result:
+            return {"queue_number": result[0], "queue_slug": result[1]}
+        return None
+    except Exception as e:
+        print(f"Error finding next queue: {e}")
+        return None
+
+def can_reschedule(entry_id, queue_type):
+    """Check if user can reschedule (24-hour cooldown check per queue type)."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return False, "Database connection failed"
+        
+        cur = conn.cursor()
+        
+        # Get user's phone number from this entry
+        cur.execute(
+            """
+            SELECT phone
+            FROM queue_entries
+            WHERE id = %s
+            """,
+            (entry_id,)
+        )
+        
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            conn.close()
+            return False, "Entry not found"
+        
+        phone = row[0]
+        
+        # Check last reschedule time for this queue type across all user's entries
+        cur.execute(
+            """
+            SELECT MAX(last_rescheduled_at) as last_reschedule
+            FROM queue_entries
+            WHERE phone = %s 
+            AND queue_type = %s
+            AND last_rescheduled_at IS NOT NULL
+            """,
+            (phone, queue_type)
+        )
+        
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        last_rescheduled_at = row[0] if row else None
+        
+        # If never rescheduled for this queue type, allow it
+        if not last_rescheduled_at:
+            return True, None
+        
+        # Check if 24 hours have passed
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        time_diff = now - last_rescheduled_at
+        
+        if time_diff < timedelta(hours=24):
+            hours_remaining = 24 - (time_diff.total_seconds() / 3600)
+            return False, f"You can reschedule {queue_type} queues again in {int(hours_remaining)} hours"
+        
+        return True, None
+    except Exception as e:
+        print(f"Error checking reschedule eligibility: {e}")
+        return False, str(e)
+
+def auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type):
+    """Auto-enroll users with pending reschedules for this queue type."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        # Find all pending reschedules for this queue type
+        cur.execute(
+            """
+            SELECT id, fullname, phone, purpose, queue_purpose
+            FROM queue_entries
+            WHERE reschedule_status = 'pending' 
+            AND queue_type = %s
+            AND status = 'rescheduled'
+            """,
+            (queue_type,)
+        )
+        
+        pending_entries = cur.fetchall()
+        
+        for entry in pending_entries:
+            entry_id, fullname, phone, purpose, old_queue_purpose = entry
+            
+            # Create new entry in the new queue
+            cur.execute(
+                """
+                INSERT INTO queue_entries (
+                    queue_slug, queue_number, queue_type, queue_purpose,
+                    fullname, phone, purpose, status
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting')
+                RETURNING id
+                """,
+                (
+                    queue_slug,
+                    queue_number,
+                    queue_type,
+                    old_queue_purpose,  # Keep original purpose
+                    fullname,
+                    phone,
+                    purpose,
+                )
+            )
+            
+            new_entry_id = cur.fetchone()[0]
+            
+            # Update old entry to mark as rescheduled with new queue info
+            # Don't update last_rescheduled_at here - it was already set when user initiated reschedule
+            cur.execute(
+                """
+                UPDATE queue_entries
+                SET reschedule_status = 'completed',
+                    rescheduled_to_queue_number = %s
+                WHERE id = %s
+                """,
+                (queue_number, entry_id)
+            )
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        if pending_entries:
+            print(f"Auto-enrolled {len(pending_entries)} pending reschedules to queue {queue_number}")
+    except Exception as e:
+        print(f"Error auto-enrolling pending reschedules: {e}")
+        import traceback
+        traceback.print_exc()
+
+@app.route('/reschedule_queue_entry/<int:entry_id>', methods=['POST'])
+def reschedule_queue_entry(entry_id):
+    """Reschedule a queue entry to the next available queue of the same type."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        # Get entry details
+        cur.execute(
+            """
+            SELECT id, queue_slug, queue_number, queue_type, queue_purpose,
+                   fullname, phone, purpose, status
+            FROM queue_entries
+            WHERE id = %s
+            """,
+            (entry_id,)
+        )
+        
+        row = cur.fetchone()
+        
+        if not row:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Entry not found"}), 404
+        
+        entry_id_db, queue_slug, queue_number, queue_type, queue_purpose, fullname, phone, purpose, status = row
+        
+        # Check if entry can be rescheduled
+        if status not in ['waiting']:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": f"Cannot reschedule entry with status: {status}"}), 400
+        
+        # Check 24-hour cooldown
+        can_resched, cooldown_msg = can_reschedule(entry_id, queue_type)
+        if not can_resched:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": cooldown_msg}), 400
+        
+        # Find next available queue of same type
+        next_queue = find_next_available_queue(queue_type, queue_number)
+        
+        if next_queue:
+            # Next queue exists - move user there
+            new_queue_slug = next_queue["queue_slug"]
+            new_queue_number = next_queue["queue_number"]
+            
+            # Create new entry in next queue
+            cur.execute(
+                """
+                INSERT INTO queue_entries (
+                    queue_slug, queue_number, queue_type, queue_purpose,
+                    fullname, phone, purpose, status
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting')
+                RETURNING id
+                """,
+                (
+                    new_queue_slug,
+                    new_queue_number,
+                    queue_type,
+                    queue_purpose,
+                    fullname,
+                    phone,
+                    purpose if purpose else None,
+                )
+            )
+            
+            new_entry_id = cur.fetchone()[0]
+            
+            # Mark old entry as rescheduled
+            cur.execute(
+                """
+                UPDATE queue_entries
+                SET status = 'rescheduled',
+                    reschedule_status = 'completed',
+                    rescheduled_to_queue_number = %s,
+                    last_rescheduled_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                """,
+                (new_queue_number, entry_id)
+            )
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            return jsonify({
+                "status": "success",
+                "message": f"Rescheduled successfully! You've been moved to {queue_type} Queue #{new_queue_number}.",
+                "new_queue_slug": new_queue_slug,
+                "new_queue_number": new_queue_number,
+                "new_entry_id": new_entry_id
+            })
+        else:
+            # No next queue exists - mark as pending
+            cur.execute(
+                """
+                UPDATE queue_entries
+                SET status = 'rescheduled',
+                    reschedule_status = 'pending',
+                    last_rescheduled_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                """,
+                (entry_id,)
+            )
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            return jsonify({
+                "status": "pending",
+                "message": f"Reschedule request received! You'll be automatically enrolled in the next {queue_type} queue when it's created. Your slot in the current queue has been freed."
+            })
+            
+    except Exception as e:
+        print(f"Error rescheduling queue entry: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
