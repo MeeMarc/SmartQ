@@ -21,7 +21,7 @@
   <div class="right">
           {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-              <div class="flash-messages">
+              <div id="logoutFlashMessage" class="flash-messages" style="transition: opacity 0.5s ease-out;">
          {% for category, message in messages %}
           {% if category == 'logout' or not category %}
         <p>{{ message }}</p>
@@ -70,21 +70,21 @@
       }
     }
 
-    // Auto-dismiss flash messages after 4 seconds
+    // Auto-dismiss flash messages after 5 seconds
     document.addEventListener('DOMContentLoaded', function() {
-      const flashMessages = document.querySelector('.flash-messages');
+      const flashMessages = document.getElementById('logoutFlashMessage') || document.querySelector('.flash-messages');
       if (flashMessages) {
         setTimeout(() => {
           flashMessages.style.opacity = '0';
           flashMessages.style.transform = 'translate(-50%, -45%)';
-          setTimeout(() => flashMessages.remove(), 300);
-        }, 4000);
+          setTimeout(() => flashMessages.remove(), 500);
+        }, 5000); // Changed to 5 seconds
         
         // Also allow clicking anywhere to dismiss
         flashMessages.addEventListener('click', function() {
           flashMessages.style.opacity = '0';
           flashMessages.style.transform = 'translate(-50%, -45%)';
-          setTimeout(() => flashMessages.remove(), 300);
+          setTimeout(() => flashMessages.remove(), 500);
         });
       }
     });
