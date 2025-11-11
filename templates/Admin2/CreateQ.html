@@ -53,9 +53,17 @@
           
           <!-- Average Service Time per Customer -->
           <label for="avgServiceTime">
-            <strong>1.</strong> Average Service Time per Customer (minutes):
+            <strong>1.</strong> Average Service Time per Customer:
           </label>
-          <input type="number" id="avgServiceTime" min="1" placeholder="e.g. 15" required>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="number" id="serviceMinutes" min="0" placeholder="00" style="width: 80px; text-align: center;" required>
+            <span style="font-weight: bold; font-size: 1.2rem;">:</span>
+            <input type="number" id="serviceSeconds" min="0" max="59" placeholder="00" style="width: 80px; text-align: center;" required>
+            <span style="font-size: 0.9rem; color: #666; margin-left: 5px;">(MM:SS)</span>
+          </div>
+          <p style="color: #666; font-size: 0.85rem; margin-top: 5px; margin-bottom: 0; font-style: italic;">
+            Enter minutes and seconds (e.g., 15 minutes 30 seconds)
+          </p>
 
           <!-- Total Available Service Time -->
           <label>
@@ -134,11 +142,16 @@
     qrList.forEach((item, index) => {
       const box = document.createElement("div");
       box.className = "qr-box";
+      // Format service time display
+      const serviceTimeDisplay = item.serviceMinutes !== undefined && item.serviceSeconds !== undefined
+        ? `${item.serviceMinutes}m ${item.serviceSeconds}s`
+        : `${item.avgServiceTime || 'N/A'} min`;
+
       box.innerHTML = `
         <h4>${item.type}</h4>
         <p>${item.purpose}</p>
         ${item.queueNumber ? `<p><strong>Queue #${item.queueNumber}</strong></p>` : ''}
-        <p><strong>Avg Service Time:</strong> ${item.avgServiceTime} min</p>
+        <p><strong>Avg Service Time:</strong> ${serviceTimeDisplay}</p>
         <p><strong>Staff/Windows:</strong> ${item.staffCount}</p>
         <p><strong>Queue Limit:</strong> ${item.queueLimit || 'N/A'} customers/day</p>
         <p><strong>Schedule:</strong><br>
@@ -165,12 +178,16 @@
 
   // Auto-calculate Queue Limit
   function calculateQueueLimit() {
-    const avgServiceTime = parseInt(document.getElementById("avgServiceTime").value) || 0;
+    const serviceMinutes = parseInt(document.getElementById("serviceMinutes").value) || 0;
+    const serviceSeconds = parseInt(document.getElementById("serviceSeconds").value) || 0;
     const morningStart = document.getElementById("morningStart").value;
     const morningEnd = document.getElementById("morningEnd").value;
     const afternoonStart = document.getElementById("afternoonStart").value;
     const afternoonEnd = document.getElementById("afternoonEnd").value;
     const staffCount = parseInt(document.getElementById("staffCount").value) || 0;
+
+    // Convert service time to total minutes (including fractional minutes from seconds)
+    const avgServiceTime = serviceMinutes + (serviceSeconds / 60);
 
     // Calculate total available time in minutes
     let totalMinutes = 0;
@@ -189,7 +206,7 @@
       if (afternoonMinutes > 0) totalMinutes += afternoonMinutes;
     }
 
-    // Calculate queue limit
+    // Calculate queue limit (always a whole number)
     if (avgServiceTime > 0 && totalMinutes > 0 && staffCount > 0) {
       const queueLimit = Math.floor((totalMinutes / avgServiceTime) * staffCount);
       document.getElementById("queueLimit").value = queueLimit;
@@ -198,8 +215,29 @@
     }
   }
 
+  // Validate and auto-format seconds input
+  const secondsInput = document.getElementById("serviceSeconds");
+  secondsInput.addEventListener("input", function() {
+    let value = parseInt(this.value);
+    if (value > 59) {
+      this.value = 59;
+    } else if (value < 0) {
+      this.value = 0;
+    }
+    calculateQueueLimit();
+  });
+
+  // Validate minutes input (no negatives)
+  const minutesInput = document.getElementById("serviceMinutes");
+  minutesInput.addEventListener("input", function() {
+    let value = parseInt(this.value);
+    if (value < 0) {
+      this.value = 0;
+    }
+    calculateQueueLimit();
+  });
+
   // Add event listeners to recalculate when inputs change
-  document.getElementById("avgServiceTime").addEventListener("input", calculateQueueLimit);
   document.getElementById("morningStart").addEventListener("change", calculateQueueLimit);
   document.getElementById("morningEnd").addEventListener("change", calculateQueueLimit);
   document.getElementById("afternoonStart").addEventListener("change", calculateQueueLimit);
@@ -215,7 +253,9 @@
 
     const type = document.getElementById("queueType").value.trim();
     const purpose = document.getElementById("queuePurpose").value.trim();
-    const avgServiceTime = parseInt(document.getElementById("avgServiceTime").value);
+    const serviceMinutes = parseInt(document.getElementById("serviceMinutes").value) || 0;
+    const serviceSeconds = parseInt(document.getElementById("serviceSeconds").value) || 0;
+    const avgServiceTime = serviceMinutes + (serviceSeconds / 60); // Convert to total minutes
     const morningStart = document.getElementById("morningStart").value;
     const morningEnd = document.getElementById("morningEnd").value;
     const afternoonStart = document.getElementById("afternoonStart").value;
@@ -264,6 +304,8 @@
         purpose, 
         link: data.queue_link || "#", 
         avgServiceTime,
+        serviceMinutes,
+        serviceSeconds,
         morningStart,
         morningEnd,
         afternoonStart,
@@ -414,10 +456,26 @@
         data.forEach(item => {
           const box = document.createElement("div");
           box.className = "qr-box";
+          
+          // Format service time - if it's a decimal, show as MM:SS, otherwise show as minutes
+          let serviceTimeDisplay;
+          if (item.avg_service_time) {
+            const totalMinutes = parseFloat(item.avg_service_time);
+            const minutes = Math.floor(totalMinutes);
+            const seconds = Math.round((totalMinutes - minutes) * 60);
+            if (seconds > 0) {
+              serviceTimeDisplay = `${minutes}m ${seconds}s`;
+            } else {
+              serviceTimeDisplay = `${minutes} min`;
+            }
+          } else {
+            serviceTimeDisplay = 'N/A';
+          }
+          
           box.innerHTML = `
             <h4>${item.queue_type}</h4>
             <p>${item.queue_purpose}</p>
-            <p><strong>Avg Service Time:</strong> ${item.avg_service_time || 'N/A'} min</p>
+            <p><strong>Avg Service Time:</strong> ${serviceTimeDisplay}</p>
             <p><strong>Staff/Windows:</strong> ${item.staff_count || 'N/A'}</p>
             <p><strong>Queue Limit:</strong> ${item.queue_limit || 'N/A'} customers/day</p>
             <p><strong>Schedule:</strong><br>

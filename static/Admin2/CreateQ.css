@@ -244,6 +244,26 @@ header {
   line-height: 1.6;
 }
 
+/* Timer input styling (MM:SS format) */
+.HomeRightContainer input[type="number"][id="serviceMinutes"],
+.HomeRightContainer input[type="number"][id="serviceSeconds"] {
+  padding: 12px 8px;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.3s ease;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.HomeRightContainer input[type="number"][id="serviceMinutes"]:focus,
+.HomeRightContainer input[type="number"][id="serviceSeconds"]:focus {
+  border-color: #ffc107;
+  box-shadow: 0 0 5px rgba(255, 193, 7, 0.3);
+}
+
 /* =========================================================
    TIME SLOTS CONTAINER (Morning / Afternoon schedule)
 ========================================================= */
