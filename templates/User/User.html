@@ -285,68 +285,21 @@
 </script>
 
 <script>
-  // Handle form submission with automatic ticket download
+  // Handle form submission - simplified for faster response
   const registrationForm = document.getElementById('registrationForm');
   const submitBtn = document.getElementById('submitBtn');
 
   if (registrationForm) {
     registrationForm.addEventListener('submit', function(event) {
-      event.preventDefault(); // Prevent default form submission
-      
       // Disable submit button to prevent double submission
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Submitting...';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+      }
       
-      // Gather form data
-      const formData = new FormData(registrationForm);
-      const currentUrl = window.location.pathname;
-      
-      // Submit form via fetch
-      fetch(currentUrl, {
-        method: 'POST',
-        body: formData
-      })
-      .then(response => {
-        if (response.redirected) {
-          // Extract entry_id from redirect URL
-          const redirectUrl = response.url;
-          const match = redirectUrl.match(/\/waiting\/(\d+)$/);
-          
-          if (match) {
-            const entryId = match[1];
-            const queueSlug = formData.get('queue_slug');
-            const queueNumber = formData.get('queue_number');
-            
-            // Trigger ticket download
-            const downloadUrl = `/download_ticket/${queueSlug}/${queueNumber}/${entryId}`;
-            const downloadLink = document.createElement('a');
-            downloadLink.href = downloadUrl;
-            downloadLink.download = `SmartQ_Ticket_${entryId}.txt`;
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            document.body.removeChild(downloadLink);
-            
-            // Small delay to ensure download starts, then redirect
-            setTimeout(() => {
-              window.location.href = redirectUrl;
-            }, 500);
-          } else {
-            // If we can't extract entry_id, just redirect
-            window.location.href = redirectUrl;
-          }
-        } else {
-          // If not redirected, re-enable button and show error
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Submit';
-          alert('Submission failed. Please check your information and try again.');
-        }
-      })
-      .catch(error => {
-        console.error('Error submitting form:', error);
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit';
-        alert('An error occurred. Please try again.');
-      });
+      // Let the form submit normally - no need to intercept with fetch
+      // This will be much faster as it uses native browser form submission
+      // The download can be done on the waiting page if needed
     });
   }
 </script>

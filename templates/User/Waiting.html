@@ -48,6 +48,13 @@
     <p class="status-display">Status: <span class="status-badge status-{{ entry.status|default('waiting') }}">{{ entry.status|default('waiting')|capitalize }}</span></p>
     <p class="queue-note">Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.</p>
     
+    <!-- Download Ticket Button -->
+    <div style="display: flex; justify-content: center; margin-top: 15px;">
+      <a href="{{ url_for('download_ticket', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry.id) }}" 
+         class="download-btn" 
+         download>📥 Download Ticket</a>
+    </div>
+    
     <!-- Action Buttons -->
     {% if entry.status != 'cancelled' and entry.status != 'completed' %}
     <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">

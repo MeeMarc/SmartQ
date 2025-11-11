@@ -386,6 +386,29 @@ header {
   opacity: 0.6;
 }
 
+.download-btn {
+  display: inline-block;
+  padding: 12px 24px;
+  background-color: rgba(40, 167, 69, 0.9);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.download-btn:hover {
+  background-color: #28a745;
+  border-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: #fff;
+  text-decoration: none;
+}
+
 /* =========================================================
    MOBILE RESPONSIVE (✅ added improvements)
 ========================================================= */
