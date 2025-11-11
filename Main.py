@@ -841,66 +841,57 @@ def temp_qr_data():
 def qr_history_data():
     try:
         conn = get_db_connection()
+        if conn is None:
+            print("ERROR: Database connection failed")
+            return jsonify({"error": "Database connection failed"}), 500
+            
         cur = conn.cursor()
         
-        # First check if queue_limit column exists
+        # Simple query - get ALL columns from qr_history
+        # Don't join with users yet to avoid issues
         cur.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'qr_history' AND column_name = 'queue_limit'
+            SELECT id, queue_type, queue_purpose, queue_link, created_by, created_at,
+                   avg_service_time, morning_start, morning_end, 
+                   afternoon_start, afternoon_end, staff_count
+            FROM qr_history
+            ORDER BY created_at DESC
         """)
-        has_queue_limit = cur.fetchone() is not None
-        
-        # Build query based on column existence
-        if has_queue_limit:
-            cur.execute("""
-                SELECT h.id, h.queue_type, h.queue_purpose, h.queue_link, u.fullname, h.created_at,
-                       h.avg_service_time, h.morning_start, h.morning_end, 
-                       h.afternoon_start, h.afternoon_end, h.staff_count, h.queue_limit
-                FROM qr_history h
-                LEFT JOIN users u ON h.created_by = u.email
-                ORDER BY h.created_at DESC
-            """)
-        else:
-            # Fallback for older schema without queue_limit
-            cur.execute("""
-                SELECT h.id, h.queue_type, h.queue_purpose, h.queue_link, u.fullname, h.created_at,
-                       h.avg_service_time, h.morning_start, h.morning_end, 
-                       h.afternoon_start, h.afternoon_end, h.staff_count
-                FROM qr_history h
-                LEFT JOIN users u ON h.created_by = u.email
-                ORDER BY h.created_at DESC
-            """)
         
         rows = cur.fetchall()
+        print(f"Found {len(rows)} QR codes in history")
         cur.close()
         conn.close()
 
         history = []
         for row in rows:
-            history_item = {
-                "id": row[0],
-                "queue_type": row[1],
-                "queue_purpose": row[2],
-                "queue_link": row[3],
-                "created_by": row[4] if row[4] else "Unknown",
-                "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S") if row[5] else "N/A",
-                "avg_service_time": row[6] if len(row) > 6 else None,
-                "morning_start": row[7] if len(row) > 7 else None,
-                "morning_end": row[8] if len(row) > 8 else None,
-                "afternoon_start": row[9] if len(row) > 9 else None,
-                "afternoon_end": row[10] if len(row) > 10 else None,
-                "staff_count": row[11] if len(row) > 11 else None,
-                "queue_limit": row[12] if has_queue_limit and len(row) > 12 else None
-            }
-            history.append(history_item)
+            try:
+                history_item = {
+                    "id": row[0],
+                    "queue_type": row[1] or "Unknown",
+                    "queue_purpose": row[2] or "N/A",
+                    "queue_link": row[3] or "#",
+                    "created_by": row[4] or "Unknown",
+                    "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S") if row[5] else "N/A",
+                    "avg_service_time": row[6],
+                    "morning_start": row[7],
+                    "morning_end": row[8],
+                    "afternoon_start": row[9],
+                    "afternoon_end": row[10],
+                    "staff_count": row[11],
+                    "queue_limit": None  # Will be added later if column exists
+                }
+                history.append(history_item)
+            except Exception as row_error:
+                print(f"Error processing row {row[0]}: {row_error}")
+                continue
         
+        print(f"Returning {len(history)} QR codes")
         return jsonify(history)
     except Exception as e:
         print(f"Error fetching QR history: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify([])
+        return jsonify({"error": str(e)}), 500
 
 
 
