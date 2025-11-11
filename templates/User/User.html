@@ -26,11 +26,11 @@
   </nav>
 </header>
 
-{% with messages = get_flashed_messages() %}
+{% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
-  <div class="flash-messages">
-    {% for message in messages %}
-      <p>{{ message }}</p>
+  <div class="flash-container">
+    {% for category, message in messages %}
+      <div class="flash-message {{ category }}">{{ message }}</div>
     {% endfor %}
   </div>
   {% endif %}
@@ -43,6 +43,28 @@
       <span class="hero-label">Document Queue</span>
       <h1>{{ queue_type|default('SmartQ Queue Registration', true) }}</h1>
       <p>{{ queue_purpose|default('Please complete the form below so we can start processing your documents.', true) }}</p>
+      
+      <!-- Queue Status Display -->
+      {% if queue_limit is defined and queue_limit and queue_limit > 0 %}
+      <div class="queue-status-banner" style="margin-top: 15px; padding: 12px 20px; border-radius: 8px; {% if queue_full %}background: #ffe0e0; border: 2px solid #ff4444;{% else %}background: #e0f7fa; border: 2px solid #00acc1;{% endif %}">
+        <strong style="font-size: 1.1rem;">Queue Status:</strong>
+        <span style="font-size: 1.05rem; margin-left: 10px;">
+          {% if queue_full %}
+            <span style="color: #c62828; font-weight: 600;">🚫 FULL - {{ current_count }}/{{ queue_limit }} slots taken</span>
+          {% else %}
+            <span style="color: #00796b; font-weight: 600;">✅ {{ queue_limit - current_count }} slots available ({{ current_count }}/{{ queue_limit }})</span>
+          {% endif %}
+        </span>
+      </div>
+      
+      {% if queue_full %}
+      <div class="queue-full-notice" style="margin-top: 12px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px;">
+        <p style="margin: 0; font-weight: 600; color: #856404;">
+          ⚠️ <strong>Queue Full:</strong> This queue has reached maximum capacity. However, if you've already registered, you can retrieve your ticket by entering your phone number below.
+        </p>
+      </div>
+      {% endif %}
+      {% endif %}
     </div>
     <div class="hero-meta">
       <div class="hero-chip">Secure &amp; prioritized processing</div>
@@ -88,7 +110,7 @@
     </div>
   </div>
 
-  <!-- Navigation Buttons -->
+  <!-- ✅ Navigation Buttons -->
   <div class="slider-controls">
     <button id="prevBtn">❮ Prev</button>
     <button id="nextBtn">Next ❯</button>
@@ -101,10 +123,16 @@
 <section id="paper-section" class="paper-section">
   <form class="paper-form" id="registrationForm" method="post">
     
-    <h3>Registration Form</h3>
-    <p class="form-description">Kindly provide accurate information so we can assist you with <strong>{{ queue_type|default('your requested documents', true) }}</strong>.</p>
+    <h3>{% if queue_full %}Retrieve Your Ticket{% else %}Registration Form{% endif %}</h3>
+    <p class="form-description">
+      {% if queue_full %}
+        <strong style="color: #d32f2f;">⚠️ Queue is Full:</strong> If you've already registered, enter your phone number to retrieve your ticket. New registrations are currently not accepted.
+      {% else %}
+        Kindly provide accurate information so we can assist you with <strong>{{ queue_type|default('your requested documents', true) }}</strong>.
+      {% endif %}
+    </p>
 
-    <!-- New read-only textarea for scanned QR -->
+    <!-- ✅ New read-only textarea for scanned QR -->
     <div class="form-row">
       <label for="qrData">Documents</label>
       <div id="qrDisplay" class="qr-display-box {% if (queue_type is defined and queue_type) or (queue_purpose is defined and queue_purpose) %}filled{% endif %}">
@@ -117,44 +145,42 @@
     <input type="hidden" name="queue_number" value="{{ queue_number|default('', true) }}">
     <input type="hidden" name="queue_slug" value="{{ queue_slug|default('', true) }}">
 
-
-
-<!-- Full Name (split into 4 containers with placeholders) -->
-<div class="form-row full-name">
-  <label for="fullname">Full Name:</label>
-  <div class="name-fields">
-    <div class="name-container">
-      <input type="text" id="lastname" name="lastname" placeholder="Last Name" required>
-    </div>
-    <div class="name-container">
-      <input type="text" id="firstname" name="firstname" placeholder="First Name" required>
-    </div>
-    <div class="name-container">
-      <input type="text" id="middleinitial" name="middleinitial" placeholder="M.I. (Optional)" maxlength="1">
-    </div>
-    <div class="name-container">
-      <input type="text" id="suffix" name="suffix" placeholder="Suffix (Optional)">
-    </div>
-  </div>
-</div>
-
-
-
-    <!-- Phone Number -->
+    <!-- ✅ Phone Number (Always Required) -->
     <div class="form-row">
-      <label for="phone">Phone Number:</label>
+      <label for="phone">Phone Number: <span style="color: red;">*</span></label>
       <textarea id="phone" name="phone" rows="1" placeholder="09*********" required></textarea>
+      {% if queue_full %}
+      <p style="font-size: 0.85rem; color: #666; margin-top: 5px; font-style: italic;">
+        Enter your phone number to retrieve your existing ticket.
+      </p>
+      {% endif %}
     </div>
 
-    <!-- Purpose -->
-    <div class="form-row">
+    {% if not queue_full %}
+    <!-- ✅ Full Name (with hint inside field) - Only required for new registrations -->
+    <div class="form-row" id="fullnameRow">
+      <label for="fullname">Full Name: <span style="color: red;">*</span></label>
+      <div class="input-wrapper">
+        <input type="text" id="fullname" name="fullname" required>
+        <div class="name-hint">
+          <span>Last Name,</span>
+          <span>First Name</span>
+          <span>Middle Initial</span>
+          <span>Suffix</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ✅ Purpose -->
+    <div class="form-row" id="purposeRow">
       <label for="purpose">Purpose:</label>
       <textarea id="purpose" name="purpose" rows="4" placeholder="Optional"></textarea>
     </div>
+    {% endif %}
 
-    <!-- Submit Button -->
+    <!-- ✅ Submit Button -->
     <div class="form-row">
-      <button type="submit">Submit</button>
+      <button type="submit" id="submitBtn">{% if queue_full %}Retrieve My Ticket{% else %}Submit{% endif %}</button>
     </div>
     
   </form>
@@ -252,25 +278,72 @@
 </script>
 
 <script>
-// Auto-dismiss flash messages after 4 seconds
-document.addEventListener('DOMContentLoaded', function() {
-  const flashMessages = document.querySelector('.flash-messages');
-  if (flashMessages) {
-    setTimeout(() => {
-      flashMessages.style.opacity = '0';
-      flashMessages.style.transform = 'translate(-50%, -45%)';
-      setTimeout(() => flashMessages.remove(), 300);
-    }, 4000);
-    
-    // Also allow clicking anywhere to dismiss
-    flashMessages.addEventListener('click', function() {
-      flashMessages.style.opacity = '0';
-      flashMessages.style.transform = 'translate(-50%, -45%)';
-      setTimeout(() => flashMessages.remove(), 300);
+  // Handle form submission with automatic ticket download
+  const registrationForm = document.getElementById('registrationForm');
+  const submitBtn = document.getElementById('submitBtn');
+
+  if (registrationForm) {
+    registrationForm.addEventListener('submit', function(event) {
+      event.preventDefault(); // Prevent default form submission
+      
+      // Disable submit button to prevent double submission
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+      
+      // Gather form data
+      const formData = new FormData(registrationForm);
+      const currentUrl = window.location.pathname;
+      
+      // Submit form via fetch
+      fetch(currentUrl, {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => {
+        if (response.redirected) {
+          // Extract entry_id from redirect URL
+          const redirectUrl = response.url;
+          const match = redirectUrl.match(/\/waiting\/(\d+)$/);
+          
+          if (match) {
+            const entryId = match[1];
+            const queueSlug = formData.get('queue_slug');
+            const queueNumber = formData.get('queue_number');
+            
+            // Trigger ticket download
+            const downloadUrl = `/download_ticket/${queueSlug}/${queueNumber}/${entryId}`;
+            const downloadLink = document.createElement('a');
+            downloadLink.href = downloadUrl;
+            downloadLink.download = `SmartQ_Ticket_${entryId}.txt`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            
+            // Small delay to ensure download starts, then redirect
+            setTimeout(() => {
+              window.location.href = redirectUrl;
+            }, 500);
+          } else {
+            // If we can't extract entry_id, just redirect
+            window.location.href = redirectUrl;
+          }
+        } else {
+          // If not redirected, re-enable button and show error
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit';
+          alert('Submission failed. Please check your information and try again.');
+        }
+      })
+      .catch(error => {
+        console.error('Error submitting form:', error);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit';
+        alert('An error occurred. Please try again.');
+      });
     });
   }
-});
 </script>
+
 
 </body>
 </html>

@@ -371,6 +371,99 @@ def resolve_queue_metadata(queue_slug, queue_number):
             pass
         return default_type, default_purpose
 
+def get_queue_limit(queue_slug, queue_number):
+    """Get the queue limit for a specific queue from qr_history."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return None
+        
+        cur = conn.cursor()
+        # Get all queues that match the slug
+        cur.execute(
+            """
+            SELECT queue_limit FROM qr_history 
+            WHERE queue_type IN (
+                SELECT queue_type FROM qr_history ORDER BY id
+            )
+            ORDER BY id
+            """
+        )
+        all_queues = cur.fetchall()
+        
+        # Also need to get queue types to match slug
+        cur.execute("SELECT queue_type, queue_limit FROM qr_history ORDER BY id")
+        all_queue_data = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        # Find matching queues by slug
+        matching_indices = [
+            idx for idx, (q_type, q_limit) in enumerate(all_queue_data, 1)
+            if create_slug(q_type) == queue_slug
+        ]
+        
+        # If queue_number matches one of the indices, return its limit
+        if queue_number in matching_indices:
+            # Get the actual data for this queue number
+            actual_index = matching_indices.index(queue_number)
+            return all_queue_data[queue_number - 1][1]  # Return queue_limit
+        
+        return None
+    except Exception as e:
+        print(f"Error getting queue limit: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+def get_queue_entry_count(queue_slug, queue_number):
+    """Count the number of entries in a queue."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return 0
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(*) FROM queue_entries WHERE queue_slug = %s AND queue_number = %s",
+            (queue_slug, queue_number)
+        )
+        count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return count
+    except Exception as e:
+        print(f"Error counting queue entries: {e}")
+        return 0
+
+def check_existing_entry(queue_slug, queue_number, phone):
+    """Check if a user with this phone number already has an entry in this queue."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return None
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id FROM queue_entries 
+            WHERE queue_slug = %s AND queue_number = %s AND phone = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (queue_slug, queue_number, phone)
+        )
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        return result[0] if result else None
+    except Exception as e:
+        print(f"Error checking existing entry: {e}")
+        return None
+
 def generate_ticket_reference(queue_slug, entry_id):
     """Return a user-facing ticket reference that isn't sequentially ordered."""
     base = re.sub(r'[^A-Z0-9]', '', queue_slug.upper())
@@ -382,10 +475,10 @@ def generate_ticket_reference(queue_slug, entry_id):
 
 def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None, 
              avg_service_time=None, morning_start=None, morning_end=None, 
-             afternoon_start=None, afternoon_end=None, staff_count=None):
+             afternoon_start=None, afternoon_end=None, staff_count=None, queue_limit=None):
     """Save QR to database and return the inserted ID."""
     try:
-        print(f"save_qr called with: type='{queue_type}', purpose='{queue_purpose}', link='{queue_link}', created_by='{created_by}'")
+        print(f"save_qr called with: type='{queue_type}', purpose='{queue_purpose}', link='{queue_link}', created_by='{created_by}', queue_limit={queue_limit}")
         conn = get_db_connection()
         if conn is None:
             print("ERROR: Database connection failed in save_qr")
@@ -401,11 +494,11 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
                 """INSERT INTO qr_history 
                 (queue_type, queue_purpose, queue_link, created_by, 
                  avg_service_time, morning_start, morning_end, 
-                 afternoon_start, afternoon_end, staff_count) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                 afternoon_start, afternoon_end, staff_count, queue_limit) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
                 (queue_type, queue_purpose, queue_link, created_by,
                  avg_service_time, morning_start, morning_end,
-                 afternoon_start, afternoon_end, staff_count)
+                 afternoon_start, afternoon_end, staff_count, queue_limit)
             )
             qr_id = cur.fetchone()[0]
             print(f"INSERT successful with RETURNING, got ID: {qr_id}")
@@ -419,11 +512,11 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
                     """INSERT INTO qr_history 
                     (queue_type, queue_purpose, queue_link, created_by,
                      avg_service_time, morning_start, morning_end,
-                     afternoon_start, afternoon_end, staff_count) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                     afternoon_start, afternoon_end, staff_count, queue_limit) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (queue_type, queue_purpose, queue_link, created_by,
                      avg_service_time, morning_start, morning_end,
-                     afternoon_start, afternoon_end, staff_count)
+                     afternoon_start, afternoon_end, staff_count, queue_limit)
                 )
                 # Get the last inserted ID
                 cur.execute("SELECT LASTVAL()")
@@ -445,11 +538,11 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
                 """INSERT INTO temp_qr 
                 (queue_type, queue_purpose, queue_link, created_by,
                  avg_service_time, morning_start, morning_end,
-                 afternoon_start, afternoon_end, staff_count) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                 afternoon_start, afternoon_end, staff_count, queue_limit) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (queue_type, queue_purpose, queue_link, created_by,
                  avg_service_time, morning_start, morning_end,
-                 afternoon_start, afternoon_end, staff_count)
+                 afternoon_start, afternoon_end, staff_count, queue_limit)
             )
             print("temp_qr insert successful")
         except Exception as temp_error:
@@ -487,9 +580,10 @@ def generate_qr_db():
         afternoon_start = request.form.get('afternoonStart', '').strip()
         afternoon_end = request.form.get('afternoonEnd', '').strip()
         staff_count = request.form.get('staffCount', '').strip()
+        queue_limit = request.form.get('queueLimit', '').strip()
         
         print(f"Queue Type: '{queue_type}', Purpose: '{queue_purpose}', Created By: '{created_by}'")
-        print(f"Avg Service Time: {avg_service_time}, Staff Count: {staff_count}")
+        print(f"Avg Service Time: {avg_service_time}, Staff Count: {staff_count}, Queue Limit: {queue_limit}")
         print(f"Morning: {morning_start} - {morning_end}, Afternoon: {afternoon_start} - {afternoon_end}")
         
         if not queue_type or not queue_purpose:
@@ -525,17 +619,19 @@ def generate_qr_db():
         
         # Convert numeric fields to int or None
         try:
-            avg_service_time = int(avg_service_time) if avg_service_time else None
+            avg_service_time = float(avg_service_time) if avg_service_time else None
             staff_count = int(staff_count) if staff_count else None
+            queue_limit = int(queue_limit) if queue_limit else None
         except ValueError:
             avg_service_time = None
             staff_count = None
+            queue_limit = None
         
         # Save QR and get the ID
         print("Saving QR to database...")
         qr_id = save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number,
                        avg_service_time, morning_start or None, morning_end or None,
-                       afternoon_start or None, afternoon_end or None, staff_count)
+                       afternoon_start or None, afternoon_end or None, staff_count, queue_limit)
         print(f"QR saved with ID: {qr_id}")
         
         if qr_id is None:
@@ -701,7 +797,7 @@ def qr_history_data():
         cur.execute("""
             SELECT h.id, h.queue_type, h.queue_purpose, h.queue_link, u.fullname, h.created_at,
                    h.avg_service_time, h.morning_start, h.morning_end, 
-                   h.afternoon_start, h.afternoon_end, h.staff_count
+                   h.afternoon_start, h.afternoon_end, h.staff_count, h.queue_limit
             FROM qr_history h
             LEFT JOIN users u ON h.created_by = u.email
             ORDER BY h.created_at DESC
@@ -724,7 +820,8 @@ def qr_history_data():
                 "morning_end": row[8],
                 "afternoon_start": row[9],
                 "afternoon_end": row[10],
-                "staff_count": row[11]
+                "staff_count": row[11],
+                "queue_limit": row[12]
             })
         return jsonify(history)
     except Exception as e:
@@ -977,8 +1074,31 @@ def user_page():
 def queue_page(queue_slug, queue_number):
     """Dynamic route for auto-generated queue pages."""
     queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
+    
+    # Get queue limit and current count
+    queue_limit = get_queue_limit(queue_slug, queue_number)
+    current_count = get_queue_entry_count(queue_slug, queue_number)
+    queue_full = False
+    
+    if queue_limit is not None and queue_limit > 0:
+        queue_full = current_count >= queue_limit
 
     if request.method == 'POST':
+        phone = (request.form.get('phone') or '').strip()
+        
+        # Check if user already has an entry (trying to retrieve ticket)
+        existing_entry_id = check_existing_entry(queue_slug, queue_number, phone)
+        
+        if existing_entry_id:
+            # User already has a ticket, redirect to their waiting page
+            flash("Welcome back! Here's your existing queue ticket.", "success")
+            return redirect(url_for('queue_waiting', queue_slug=queue_slug, queue_number=queue_number, entry_id=existing_entry_id))
+        
+        # If queue is full and user doesn't have existing entry, deny registration
+        if queue_full:
+            flash("Sorry, this queue is currently full. The maximum capacity has been reached.", "error")
+            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+        
         # Get individual name fields
         lastname = (request.form.get('lastname') or '').strip()
         firstname = (request.form.get('firstname') or '').strip()
@@ -997,7 +1117,6 @@ def queue_page(queue_slug, queue_number):
         if len(name_parts) > 2:
             fullname += ' ' + ' '.join(name_parts[2:])
         
-        phone = (request.form.get('phone') or '').strip()
         purpose = (request.form.get('purpose') or '').strip()
 
         if not lastname or not firstname or not phone:
@@ -1014,6 +1133,13 @@ def queue_page(queue_slug, queue_number):
 
             ensure_queue_entries_table(conn)
             cur = conn.cursor()
+            
+            # Double-check queue limit right before insertion (race condition protection)
+            current_count = get_queue_entry_count(queue_slug, queue_number)
+            if queue_limit is not None and queue_limit > 0 and current_count >= queue_limit:
+                flash("Sorry, this queue just became full. Please try again later.", "error")
+                return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+            
             cur.execute(
                 """
                 INSERT INTO queue_entries (
@@ -1055,6 +1181,9 @@ def queue_page(queue_slug, queue_number):
         queue_purpose=queue_purpose,
         queue_number=queue_number,
         queue_slug=queue_slug,
+        queue_full=queue_full,
+        queue_limit=queue_limit,
+        current_count=current_count,
     )
 
 
