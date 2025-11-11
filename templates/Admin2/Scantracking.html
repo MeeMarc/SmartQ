@@ -47,11 +47,22 @@
     <h3>Add Candidate</h3>
     <form id="candidateForm">
       <input type="hidden" id="modalQRLink">
-      <label for="fullname">Full Name: <span style="color: red;">*</span></label>
-      <input type="text" id="fullname" placeholder="Last Name, First Name" required>
+      
+      <label for="lastname">Last Name: <span style="color: red;">*</span></label>
+      <input type="text" id="lastname" placeholder="Dela Cruz" required>
+      
+      <label for="firstname">First Name: <span style="color: red;">*</span></label>
+      <input type="text" id="firstname" placeholder="Juan" required>
+      
+      <label for="middleinitial">Middle Initial:</label>
+      <input type="text" id="middleinitial" placeholder="(optional)" maxlength="2">
+      
+      <label for="suffix">Suffix (if applicable):</label>
+      <input type="text" id="suffix" placeholder="Jr., Sr., III (optional)" maxlength="10">
       
       <label for="phone">Phone: <span style="color: red;">*</span></label>
       <input type="text" id="phone" placeholder="09*********" required>
+      
       <button type="submit">Submit</button>
     </form>
   </div>
@@ -228,9 +239,38 @@ function closeModal() {
 // Handle Add Candidate submission
 candidateForm.addEventListener("submit", function(e) {
   e.preventDefault();
+  
+  // Get individual name fields
+  const lastname = document.getElementById("lastname").value.trim();
+  const firstname = document.getElementById("firstname").value.trim();
+  const middleinitial = document.getElementById("middleinitial").value.trim();
+  const suffix = document.getElementById("suffix").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  
+  // Validate required fields
+  if (!lastname || !firstname || !phone) {
+    alert("Please provide Last Name, First Name, and Phone Number.");
+    return;
+  }
+  
+  // Construct fullname from separate fields (same format as registration form)
+  // Format: "Lastname, Firstname M.I. Suffix"
+  const name_parts = [lastname, firstname];
+  if (middleinitial) {
+    name_parts.push(middleinitial);
+  }
+  if (suffix) {
+    name_parts.push(suffix);
+  }
+  
+  let fullname = name_parts.slice(0, 2).join(', '); // "Lastname, Firstname"
+  if (name_parts.length > 2) {
+    fullname += ' ' + name_parts.slice(2).join(' '); // Add middle initial and suffix
+  }
+  
   const data = {
-    fullname: document.getElementById("fullname").value.trim(),
-    phone: document.getElementById("phone").value.trim(),
+    fullname: fullname,
+    phone: phone,
     link: modalQRLink.value
   };
 
