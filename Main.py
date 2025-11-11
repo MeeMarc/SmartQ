@@ -1868,7 +1868,6 @@ def download_ticket(queue_slug, queue_number, entry_id):
           SMARTQ QUEUE TICKET
 ========================================
 
-Ticket Reference: {ticket_ref}
 Queue Type: {queue_type or 'N/A'}
 Queue Purpose: {queue_purpose or 'N/A'}
 
@@ -1876,6 +1875,7 @@ Queue Purpose: {queue_purpose or 'N/A'}
 CUSTOMER INFORMATION
 ----------------------------------------
 Name: {fullname}
+Phone: {phone}
 Purpose: {purpose or 'N/A'}
 Registered: {created_at.strftime('%Y-%m-%d %I:%M %p') if created_at else 'N/A'}
 

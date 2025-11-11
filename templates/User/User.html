@@ -124,6 +124,21 @@
   <form class="paper-form" id="registrationForm" method="post">
     
     <h3>{% if queue_full %}Retrieve Your Ticket{% else %}Registration Form{% endif %}</h3>
+    
+    <!-- Queue Status Display in Form -->
+    {% if queue_limit is defined and queue_limit and queue_limit > 0 %}
+    <div class="queue-status-banner {% if queue_full %}queue-full{% else %}queue-available{% endif %}" style="margin-bottom: 20px;">
+      <strong class="status-label">Queue Status:</strong>
+      <span class="status-info">
+        {% if queue_full %}
+          <span class="status-full">🚫 FULL - {{ current_count }}/{{ queue_limit }} slots taken</span>
+        {% else %}
+          <span class="status-available">✅ {{ queue_limit - current_count }} slots available ({{ current_count }}/{{ queue_limit }})</span>
+        {% endif %}
+      </span>
+    </div>
+    {% endif %}
+    
     <p class="form-description">
       {% if queue_full %}
         <strong style="color: #d32f2f;">⚠️ Queue is Full:</strong> If you've already registered, enter your phone number to retrieve your ticket. New registrations are currently not accepted.
