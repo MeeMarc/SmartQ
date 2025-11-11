@@ -1876,7 +1876,6 @@ Queue Purpose: {queue_purpose or 'N/A'}
 CUSTOMER INFORMATION
 ----------------------------------------
 Name: {fullname}
-Phone: {phone}
 Purpose: {purpose or 'N/A'}
 Registered: {created_at.strftime('%Y-%m-%d %I:%M %p') if created_at else 'N/A'}
 
