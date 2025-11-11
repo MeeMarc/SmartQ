@@ -116,7 +116,7 @@ def login():
             session['user_email'] = email
             session['user_fullname'] = user[1]
 
-            flash("Login successful!")
+            flash("Login successful!", "login")
             return redirect(url_for('homepage'))
 
         except Exception as e:
@@ -231,7 +231,7 @@ def admin_settings():
 @app.route('/logout')
 def logout():
     session.clear()
-    flash("Logged out successfully.")
+    flash("Logged out successfully.", "logout")
     return redirect(url_for('login'))
 
 
@@ -1482,10 +1482,7 @@ Registered: {created_at.strftime('%Y-%m-%d %I:%M %p') if created_at else 'N/A'}
 IMPORTANT NOTES
 ----------------------------------------
 • Please keep this ticket for your records
-• You will be notified when it's your turn
 • Show this ticket at the service counter
-• For inquiries, contact us with your
-  ticket reference number
 
 ========================================
         Thank you for using SmartQ!

@@ -27,11 +27,13 @@
     <section class="settings-section">
       <h2>Profile</h2>
 
-      {% with messages = get_flashed_messages() %}
+      {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           <div class="flash-messages">
-            {% for msg in messages %}
-              <p>{{ msg }}</p>
+            {% for category, msg in messages %}
+              {% if category != 'login' and category != 'logout' %}
+                <p>{{ msg }}</p>
+              {% endif %}
             {% endfor %}
           </div>
         {% endif %}
