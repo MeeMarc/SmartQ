@@ -335,6 +335,34 @@ def ensure_queue_entries_table(conn):
         print(f"Error ensuring queue_entries table: {e}")
         raise
 
+def ensure_queue_limit_column(conn):
+    """Ensure queue_limit column exists in qr_history and temp_qr tables."""
+    try:
+        cur = conn.cursor()
+        
+        # Add queue_limit column to qr_history if it doesn't exist
+        try:
+            cur.execute("ALTER TABLE qr_history ADD COLUMN IF NOT EXISTS queue_limit INTEGER")
+            conn.commit()
+            print("queue_limit column added to qr_history (or already exists)")
+        except Exception as e:
+            print(f"Note: Could not add queue_limit to qr_history: {e}")
+            conn.rollback()
+        
+        # Add queue_limit column to temp_qr if it doesn't exist
+        try:
+            cur.execute("ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS queue_limit INTEGER")
+            conn.commit()
+            print("queue_limit column added to temp_qr (or already exists)")
+        except Exception as e:
+            print(f"Note: Could not add queue_limit to temp_qr: {e}")
+            conn.rollback()
+        
+        cur.close()
+    except Exception as e:
+        print(f"Error ensuring queue_limit column: {e}")
+        # Don't raise - this is not critical
+
 def resolve_queue_metadata(queue_slug, queue_number):
     """Resolve queue type and purpose based on slug and sequence number."""
     default_type = queue_slug.replace('-', ' ').title()
@@ -485,6 +513,10 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
             return None
         
         print("Database connection successful")
+        
+        # Ensure queue_limit column exists
+        ensure_queue_limit_column(conn)
+        
         cur = conn.cursor()
         
         # Try with RETURNING first (PostgreSQL)
@@ -992,6 +1024,34 @@ def add_candidate_modal():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
     
+@app.route('/migrate_db')
+def migrate_db():
+    """Run database migrations to add queue_limit column."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"error": "Database connection failed", "status": "error"}), 500
+        
+        # Ensure queue_limit column exists
+        ensure_queue_limit_column(conn)
+        
+        # Ensure queue_entries table exists
+        ensure_queue_entries_table(conn)
+        
+        conn.close()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Database migration completed successfully. queue_limit column added to qr_history and temp_qr tables."
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": str(e),
+            "status": "error",
+            "traceback": traceback.format_exc()
+        }), 500
+
 @app.route('/test_db')
 def test_db():
     """Test endpoint to check database connectivity and table structure."""
@@ -1283,6 +1343,79 @@ def queue_waiting(queue_slug, queue_number, entry_id):
 
 
 
+
+
+@app.route('/download_ticket/<queue_slug>/<int:queue_number>/<int:entry_id>')
+def download_ticket(queue_slug, queue_number, entry_id):
+    """Generate a downloadable text ticket for a queue entry."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return "Error: Could not connect to database", 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        cur.execute(
+            """
+            SELECT fullname, phone, purpose, created_at, queue_type, queue_purpose
+            FROM queue_entries
+            WHERE id = %s AND queue_slug = %s AND queue_number = %s
+            """,
+            (entry_id, queue_slug, queue_number)
+        )
+        entry = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if not entry:
+            return "Ticket not found", 404
+        
+        fullname, phone, purpose, created_at, queue_type, queue_purpose = entry
+        ticket_ref = generate_ticket_reference(queue_slug, entry_id)
+        
+        ticket_content = f"""
+========================================
+          SMARTQ QUEUE TICKET
+========================================
+
+Ticket Reference: {ticket_ref}
+Queue Type: {queue_type or 'N/A'}
+Queue Purpose: {queue_purpose or 'N/A'}
+
+----------------------------------------
+CUSTOMER INFORMATION
+----------------------------------------
+Name: {fullname}
+Phone: {phone}
+Purpose: {purpose or 'N/A'}
+Registered: {created_at.strftime('%Y-%m-%d %I:%M %p') if created_at else 'N/A'}
+
+----------------------------------------
+IMPORTANT NOTES
+----------------------------------------
+• Please keep this ticket for your records
+• You will be notified when it's your turn
+• Show this ticket at the service counter
+• For inquiries, contact us with your
+  ticket reference number
+
+========================================
+        Thank you for using SmartQ!
+========================================
+"""
+        
+        from flask import Response
+        return Response(
+            ticket_content,
+            mimetype='text/plain',
+            headers={
+                'Content-Disposition': f'attachment; filename=SmartQ_Ticket_{ticket_ref}.txt'
+            }
+        )
+    except Exception as e:
+        print(f"Error generating ticket: {e}")
+        return "Error generating ticket", 500
 
 
 @app.route('/')
