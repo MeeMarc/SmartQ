@@ -873,16 +873,18 @@ def qr_history_data():
                     "created_by": row[4] or "Unknown",
                     "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S") if row[5] else "N/A",
                     "avg_service_time": row[6],
-                    "morning_start": row[7],
-                    "morning_end": row[8],
-                    "afternoon_start": row[9],
-                    "afternoon_end": row[10],
+                    "morning_start": str(row[7]) if row[7] else None,
+                    "morning_end": str(row[8]) if row[8] else None,
+                    "afternoon_start": str(row[9]) if row[9] else None,
+                    "afternoon_end": str(row[10]) if row[10] else None,
                     "staff_count": row[11],
                     "queue_limit": None  # Will be added later if column exists
                 }
                 history.append(history_item)
             except Exception as row_error:
                 print(f"Error processing row {row[0]}: {row_error}")
+                import traceback
+                traceback.print_exc()
                 continue
         
         print(f"Returning {len(history)} QR codes")
