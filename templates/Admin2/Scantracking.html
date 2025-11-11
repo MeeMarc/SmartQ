@@ -267,7 +267,7 @@ function renderScans(scans) {
         </div>
         <div style="display: flex; align-items: center; gap: 10px;">
           <span class="status-badge ${statusClass}">${status}</span>
-          ${user.status !== 'completed' ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
+          ${user.status !== 'completed' && user.status !== 'cancelled' ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
         </div>
       </div>
     `;
