@@ -258,7 +258,7 @@ function renderScans(scans) {
     const purpose = user.purpose ? ` • ${user.purpose}` : "";
     const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
     const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
-    const statusClass = user.status === 'completed' ? 'status-completed' : user.status === 'cancelled' ? 'status-cancelled' : 'status-waiting';
+    const statusClass = user.status === 'completed' ? 'status-completed' : user.status === 'cancelled' ? 'status-cancelled' : user.status === 'rescheduled' ? 'status-rescheduled' : 'status-waiting';
     
     card.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
@@ -267,7 +267,7 @@ function renderScans(scans) {
         </div>
         <div style="display: flex; align-items: center; gap: 10px;">
           <span class="status-badge ${statusClass}">${status}</span>
-          ${user.status !== 'completed' && user.status !== 'cancelled' ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
+          ${user.status !== 'completed' && user.status !== 'cancelled' && user.status !== 'rescheduled' ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
         </div>
       </div>
     `;

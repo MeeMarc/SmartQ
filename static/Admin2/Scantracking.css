@@ -282,6 +282,12 @@ header {
   border: 1px solid #f5c6cb;
 }
 
+.status-rescheduled {
+  background-color: #e7f3ff;
+  color: #004085;
+  border: 1px solid #b3d9ff;
+}
+
 /* Done button */
 .done-btn {
   background-color: #28a745;
