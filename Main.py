@@ -1329,26 +1329,27 @@ def force_auto_enroll(queue_slug, queue_number):
         ensure_queue_entries_table(conn)
         cur = conn.cursor()
         
-        # Get queue type from qr_history or temp_qr
+        # Get queue type from qr_history or temp_qr by matching queue_link pattern
+        # Queue link format: https://domain.com/queue/<slug>/<number>
         cur.execute(
             """
             SELECT queue_type FROM (
                 SELECT queue_type FROM qr_history 
-                WHERE queue_slug = %s AND queue_number = %s
+                WHERE queue_link LIKE %s
                 UNION
                 SELECT queue_type FROM temp_qr 
-                WHERE queue_slug = %s AND queue_number = %s
+                WHERE queue_link LIKE %s
             ) AS combined
             LIMIT 1
             """,
-            (queue_slug, queue_number, queue_slug, queue_number)
+            (f'%/queue/{queue_slug}/{queue_number}', f'%/queue/{queue_slug}/{queue_number}')
         )
         
         result = cur.fetchone()
         if not result:
             cur.close()
             conn.close()
-            return jsonify({"error": "Queue not found"}), 404
+            return jsonify({"error": f"Queue {queue_slug}/{queue_number} not found in qr_history or temp_qr"}), 404
         
         queue_type = result[0]
         cur.close()
@@ -1360,7 +1361,8 @@ def force_auto_enroll(queue_slug, queue_number):
         return jsonify({
             "status": "success",
             "message": f"Auto-enrollment triggered for {queue_slug}/{queue_number}",
-            "queue_type": queue_type
+            "queue_type": queue_type,
+            "note": "Check /debug_queue_entries/{queue_slug}/{queue_number} to verify"
         })
         
     except Exception as e:
