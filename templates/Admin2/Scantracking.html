@@ -187,119 +187,66 @@ function markAsDone(entryId, buttonElement) {
   );
 }
 
-// Fetch QR List - shows all from qr_history (permanent history)
+// Fetch QR List - shows only ACTIVE queues (not deleted ones)
 function fetchQRList() {
-  fetch("/qr_history_data")
+  // First get active queues from temp_qr
+  fetch("/temp_qr_data")
     .then(res => res.json())
-    .then(data => {
-      qrListContainer.innerHTML = "<h3>Generated Queues</h3>";
+    .then(activeQRs => {
+      qrListContainer.innerHTML = "<h3>Active Queues</h3>";
       
-      if (data.length === 0) {
-        qrListContainer.innerHTML += "<p>No QR codes found. Create one in Create Queue page.</p>";
+      if (activeQRs.length === 0) {
+        qrListContainer.innerHTML += "<p>No active queues found. Create one in Create Queue page.</p>";
         return;
       }
       
-      // Also check which ones are active in temp_qr
-      fetch("/temp_qr_data")
-        .then(res => res.json())
-        .then(activeQRs => {
-          const activeIds = new Set(activeQRs.map(qr => qr.id));
-          
-          data.forEach(qr => {
-            const isActive = activeIds.has(qr.id);
-            const box = document.createElement("div");
-            box.className = "qr-box";
-            box.style.opacity = isActive ? "1" : "0.6"; // Dim inactive ones
+      // Only show active queues (those in temp_qr)
+      activeQRs.forEach(qr => {
+        const box = document.createElement("div");
+        box.className = "qr-box";
             
-            // Format date from database (YYYY-MM-DD HH:MM:SS) to readable format
-            let formattedDate = 'N/A';
-            if (qr.created_at && qr.created_at !== 'N/A') {
-              try {
-                const date = new Date(qr.created_at);
-                formattedDate = date.toLocaleDateString('en-US', { 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-              } catch (e) {
-                formattedDate = qr.created_at; // Fallback to original if parsing fails
-              }
-            }
-            
-            box.innerHTML = `
-              <h4>${qr.queue_type} ${!isActive ? '<span style="color: #999; font-size: 0.8em;">(Removed)</span>' : ''}</h4>
-              <p>${qr.queue_purpose}</p>
-              <p><strong>Created:</strong> ${formattedDate}</p>
-              <div id="qr${qr.id}"></div>
-              <p><small><a href="${qr.queue_link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${qr.queue_link}</a></small></p>
-              ${isActive ? `
-                <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>
-                <button onclick="viewScans(${qr.id})">View Scans</button>
-              ` : `
-                <button onclick="viewScans(${qr.id})">View Scans</button>
-                <p style="color: #999; font-size: 0.85em;">This QR was removed but history is preserved</p>
-              `}
-            `;
-            qrListContainer.appendChild(box);
-
-            new QRCode(document.getElementById(`qr${qr.id}`), {
-              text: qr.queue_link,
-              width: 100,
-              height: 100
+        // Format date from database (YYYY-MM-DD HH:MM:SS) to readable format
+        let formattedDate = 'N/A';
+        if (qr.created_at && qr.created_at !== 'N/A') {
+          try {
+            const date = new Date(qr.created_at);
+            formattedDate = date.toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
             });
-          });
-        })
-        .catch(() => {
-          // If temp_qr_data endpoint doesn't exist, just show all as active
-          data.forEach(qr => {
-            const box = document.createElement("div");
-            box.className = "qr-box";
-            
-            // Format date from database (YYYY-MM-DD HH:MM:SS) to readable format
-            let formattedDate = 'N/A';
-            if (qr.created_at && qr.created_at !== 'N/A') {
-              try {
-                const date = new Date(qr.created_at);
-                formattedDate = date.toLocaleDateString('en-US', { 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-              } catch (e) {
-                formattedDate = qr.created_at; // Fallback to original if parsing fails
-              }
-            }
-            
-            box.innerHTML = `
-              <h4>${qr.queue_type}</h4>
-              <p>${qr.queue_purpose}</p>
-              <p><strong>Created:</strong> ${formattedDate}</p>
-              <div id="qr${qr.id}"></div>
-              <p><small><a href="${qr.queue_link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${qr.queue_link}</a></small></p>
-              <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>
-              <button onclick="viewScans(${qr.id})">View Scans</button>
-            `;
-            qrListContainer.appendChild(box);
+          } catch (e) {
+            formattedDate = qr.created_at; // Fallback to original if parsing fails
+          }
+        }
+        
+        box.innerHTML = `
+          <h4>${qr.queue_type}</h4>
+          <p>${qr.queue_purpose}</p>
+          <p><strong>Created:</strong> ${formattedDate}</p>
+          <div id="qr${qr.id}"></div>
+          <p><small><a href="${qr.queue_link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${qr.queue_link}</a></small></p>
+          <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>
+          <button onclick="viewScans(${qr.id})">View Scans</button>
+        `;
+        qrListContainer.appendChild(box);
 
-            new QRCode(document.getElementById(`qr${qr.id}`), {
-              text: qr.queue_link,
-              width: 100,
-              height: 100
-            });
-          });
+        new QRCode(document.getElementById(`qr${qr.id}`), {
+          text: qr.queue_link,
+          width: 100,
+          height: 100
         });
+      });
     })
     .catch(err => {
-      console.error("Error fetching QR list:", err);
-      qrListContainer.innerHTML = "<h3>Generated Queues</h3><p>Error loading QR codes.</p>";
+      console.error("Error fetching active QR list:", err);
+      qrListContainer.innerHTML = "<h3>Active Queues</h3><p>Error loading active queues.</p>";
     });
 }
 
-// Auto-refresh QR list every 5 seconds to sync with CreateQ deletions
+// Auto-refresh QR list every 60 seconds to show newly created queues
 fetchQRList();
 setInterval(fetchQRList, 60000);
 

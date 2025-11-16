@@ -238,7 +238,10 @@
         Morning: ${item.morningStart} - ${item.morningEnd}<br>
         Afternoon: ${item.afternoonStart} - ${item.afternoonEnd}</p>
         <div id="qr${index}"></div>
-        <p><small><strong>URL:</strong> <a href="${item.link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${item.link}</a></small></p>
+        <div class="qr-url-container">
+          <p><small><strong>URL:</strong></small></p>
+          <a href="${item.link}" target="_blank" class="qr-url-link">${item.link}</a>
+        </div>
         <div class="qr-actions">
           <button onclick="downloadQR(${index})">Download QR</button>
           <button onclick="deleteQR(${index})">Delete</button>
@@ -686,7 +689,10 @@
               Morning: ${item.morning_start || 'N/A'} - ${item.morning_end || 'N/A'}<br>
               Afternoon: ${item.afternoon_start || 'N/A'} - ${item.afternoon_end || 'N/A'}</p>
               <div id="historyQR${item.id}"></div>
-              <p><small><a href="${item.queue_link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${item.queue_link}</a></small></p>
+              <div class="qr-url-container">
+                <p><small><strong>URL:</strong></small></p>
+                <a href="${item.queue_link}" target="_blank" class="qr-url-link">${item.queue_link}</a>
+              </div>
               <p><small>Created by: ${item.created_by}</small></p>
             `;
             container.appendChild(box);

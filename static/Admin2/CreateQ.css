@@ -408,6 +408,35 @@ header {
   color: #888;
 }
 
+/* URL Container - Prevents overlap */
+.qr-url-container {
+  margin: 10px 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+.qr-url-container p {
+  margin-bottom: 4px;
+}
+
+.qr-url-link {
+  display: block;
+  color: #0066cc;
+  text-decoration: underline;
+  font-size: 0.85rem;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+  padding: 4px 0;
+  max-width: 100%;
+}
+
+.qr-url-link:hover {
+  color: #0052a3;
+  text-decoration: none;
+}
+
 .qr-box img {
   display: block;
   margin: 0 auto 10px auto; /* centers horizontally and adds small spacing below */
