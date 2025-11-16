@@ -1318,6 +1318,57 @@ def auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type):
         import traceback
         traceback.print_exc()
 
+@app.route('/force_auto_enroll/<queue_slug>/<int:queue_number>')
+def force_auto_enroll(queue_slug, queue_number):
+    """Manually trigger auto-enrollment for pending reschedules."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"error": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        # Get queue type from qr_history or temp_qr
+        cur.execute(
+            """
+            SELECT queue_type FROM (
+                SELECT queue_type FROM qr_history 
+                WHERE queue_slug = %s AND queue_number = %s
+                UNION
+                SELECT queue_type FROM temp_qr 
+                WHERE queue_slug = %s AND queue_number = %s
+            ) AS combined
+            LIMIT 1
+            """,
+            (queue_slug, queue_number, queue_slug, queue_number)
+        )
+        
+        result = cur.fetchone()
+        if not result:
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Queue not found"}), 404
+        
+        queue_type = result[0]
+        cur.close()
+        conn.close()
+        
+        # Trigger auto-enrollment
+        auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type)
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Auto-enrollment triggered for {queue_slug}/{queue_number}",
+            "queue_type": queue_type
+        })
+        
+    except Exception as e:
+        print(f"Error in force auto-enroll: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/debug_queue_entries/<queue_slug>/<int:queue_number>')
 def debug_queue_entries(queue_slug, queue_number):
     """Debug endpoint to view all entries for a specific queue."""
