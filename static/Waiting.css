@@ -339,6 +339,12 @@ header {
   color: #721c24;
 }
 
+.status-rescheduled {
+  background-color: rgba(231, 243, 255, 0.95);
+  color: #004085;
+  border: 1px solid #b3d9ff;
+}
+
 /* Cancel Button */
 .cancel-btn {
   margin-top: 20px;

@@ -1318,6 +1318,62 @@ def auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type):
         import traceback
         traceback.print_exc()
 
+@app.route('/debug_queue_entries/<queue_slug>/<int:queue_number>')
+def debug_queue_entries(queue_slug, queue_number):
+    """Debug endpoint to view all entries for a specific queue."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"error": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        cur.execute(
+            """
+            SELECT id, fullname, phone, queue_slug, queue_number, 
+                   queue_type, queue_purpose, status, reschedule_status,
+                   rescheduled_to_queue_number, created_at, last_rescheduled_at
+            FROM queue_entries
+            WHERE queue_slug = %s AND queue_number = %s
+            ORDER BY created_at DESC
+            """,
+            (queue_slug, queue_number)
+        )
+        
+        rows = cur.fetchall()
+        entries = []
+        for row in rows:
+            entries.append({
+                "id": row[0],
+                "fullname": row[1],
+                "phone": row[2],
+                "queue_slug": row[3],
+                "queue_number": row[4],
+                "queue_type": row[5],
+                "queue_purpose": row[6],
+                "status": row[7],
+                "reschedule_status": row[8],
+                "rescheduled_to_queue_number": row[9],
+                "created_at": str(row[10]) if row[10] else None,
+                "last_rescheduled_at": str(row[11]) if row[11] else None
+            })
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            "queue": f"{queue_slug}/{queue_number}",
+            "total_entries": len(entries),
+            "entries": entries
+        })
+        
+    except Exception as e:
+        print(f"Error in debug endpoint: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/reschedule_queue_entry/<int:entry_id>', methods=['POST'])
 def reschedule_queue_entry(entry_id):
     """Reschedule a queue entry to the next available queue of the same type."""
@@ -1364,6 +1420,8 @@ def reschedule_queue_entry(entry_id):
         
         # Find next available queue of same type and slug
         next_queue = find_next_available_queue(queue_type, queue_number, queue_slug)
+        print(f"DEBUG: Looking for next queue after {queue_slug}/{queue_number} of type '{queue_type}'")
+        print(f"DEBUG: Found next queue: {next_queue}")
         
         if next_queue:
             # Next queue exists - move user there
@@ -1371,6 +1429,8 @@ def reschedule_queue_entry(entry_id):
             new_queue_number = next_queue["queue_number"]
             
             # Create new entry in next queue
+            print(f"DEBUG: Creating new entry in queue {new_queue_slug}/{new_queue_number}")
+            print(f"DEBUG: Entry details - fullname: {fullname}, phone: {phone}, type: {queue_type}, purpose: {queue_purpose}")
             cur.execute(
                 """
                 INSERT INTO queue_entries (
@@ -1392,6 +1452,7 @@ def reschedule_queue_entry(entry_id):
             )
             
             new_entry_id = cur.fetchone()[0]
+            print(f"DEBUG: Successfully created new entry with ID: {new_entry_id}")
             
             # Mark old entry as rescheduled
             cur.execute(
@@ -1406,7 +1467,15 @@ def reschedule_queue_entry(entry_id):
                 (new_queue_number, entry_id)
             )
             
+            print(f"DEBUG: Marked old entry {entry_id} as rescheduled")
             conn.commit()
+            print(f"DEBUG: Transaction committed successfully")
+            
+            # Verify the new entry was created
+            cur.execute("SELECT * FROM queue_entries WHERE id = %s", (new_entry_id,))
+            verification = cur.fetchone()
+            print(f"DEBUG: Verification - New entry exists: {verification is not None}")
+            
             cur.close()
             conn.close()
             
