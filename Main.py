@@ -1120,8 +1120,8 @@ def cancel_queue_entry(entry_id):
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
-def find_next_available_queue(queue_type, current_queue_number):
-    """Find the next available queue of the same type."""
+def find_next_available_queue(queue_type, current_queue_number, current_queue_slug=None):
+    """Find the next available queue of the same type and slug."""
     try:
         conn = get_db_connection()
         if conn is None:
@@ -1129,30 +1129,49 @@ def find_next_available_queue(queue_type, current_queue_number):
         
         cur = conn.cursor()
         
-        # Find the next queue number of the same type (greater than current)
+        # Find the next queue number of the same type and slug (greater than current)
         # Check both qr_history and temp_qr
-        cur.execute(
-            """
-            SELECT queue_number, queue_slug
-            FROM (
-                SELECT queue_number, queue_slug FROM qr_history 
-                WHERE queue_type = %s AND queue_number > %s
-                UNION
-                SELECT queue_number, queue_slug FROM temp_qr 
-                WHERE queue_type = %s AND queue_number > %s
-            ) AS combined
-            ORDER BY queue_number ASC
-            LIMIT 1
-            """,
-            (queue_type, current_queue_number, queue_type, current_queue_number)
-        )
+        if current_queue_slug:
+            # Match by both type AND slug for more precise matching
+            cur.execute(
+                """
+                SELECT queue_number, queue_slug, queue_purpose
+                FROM (
+                    SELECT queue_number, queue_slug, queue_purpose FROM qr_history 
+                    WHERE queue_type = %s AND queue_slug = %s AND queue_number > %s
+                    UNION
+                    SELECT queue_number, queue_slug, queue_purpose FROM temp_qr 
+                    WHERE queue_type = %s AND queue_slug = %s AND queue_number > %s
+                ) AS combined
+                ORDER BY queue_number ASC
+                LIMIT 1
+                """,
+                (queue_type, current_queue_slug, current_queue_number, queue_type, current_queue_slug, current_queue_number)
+            )
+        else:
+            # Fallback: match by type only
+            cur.execute(
+                """
+                SELECT queue_number, queue_slug, queue_purpose
+                FROM (
+                    SELECT queue_number, queue_slug, queue_purpose FROM qr_history 
+                    WHERE queue_type = %s AND queue_number > %s
+                    UNION
+                    SELECT queue_number, queue_slug, queue_purpose FROM temp_qr 
+                    WHERE queue_type = %s AND queue_number > %s
+                ) AS combined
+                ORDER BY queue_number ASC
+                LIMIT 1
+                """,
+                (queue_type, current_queue_number, queue_type, current_queue_number)
+            )
         
         result = cur.fetchone()
         cur.close()
         conn.close()
         
         if result:
-            return {"queue_number": result[0], "queue_slug": result[1]}
+            return {"queue_number": result[0], "queue_slug": result[1], "queue_purpose": result[2]}
         return None
     except Exception as e:
         print(f"Error finding next queue: {e}")
@@ -1213,8 +1232,11 @@ def can_reschedule(entry_id, queue_type):
         time_diff = now - last_rescheduled_at
         
         if time_diff < timedelta(hours=24):
-            hours_remaining = 24 - (time_diff.total_seconds() / 3600)
-            return False, f"You can reschedule {queue_type} queues again in {int(hours_remaining)} hours"
+            hours_remaining = int(24 - (time_diff.total_seconds() / 3600))
+            if hours_remaining <= 1:
+                return False, "You can only reschedule once per 24 hours. Please try again in less than 1 hour."
+            else:
+                return False, f"You can only reschedule once per 24 hours. Please try again in {hours_remaining} hours."
         
         return True, None
     except Exception as e:
@@ -1222,7 +1244,7 @@ def can_reschedule(entry_id, queue_type):
         return False, str(e)
 
 def auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type):
-    """Auto-enroll users with pending reschedules for this queue type."""
+    """Auto-enroll users with pending reschedules for this queue type and slug."""
     try:
         conn = get_db_connection()
         if conn is None:
@@ -1231,16 +1253,18 @@ def auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type):
         ensure_queue_entries_table(conn)
         cur = conn.cursor()
         
-        # Find all pending reschedules for this queue type
+        # Find all pending reschedules for this queue type and slug
+        # Match by both slug and type to ensure they're from the same queue series
         cur.execute(
             """
             SELECT id, fullname, phone, purpose, queue_purpose
             FROM queue_entries
             WHERE reschedule_status = 'pending' 
             AND queue_type = %s
+            AND queue_slug = %s
             AND status = 'rescheduled'
             """,
-            (queue_type,)
+            (queue_type, queue_slug)
         )
         
         pending_entries = cur.fetchall()
@@ -1338,8 +1362,8 @@ def reschedule_queue_entry(entry_id):
             conn.close()
             return jsonify({"status": "error", "message": cooldown_msg}), 400
         
-        # Find next available queue of same type
-        next_queue = find_next_available_queue(queue_type, queue_number)
+        # Find next available queue of same type and slug
+        next_queue = find_next_available_queue(queue_type, queue_number, queue_slug)
         
         if next_queue:
             # Next queue exists - move user there

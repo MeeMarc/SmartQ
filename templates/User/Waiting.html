@@ -38,7 +38,7 @@
         🎉 Ticket Confirmed!
       {% endif %}
     </h3>
-    <div class="number">{{ queue_number }}</div>
+    <div class="number">Queue #{{ queue_number }}</div>
     {% if entry.status != 'cancelled' %}
     <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
     {% if queue_purpose %}
@@ -183,26 +183,31 @@
           }
         })
         .then(response => {
-          if (!response.ok) {
-            return response.json().then(data => {
-              throw new Error(data.message || 'Failed to cancel registration');
-            }).catch(() => {
-              throw new Error(`Server error: ${response.status}`);
-            });
-          }
-          return response.json();
+          // Always parse JSON first
+          return response.json().then(data => ({
+            ok: response.ok,
+            status: response.status,
+            data: data
+          }));
         })
-        .then(data => {
+        .then(result => {
+          if (!result.ok) {
+            // Show error from server
+            showAlert('❌ ' + (result.data.message || 'Failed to cancel registration'), 'error');
+            return;
+          }
+          
+          const data = result.data;
           if (data.status === 'success') {
             showAlert('✅ Registration cancelled successfully!', 'success');
             setTimeout(() => window.location.reload(), 1500);
           } else {
-            showAlert('❌ Error: ' + (data.message || 'Unknown error'), 'error');
+            showAlert('❌ ' + (data.message || 'Unknown error'), 'error');
           }
         })
         .catch(error => {
           console.error('Error:', error);
-          showAlert('❌ Failed to cancel registration: ' + error.message, 'error');
+          showAlert('❌ Failed to cancel registration. Please try again later.', 'error');
         });
       }
     );
@@ -233,16 +238,23 @@
           }
         })
         .then(response => {
-          if (!response.ok) {
-            return response.json().then(data => {
-              throw new Error(data.message || 'Failed to reschedule');
-            }).catch(() => {
-              throw new Error(`Server error: ${response.status}`);
-            });
-          }
-          return response.json();
+          // Always parse JSON first
+          return response.json().then(data => ({
+            ok: response.ok,
+            status: response.status,
+            data: data
+          }));
         })
-        .then(data => {
+        .then(result => {
+          if (!result.ok) {
+            // Show error from server
+            showAlert('❌ ' + (result.data.message || 'Failed to reschedule'), 'error');
+            button.disabled = false;
+            button.textContent = 'Reschedule';
+            return;
+          }
+          
+          const data = result.data;
           if (data.status === 'success') {
             // User was moved to next queue
             showAlert('✅ ' + data.message, 'success');
@@ -255,14 +267,14 @@
             showAlert('⏳ ' + data.message, 'success');
             setTimeout(() => window.location.reload(), 1500);
           } else {
-            showAlert('❌ Error: ' + (data.message || 'Unknown error'), 'error');
+            showAlert('❌ ' + (data.message || 'Unknown error'), 'error');
             button.disabled = false;
             button.textContent = 'Reschedule';
           }
         })
         .catch(error => {
           console.error('Error:', error);
-          showAlert('❌ Failed to reschedule: ' + error.message, 'error');
+          showAlert('❌ Failed to reschedule. Please try again later.', 'error');
           button.disabled = false;
           button.textContent = 'Reschedule';
         });

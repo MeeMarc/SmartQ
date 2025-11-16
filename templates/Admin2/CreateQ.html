@@ -129,12 +129,87 @@
   </div>
 </main>
 
+<!-- Confirmation Modal -->
+<div class="confirmation-overlay" id="confirmationModal" style="display: none;">
+  <div class="confirmation-modal">
+    <div class="confirmation-icon">⚠️</div>
+    <h3 id="confirmationTitle">Confirm Action</h3>
+    <p id="confirmationMessage">Are you sure you want to proceed?</p>
+    <div class="confirmation-buttons">
+      <button class="confirm-btn-yes" id="confirmYes">Yes, Proceed</button>
+      <button class="confirm-btn-no" id="confirmNo">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Success/Error Modal -->
+<div class="alert-overlay" id="alertModal" style="display: none;">
+  <div class="alert-modal">
+    <div class="alert-icon" id="alertIcon">✓</div>
+    <p id="alertMessage">Success!</p>
+    <button class="alert-btn" id="alertOk">OK</button>
+  </div>
+</div>
+
 <!-- ================= JAVASCRIPT ================= -->
 <script>
   const form = document.getElementById("qrForm");
   const container = document.getElementById("qrContainer");
 
   let qrList = JSON.parse(localStorage.getItem("queues")) || [];
+
+  // Custom Confirmation Dialog
+  function showConfirmation(title, message, onConfirm) {
+    const modal = document.getElementById('confirmationModal');
+    const titleEl = document.getElementById('confirmationTitle');
+    const messageEl = document.getElementById('confirmationMessage');
+    const yesBtn = document.getElementById('confirmYes');
+    const noBtn = document.getElementById('confirmNo');
+    
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    modal.style.display = 'flex';
+    
+    // Remove existing listeners
+    const newYesBtn = yesBtn.cloneNode(true);
+    const newNoBtn = noBtn.cloneNode(true);
+    yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+    noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+    
+    document.getElementById('confirmYes').onclick = () => {
+      modal.style.display = 'none';
+      onConfirm();
+    };
+    
+    document.getElementById('confirmNo').onclick = () => {
+      modal.style.display = 'none';
+    };
+  }
+
+  // Custom Alert Dialog
+  function showAlert(message, type = 'success') {
+    const modal = document.getElementById('alertModal');
+    const messageEl = document.getElementById('alertMessage');
+    const iconEl = document.getElementById('alertIcon');
+    const okBtn = document.getElementById('alertOk');
+    
+    messageEl.textContent = message;
+    
+    // Set icon based on type
+    if (type === 'success') {
+      iconEl.textContent = '✓';
+      iconEl.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
+    } else {
+      iconEl.textContent = '✕';
+      iconEl.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
+    }
+    
+    modal.style.display = 'flex';
+    
+    okBtn.onclick = () => {
+      modal.style.display = 'none';
+    };
+  }
 
   // Render saved QR codes
   function renderQRs() {
@@ -269,15 +344,15 @@
 
     // Validate time slots
     if (morningStart >= morningEnd) {
-      alert("Morning start time must be before morning end time!");
+      showAlert("Morning start time must be before morning end time!", "error");
       return;
     }
     if (afternoonStart >= afternoonEnd) {
-      alert("Afternoon start time must be before afternoon end time!");
+      showAlert("Afternoon start time must be before afternoon end time!", "error");
       return;
     }
     if (morningEnd > afternoonStart) {
-      alert("Please ensure there's a break between morning and afternoon sessions!");
+      showAlert("Please ensure there's a break between morning and afternoon sessions!", "error");
       return;
     }
 
@@ -338,7 +413,7 @@
     .catch(err => {
       console.error("Error generating QR:", err);
       const errorMsg = err.message || 'Please try again.';
-      alert(`Error generating QR: ${errorMsg}\n\nCheck browser console (F12) for details.`);
+      showAlert(`Error generating QR: ${errorMsg}\n\nCheck browser console (F12) for details.`, "error");
       
       // Log full error details
       console.error("Full error details:", {
@@ -393,61 +468,62 @@
   // Delete QR
   async function deleteQR(index) {
     const qrToDelete = qrList[index];
-    const userConfirmed = confirm(`Please press OK to delete "${qrToDelete.type}" from the generated queues.`);
-    if (!userConfirmed) {
-      return;
-    }
+    
+    showConfirmation(
+      'Delete Queue',
+      `Are you sure you want to delete "${qrToDelete.type}" from the generated queues?`,
+      async () => {
+        let qrId = await resolveQrId(qrToDelete);
 
-    let qrId = await resolveQrId(qrToDelete);
+        if (!qrId) {
+          showConfirmation(
+            'QR Not Found on Server',
+            'QR record was not found on the server.\n\nDo you want to remove it locally from this list?',
+            () => {
+              qrList.splice(index, 1);
+              localStorage.setItem("queues", JSON.stringify(qrList));
+              renderQRs();
+              showAlert("QR entry removed locally.", "success");
+            }
+          );
+          return;
+        }
 
-    if (!qrId) {
-      const forceRemove = confirm(
-        "QR record was not found on the server.\n\n" +
-        "Choose OK to remove it locally from this list, or Cancel to keep it."
-      );
-      if (forceRemove) {
-        qrList.splice(index, 1);
-        localStorage.setItem("queues", JSON.stringify(qrList));
-        renderQRs();
-        alert("QR entry removed locally.");
+        try {
+          const response = await fetch("/delete_qr", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: qrId, force: true })
+          });
+
+          const data = await response.json();
+          console.log("Delete response:", response.status, data);
+
+          if (data.status === "success") {
+            qrList.splice(index, 1);
+            localStorage.setItem("queues", JSON.stringify(qrList));
+            renderQRs();
+            console.log("QR deleted successfully");
+            showAlert("QR deleted successfully!", "success");
+          } else {
+            throw new Error(data.message || "Failed to delete QR");
+          }
+        } catch (err) {
+          console.error("Error deleting QR:", err);
+          // Force remove from localStorage anyway since backend may have already deleted it
+          showConfirmation(
+            'Server Error',
+            `Server error: ${err.message}\n\nThe QR may already be deleted on the server.\nDo you want to remove it from this list anyway?`,
+            () => {
+              qrList.splice(index, 1);
+              localStorage.setItem("queues", JSON.stringify(qrList));
+              renderQRs();
+              showAlert("QR entry removed from list.", "success");
+            }
+          );
+        }
       }
-      return;
-    }
-
-    try {
-      const response = await fetch("/delete_qr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: qrId, force: true })
-      });
-
-      const data = await response.json();
-      console.log("Delete response:", response.status, data);
-
-      if (data.status === "success") {
-        qrList.splice(index, 1);
-        localStorage.setItem("queues", JSON.stringify(qrList));
-        renderQRs();
-        console.log("QR deleted successfully");
-        alert("QR deleted successfully!");
-      } else {
-        throw new Error(data.message || "Failed to delete QR");
-      }
-    } catch (err) {
-      console.error("Error deleting QR:", err);
-      // Force remove from localStorage anyway since backend may have already deleted it
-      const forceRemove = confirm(
-        `Server error: ${err.message}\n\n` +
-        "The QR may already be deleted on the server.\n" +
-        "Choose OK to remove it from this list anyway."
-      );
-      if (forceRemove) {
-        qrList.splice(index, 1);
-        localStorage.setItem("queues", JSON.stringify(qrList));
-        renderQRs();
-        alert("QR entry removed from list.");
-      }
-    }
+    );
   }
 
   // Download QR as image
@@ -551,7 +627,7 @@
         })
         .catch(err => {
           console.error(err);
-          alert("Error loading QR history. Please try again.");
+          showAlert("Error loading QR history. Please try again.", "error");
         });
     }
   });

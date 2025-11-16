@@ -590,3 +590,216 @@ body.dark button {
   color: #fff;
   border: 1px solid #444;
 }
+
+/* =========================================================
+   CONFIRMATION MODAL
+========================================================= */
+.confirmation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.confirmation-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  max-width: 450px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  animation: slideUp 0.3s ease;
+  position: relative;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.confirmation-icon {
+  font-size: 3.5rem;
+  margin-bottom: 20px;
+  animation: bounceIn 0.5s ease;
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.confirmation-modal h3 {
+  color: #003366;
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+.confirmation-modal p {
+  color: #555;
+  font-size: 1rem;
+  margin-bottom: 25px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.confirmation-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.confirm-btn-yes,
+.confirm-btn-no {
+  padding: 12px 30px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.confirm-btn-yes {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+}
+
+.confirm-btn-yes:hover {
+  background: linear-gradient(135deg, #218838, #1aa179);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+.confirm-btn-no {
+  background: linear-gradient(135deg, #6c757d, #5a6268);
+  color: white;
+}
+
+.confirm-btn-no:hover {
+  background: linear-gradient(135deg, #5a6268, #4e555b);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
+}
+
+/* =========================================================
+   ALERT MODAL (Success/Error)
+========================================================= */
+.alert-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+.alert-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 35px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  animation: slideUp 0.3s ease;
+}
+
+.alert-icon {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  font-weight: bold;
+  animation: bounceIn 0.5s ease;
+}
+
+.alert-modal p {
+  color: #333;
+  font-size: 1.1rem;
+  margin-bottom: 25px;
+  line-height: 1.5;
+  font-weight: 500;
+  white-space: pre-line;
+}
+
+.alert-btn {
+  padding: 12px 40px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #003366, #0055aa);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 140px;
+}
+
+.alert-btn:hover {
+  background: linear-gradient(135deg, #002244, #003d7a);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 51, 102, 0.4);
+}
+
+/* =========================================================
+   RESPONSIVE FOR MODALS
+========================================================= */
+@media (max-width: 600px) {
+  .confirmation-modal,
+  .alert-modal {
+    padding: 25px 20px;
+  }
+  
+  .confirmation-buttons {
+    flex-direction: column;
+  }
+  
+  .confirm-btn-yes,
+  .confirm-btn-no {
+    width: 100%;
+  }
+}
