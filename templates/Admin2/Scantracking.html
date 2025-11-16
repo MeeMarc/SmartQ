@@ -192,7 +192,7 @@ function fetchQRList() {
   fetch("/qr_history_data")
     .then(res => res.json())
     .then(data => {
-      qrListContainer.innerHTML = "<h3>Generated Queues (All History)</h3>";
+      qrListContainer.innerHTML = "<h3>Generated Queues</h3>";
       
       if (data.length === 0) {
         qrListContainer.innerHTML += "<p>No QR codes found. Create one in Create Queue page.</p>";

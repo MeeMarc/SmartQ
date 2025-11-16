@@ -117,6 +117,7 @@
         <div class="button-container">
           <button type="submit">Generate QR</button>
           <button type="button" id="viewHistoryBtn">View QR History</button>
+          <button type="button" id="loadPreviousBtn" style="background: #6c757d; display: none;">📋 Load Queue Type & Purpose</button>
         </div>
       </form>
     </div>
@@ -326,6 +327,55 @@
   // Initial calculation on page load
   calculateQueueLimit();
 
+  // Save and Load Previous Settings (Basic Information Only)
+  function saveQueueSettings() {
+    const settings = {
+      queueType: document.getElementById("queueType").value.trim(),
+      queuePurpose: document.getElementById("queuePurpose").value.trim()
+      // Note: Capacity settings are NOT saved - they can vary per queue
+    };
+    localStorage.setItem("lastQueueSettings", JSON.stringify(settings));
+  }
+
+  function loadPreviousSettings() {
+    const saved = localStorage.getItem("lastQueueSettings");
+    if (!saved) {
+      showAlert("No previous settings found.", "error");
+      return;
+    }
+    
+    try {
+      const settings = JSON.parse(saved);
+      // Only load Basic Information (Queue Type and Purpose)
+      // Capacity settings remain independent for each queue
+      document.getElementById("queueType").value = settings.queueType || "";
+      document.getElementById("queuePurpose").value = settings.queuePurpose || "";
+      
+      // Capacity settings are NOT loaded - admin can set different times/staff per queue
+      
+      showAlert("Basic Information loaded! Remember to set your Queue Capacity Settings for this queue.", "success");
+    } catch (e) {
+      showAlert("Error loading previous settings.", "error");
+    }
+  }
+
+  function checkForPreviousSettings() {
+    const saved = localStorage.getItem("lastQueueSettings");
+    const loadBtn = document.getElementById("loadPreviousBtn");
+    
+    if (saved) {
+      loadBtn.style.display = "inline-block";
+    } else {
+      loadBtn.style.display = "none";
+    }
+  }
+
+  // Check on page load
+  checkForPreviousSettings();
+
+  // Load Previous Settings button
+  document.getElementById("loadPreviousBtn").addEventListener("click", loadPreviousSettings);
+
   // Handle QR creation
   form.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -406,9 +456,19 @@
       };
       qrList.push(newQR);
       localStorage.setItem("queues", JSON.stringify(qrList));
+      
+      // Save settings before resetting form (for creating next queue of same type)
+      saveQueueSettings();
+      
       renderQRs();
       form.reset();
       calculateQueueLimit(); // Clear the queue limit after reset
+      
+      // Show button to load previous settings
+      checkForPreviousSettings();
+      
+      // Show helpful message
+      showAlert("✅ Queue created successfully! Click '📋 Load Previous Settings' to reuse the same Queue Type and Purpose for the next queue.", "success");
     })
     .catch(err => {
       console.error("Error generating QR:", err);
