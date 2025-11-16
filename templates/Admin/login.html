@@ -21,11 +21,9 @@
   <div class="right">
           {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-              <div id="logoutFlashMessage" class="flash-messages" style="transition: opacity 0.5s ease-out;">
+              <div id="flashMessage" class="flash-messages" style="transition: opacity 0.5s ease-out;">
          {% for category, message in messages %}
-          {% if category == 'logout' or not category %}
-        <p>{{ message }}</p>
-          {% endif %}
+        <p class="{% if category == 'logout' or category == 'success' %}success{% else %}error{% endif %}">{{ message }}</p>
          {% endfor %}
         </div>
         {% endif %}
@@ -97,7 +95,7 @@
       }
 
       // Auto-dismiss flash messages after 5 seconds
-      const flashMessages = document.getElementById('logoutFlashMessage') || document.querySelector('.flash-messages');
+      const flashMessages = document.getElementById('flashMessage') || document.querySelector('.flash-messages');
       if (flashMessages) {
         setTimeout(() => {
           flashMessages.style.opacity = '0';

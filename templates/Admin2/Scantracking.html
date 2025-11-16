@@ -40,6 +40,28 @@
   </div>
 </main>
 
+<!-- Confirmation Modal -->
+<div class="confirmation-overlay" id="confirmationModal" style="display: none;">
+  <div class="confirmation-modal">
+    <div class="confirmation-icon">⚠️</div>
+    <h3 id="confirmationTitle">Confirm Action</h3>
+    <p id="confirmationMessage">Are you sure you want to proceed?</p>
+    <div class="confirmation-buttons">
+      <button class="confirm-btn-yes" id="confirmYes">Yes, Proceed</button>
+      <button class="confirm-btn-no" id="confirmNo">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Success/Error Modal -->
+<div class="alert-overlay" id="alertModal" style="display: none;">
+  <div class="alert-modal">
+    <div class="alert-icon" id="alertIcon">✓</div>
+    <p id="alertMessage">Success!</p>
+    <button class="alert-btn" id="alertOk">OK</button>
+  </div>
+</div>
+
 <!-- Modal for Add Candidate -->
 <div class="modal" id="candidateModal">
   <div class="modal-content">
@@ -78,36 +100,91 @@ const modalQRLink = document.getElementById("modalQRLink");
 let currentScans = [];
 let currentQRId = null;
 
-// Mark entry as done
-function markAsDone(entryId, buttonElement) {
-  if (!confirm('Mark this user as served/completed?')) {
-    return;
+// Custom Confirmation Dialog
+function showConfirmation(title, message, onConfirm) {
+  const modal = document.getElementById('confirmationModal');
+  const titleEl = document.getElementById('confirmationTitle');
+  const messageEl = document.getElementById('confirmationMessage');
+  const yesBtn = document.getElementById('confirmYes');
+  const noBtn = document.getElementById('confirmNo');
+  
+  titleEl.textContent = title;
+  messageEl.textContent = message;
+  modal.style.display = 'flex';
+  
+  // Remove existing listeners
+  const newYesBtn = yesBtn.cloneNode(true);
+  const newNoBtn = noBtn.cloneNode(true);
+  yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+  noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+  
+  document.getElementById('confirmYes').onclick = () => {
+    modal.style.display = 'none';
+    onConfirm();
+  };
+  
+  document.getElementById('confirmNo').onclick = () => {
+    modal.style.display = 'none';
+  };
+}
+
+// Custom Alert Dialog
+function showAlert(message, type = 'success') {
+  const modal = document.getElementById('alertModal');
+  const messageEl = document.getElementById('alertMessage');
+  const iconEl = document.getElementById('alertIcon');
+  const okBtn = document.getElementById('alertOk');
+  
+  messageEl.textContent = message;
+  
+  // Set icon based on type
+  if (type === 'success') {
+    iconEl.textContent = '✓';
+    iconEl.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
+  } else {
+    iconEl.textContent = '✕';
+    iconEl.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
   }
   
-  fetch('/update_queue_status', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      entry_id: entryId,
-      status: 'completed'
-    })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.status === 'success') {
-      alert('User marked as completed!');
-      // Refresh the scan list
-      if (currentQRId) {
-        viewScans(currentQRId);
-      }
-    } else {
-      alert('Error: ' + data.message);
+  modal.style.display = 'flex';
+  
+  okBtn.onclick = () => {
+    modal.style.display = 'none';
+  };
+}
+
+// Mark entry as done
+function markAsDone(entryId, buttonElement) {
+  showConfirmation(
+    'Mark as Complete',
+    'Are you sure you want to mark this user as served/completed?',
+    () => {
+      fetch('/update_queue_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entry_id: entryId,
+          status: 'completed'
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success') {
+          showAlert('User marked as completed!', 'success');
+          // Refresh the scan list
+          if (currentQRId) {
+            viewScans(currentQRId);
+          }
+        } else {
+          showAlert('Error: ' + data.message, 'error');
+        }
+      })
+      .catch(err => {
+        console.error('Error marking as done:', err);
+        showAlert('Failed to update status', 'error');
+      });
     }
-  })
-  .catch(err => {
-    console.error('Error marking as done:', err);
-    alert('Failed to update status');
-  });
+  );
 }
 
 // Fetch QR List - shows all from qr_history (permanent history)

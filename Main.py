@@ -68,11 +68,11 @@ def signup():
 
         # Validate terms and conditions acceptance
         if not terms_accepted:
-            flash("You must agree to the Terms and Conditions to create an account.")
+            flash("You must agree to the Terms and Conditions to create an account.", "error")
             return redirect(url_for('signup'))
 
         if password != confirm:
-            flash("Passwords do not match.")
+            flash("Passwords do not match.", "error")
             return redirect(url_for('signup'))
 
         hashed_password = generate_password_hash(password)
@@ -87,13 +87,13 @@ def signup():
             conn.commit()
             cur.close()
             conn.close()
-            flash("Account created! You can now log in.")
+            flash("Account created! You can now log in.", "success")
             return redirect(url_for('login'))
 
         except errors.UniqueViolation:
-            flash("Email already exists.")
+            flash("Email already exists.", "error")
         except Exception as e:
-            flash(f"Error: {str(e)}")
+            flash(f"Error: {str(e)}", "error")
 
     return render_template('Admin/SignUp.html')
 
@@ -114,11 +114,11 @@ def login():
             conn.close()
 
             if not user:
-                flash("Account not found! Please sign up.")
+                flash("Account not found! Please sign up.", "error")
                 return redirect(url_for('signup'))
 
             if not check_password_hash(user[3], password):
-                flash("Incorrect password.")
+                flash("Incorrect password.", "error")
                 return redirect(url_for('login'))
 
             # Store user info in session
@@ -131,11 +131,11 @@ def login():
             else:
                 session.permanent = False  # Session expires when browser closes
 
-            flash("Login successful!", "login")
+            flash("Login successful!", "success")
             return redirect(url_for('homepage'))
 
         except Exception as e:
-            flash(f"Error: {str(e)}")
+            flash(f"Error: {str(e)}", "error")
 
     return render_template('Admin/login.html')
 
