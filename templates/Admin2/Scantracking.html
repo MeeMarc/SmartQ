@@ -273,7 +273,7 @@ candidateForm.addEventListener("submit", function(e) {
   
   // Validate required fields
   if (!lastname || !firstname || !phone) {
-    alert("Please provide Last Name, First Name, and Phone Number.");
+    showAlert("Please provide Last Name, First Name, and Phone Number.", "error");
     return;
   }
   
@@ -306,7 +306,7 @@ candidateForm.addEventListener("submit", function(e) {
   .then(res => res.json())
   .then(resp => {
     if(resp.status === "success") {
-      alert("Candidate added successfully!");
+      showAlert("Candidate added successfully!", "success");
       closeModal();
       // Refresh scans if currently viewing the QR
       const displayedQR = document.querySelector(`#qrDetailContainer h3`);
@@ -314,10 +314,13 @@ candidateForm.addEventListener("submit", function(e) {
         viewScans(resp.qr_id);
       }
     } else {
-      alert("Error: " + resp.message);
+      showAlert("Error: " + resp.message, "error");
     }
   })
-  .catch(err => console.error(err));
+  .catch(err => {
+    console.error(err);
+    showAlert("Failed to add candidate. Please try again.", "error");
+  });
 });
 
 // View scans for a specific QR
