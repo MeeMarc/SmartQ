@@ -117,7 +117,7 @@
         <div class="button-container">
           <button type="submit">Generate QR</button>
           <button type="button" id="viewHistoryBtn">View QR History</button>
-          <button type="button" id="loadPreviousBtn" style="background: #6c757d; display: none;">📋 Load Queue Type & Purpose</button>
+          <button type="button" id="loadPreviousBtn" style="background: #6c757d; display: none;">📋 Load Queue</button>
         </div>
       </form>
     </div>
@@ -327,12 +327,18 @@
   // Initial calculation on page load
   calculateQueueLimit();
 
-  // Save and Load Previous Settings (Basic Information Only)
+  // Save and Load Previous Settings (All Information)
   function saveQueueSettings() {
     const settings = {
       queueType: document.getElementById("queueType").value.trim(),
-      queuePurpose: document.getElementById("queuePurpose").value.trim()
-      // Note: Capacity settings are NOT saved - they can vary per queue
+      queuePurpose: document.getElementById("queuePurpose").value.trim(),
+      serviceMinutes: document.getElementById("serviceMinutes").value,
+      serviceSeconds: document.getElementById("serviceSeconds").value,
+      morningStart: document.getElementById("morningStart").value,
+      morningEnd: document.getElementById("morningEnd").value,
+      afternoonStart: document.getElementById("afternoonStart").value,
+      afternoonEnd: document.getElementById("afternoonEnd").value,
+      staffCount: document.getElementById("staffCount").value
     };
     localStorage.setItem("lastQueueSettings", JSON.stringify(settings));
   }
@@ -340,20 +346,30 @@
   function loadPreviousSettings() {
     const saved = localStorage.getItem("lastQueueSettings");
     if (!saved) {
-      showAlert("No previous settings found.", "error");
+      showAlert("No previous queue settings found.", "error");
       return;
     }
     
     try {
       const settings = JSON.parse(saved);
-      // Only load Basic Information (Queue Type and Purpose)
-      // Capacity settings remain independent for each queue
+      
+      // Load Basic Information
       document.getElementById("queueType").value = settings.queueType || "";
       document.getElementById("queuePurpose").value = settings.queuePurpose || "";
       
-      // Capacity settings are NOT loaded - admin can set different times/staff per queue
+      // Load Queue Capacity Settings
+      document.getElementById("serviceMinutes").value = settings.serviceMinutes || "";
+      document.getElementById("serviceSeconds").value = settings.serviceSeconds || "";
+      document.getElementById("morningStart").value = settings.morningStart || "08:00";
+      document.getElementById("morningEnd").value = settings.morningEnd || "12:00";
+      document.getElementById("afternoonStart").value = settings.afternoonStart || "13:00";
+      document.getElementById("afternoonEnd").value = settings.afternoonEnd || "17:00";
+      document.getElementById("staffCount").value = settings.staffCount || "";
       
-      showAlert("Basic Information loaded! Remember to set your Queue Capacity Settings for this queue.", "success");
+      // Recalculate Queue Limit (will auto-update)
+      calculateQueueLimit();
+      
+      showAlert("✅ All previous queue settings loaded successfully! Basic Information, Capacity Settings, and Queue Limit have been restored.", "success");
     } catch (e) {
       showAlert("Error loading previous settings.", "error");
     }
@@ -468,7 +484,7 @@
       checkForPreviousSettings();
       
       // Show helpful message
-      showAlert("✅ Queue created successfully! Click '📋 Load Previous Settings' to reuse the same Queue Type and Purpose for the next queue.", "success");
+      showAlert("✅ Queue created successfully! Click '📋 Load Queue' to create another queue with the same settings (Basic Information, Capacity Settings, and Queue Limit).", "success");
     })
     .catch(err => {
       console.error("Error generating QR:", err);
