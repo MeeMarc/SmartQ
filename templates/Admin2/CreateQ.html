@@ -41,6 +41,9 @@
           <label for="queuePurpose">Queue Purpose / Description:</label>
           <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
 
+          <label for="processingDays">Processing Time (Days):</label>
+          <input type="number" id="processingDays" placeholder="e.g. 3" min="1" required>
+
           <!-- URL will be auto-generated based on Queue Type -->
           <p style="color: #666; font-style: italic;">
             ✓ URL will be automatically generated based on Queue Type
@@ -162,6 +165,7 @@
         <p>${item.purpose}</p>
         ${item.queueNumber ? `<p><strong>Queue #${item.queueNumber}</strong></p>` : ''}
         <p><strong>Created:</strong> ${displayDate}</p>
+        <p><strong>Processing Time:</strong> ${item.processingDays} day(s)</p>
         <div id="qr${index}"></div>
         <div class="qr-url-container">
           <p><small><strong>URL:</strong></small></p>
@@ -190,12 +194,13 @@
 
     const type = document.getElementById("queueType").value.trim();
     const purpose = document.getElementById("queuePurpose").value.trim();
+    const processingDays = document.getElementById("processingDays").value.trim();
 
     // Save QR to backend - URL will be auto-generated
     fetch("/generate_qr_db", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}`
+      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&processingDays=${encodeURIComponent(processingDays)}`
     })
     .then(res => {
       if (!res.ok) {
@@ -225,6 +230,7 @@
       const newQR = { 
         type, 
         purpose, 
+        processingDays,
         link: data.queue_link || "#", 
         queueNumber: data.queue_number || 1,
         qrId: data.qr_id,
@@ -396,21 +402,6 @@
             const box = document.createElement("div");
             box.className = "qr-box";
             
-            // Format service time - if it's a decimal, show as MM:SS, otherwise show as minutes
-            let serviceTimeDisplay;
-            if (item.avg_service_time) {
-              const totalMinutes = parseFloat(item.avg_service_time);
-              const minutes = Math.floor(totalMinutes);
-              const seconds = Math.round((totalMinutes - minutes) * 60);
-              if (seconds > 0) {
-                serviceTimeDisplay = `${minutes}m ${seconds}s`;
-              } else {
-                serviceTimeDisplay = `${minutes} min`;
-              }
-            } else {
-              serviceTimeDisplay = 'N/A';
-            }
-            
             // Format date from database (YYYY-MM-DD HH:MM:SS) to readable format
             let formattedDate = 'N/A';
             if (item.created_at && item.created_at !== 'N/A') {
@@ -432,12 +423,7 @@
               <h4>${item.queue_type}</h4>
               <p>${item.queue_purpose}</p>
               <p><strong>Created:</strong> ${formattedDate}</p>
-              <p><strong>Avg Service Time:</strong> ${serviceTimeDisplay}</p>
-              <p><strong>Staff/Windows:</strong> ${item.staff_count || 'N/A'}</p>
-              <p><strong>Queue Limit:</strong> ${item.queue_limit || 'N/A'} customers/day</p>
-              <p><strong>Schedule:</strong><br>
-              Morning: ${item.morning_start || 'N/A'} - ${item.morning_end || 'N/A'}<br>
-              Afternoon: ${item.afternoon_start || 'N/A'} - ${item.afternoon_end || 'N/A'}</p>
+              <p><strong>Processing Time:</strong> ${item.processing_days || 'N/A'} day(s)</p>
               <div id="historyQR${item.id}"></div>
               <div class="qr-url-container">
                 <p><small><strong>URL:</strong></small></p>
