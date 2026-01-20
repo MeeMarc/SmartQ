@@ -31,6 +31,7 @@
     <!-- LEFT: Form -->
     <div class="HomeRightContainer">
       <form id="qrForm">
+
         <!-- ========== SECTION 1: Basic Information ========== -->
         <div class="form-section" style="background: #f8f9fa; border: 2px solid #007bff;">
           <h3 style="border-bottom-color: #007bff;">📋 Basic Information</h3>
@@ -44,19 +45,63 @@
           <label for="processingDays">Processing Time (Days):</label>
           <input type="number" id="processingDays" placeholder="e.g. 3" min="1" required>
 
-          <!-- URL will be auto-generated based on Queue Type -->
           <p style="color: #666; font-style: italic;">
             ✓ URL will be automatically generated based on Queue Type
           </p>
         </div>
 
+        <!-- ========== SECTION 2: Queue Configuration ========== -->
+        <div class="form-section">
+          <h3>⚙️ Queue Configuration</h3>
 
+          <label for="processingMethod">Processing Method:</label>
+          <select id="processingMethod" required>
+            <option value="">-- Select --</option>
+            <option value="Walk-in">Walk-in</option>
+            <option value="Online">Online</option>
+          </select>
 
+          <label for="releaseType">Release Type:</label>
+          <select id="releaseType" required>
+            <option value="">-- Select --</option>
+            <option value="Physical Claim">Physical Claim</option>
+            <option value="Digital Copy">Digital Copy</option>
+          </select>
+
+          <label for="esignRequired">E-Signature Required?</label>
+          <select id="esignRequired" required>
+            <option value="">-- Select --</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+
+        <!-- ========== SECTION 3: Notifications & Instructions ========== -->
+        <div class="form-section">
+          <h3>📢 Notifications & Instructions</h3>
+
+          <label for="defaultNotification">Default Notification Message:</label>
+          <textarea id="defaultNotification" rows="2" required>
+We have accepted your application for documents.
+          </textarea>
+
+          <label for="alternativeInstructions">Alternative Solution Instructions:</label>
+          <textarea
+            id="alternativeInstructions"
+            rows="3"
+            placeholder="e.g. If processing is delayed, please visit the registrar office."
+          ></textarea>
+        </div>
+
+        <!-- ========== ACTION BUTTONS ========== -->
         <div class="button-container">
           <button type="submit">Generate QR</button>
           <button type="button" id="viewHistoryBtn">View QR History</button>
-          <button type="button" id="loadPreviousBtn" style="background: #6c757d; display: none;">📋 Load Queue</button>
+          <button type="button" id="loadPreviousBtn" style="background: #6c757d; display: none;">
+            📋 Load Queue
+          </button>
         </div>
+
       </form>
     </div>
 
@@ -90,6 +135,7 @@
   </div>
 </div>
 
+
 <!-- ================= JAVASCRIPT ================= -->
 <script>
   const form = document.getElementById("qrForm");
@@ -97,44 +143,42 @@
 
   let qrList = JSON.parse(localStorage.getItem("queues")) || [];
 
-  // Custom Confirmation Dialog
+  /* ================= CONFIRMATION MODAL ================= */
   function showConfirmation(title, message, onConfirm) {
     const modal = document.getElementById('confirmationModal');
     const titleEl = document.getElementById('confirmationTitle');
     const messageEl = document.getElementById('confirmationMessage');
     const yesBtn = document.getElementById('confirmYes');
     const noBtn = document.getElementById('confirmNo');
-    
+
     titleEl.textContent = title;
     messageEl.textContent = message;
     modal.style.display = 'flex';
-    
-    // Remove existing listeners
+
     const newYesBtn = yesBtn.cloneNode(true);
     const newNoBtn = noBtn.cloneNode(true);
     yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
     noBtn.parentNode.replaceChild(newNoBtn, noBtn);
-    
+
     document.getElementById('confirmYes').onclick = () => {
       modal.style.display = 'none';
       onConfirm();
     };
-    
+
     document.getElementById('confirmNo').onclick = () => {
       modal.style.display = 'none';
     };
   }
 
-  // Custom Alert Dialog
+  /* ================= ALERT MODAL ================= */
   function showAlert(message, type = 'success') {
     const modal = document.getElementById('alertModal');
     const messageEl = document.getElementById('alertMessage');
     const iconEl = document.getElementById('alertIcon');
     const okBtn = document.getElementById('alertOk');
-    
+
     messageEl.textContent = message;
-    
-    // Set icon based on type
+
     if (type === 'success') {
       iconEl.textContent = '✓';
       iconEl.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
@@ -142,40 +186,50 @@
       iconEl.textContent = '✕';
       iconEl.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
     }
-    
+
     modal.style.display = 'flex';
-    
-    okBtn.onclick = () => {
-      modal.style.display = 'none';
-    };
+    okBtn.onclick = () => modal.style.display = 'none';
   }
 
-  // Render saved QR codes
+  /* ================= RENDER QRS ================= */
   function renderQRs() {
     container.innerHTML = "";
+
     qrList.forEach((item, index) => {
       const box = document.createElement("div");
       box.className = "qr-box";
 
-      // Format date for display
-      const displayDate = item.created_at || 'N/A';
-      
       box.innerHTML = `
         <h4>${item.type}</h4>
         <p>${item.purpose}</p>
-        ${item.queueNumber ? `<p><strong>Queue #${item.queueNumber}</strong></p>` : ''}
-        <p><strong>Created:</strong> ${displayDate}</p>
+
+        <p><strong>Queue #:</strong> ${item.queueNumber}</p>
         <p><strong>Processing Time:</strong> ${item.processingDays} day(s)</p>
+        <p><strong>Processing Method:</strong> ${item.processingMethod}</p>
+        <p><strong>Release Type:</strong> ${item.releaseType}</p>
+        <p><strong>E-Signature Required:</strong> ${item.esignRequired}</p>
+
+        <p><strong>Notification Message:</strong><br>${item.defaultNotification}</p>
+
+        ${item.alternativeInstructions
+          ? `<p><strong>Alternative Instructions:</strong><br>${item.alternativeInstructions}</p>`
+          : ``}
+
+        <p><strong>Created:</strong> ${item.created_at}</p>
+
         <div id="qr${index}"></div>
+
         <div class="qr-url-container">
           <p><small><strong>URL:</strong></small></p>
           <a href="${item.link}" target="_blank" class="qr-url-link">${item.link}</a>
         </div>
+
         <div class="qr-actions">
           <button onclick="downloadQR(${index})">Download QR</button>
           <button onclick="deleteQR(${index})">Delete</button>
         </div>
       `;
+
       container.appendChild(box);
 
       new QRCode(document.getElementById(`qr${index}`), {
@@ -188,7 +242,7 @@
 
   renderQRs();
 
-  // Handle QR creation
+  /* ================= CREATE QUEUE ================= */
   form.addEventListener("submit", (e) => {
     e.preventDefault();
 
@@ -196,259 +250,86 @@
     const purpose = document.getElementById("queuePurpose").value.trim();
     const processingDays = document.getElementById("processingDays").value.trim();
 
-    // Save QR to backend - URL will be auto-generated
+    const processingMethod = document.getElementById("processingMethod").value;
+    const releaseType = document.getElementById("releaseType").value;
+    const esignRequired = document.getElementById("esignRequired").value;
+    const defaultNotification = document.getElementById("defaultNotification").value.trim();
+    const alternativeInstructions = document.getElementById("alternativeInstructions").value.trim();
+
     fetch("/generate_qr_db", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&processingDays=${encodeURIComponent(processingDays)}`
+      body: `
+        type=${encodeURIComponent(type)}
+        &purpose=${encodeURIComponent(purpose)}
+        &processingDays=${encodeURIComponent(processingDays)}
+      `
     })
-    .then(res => {
-      if (!res.ok) {
-        return res.json().then(data => {
-          throw new Error(data.error || `Server error: ${res.status}`);
-        });
-      }
-      return res.json();
-    })
+    .then(res => res.json())
     .then(data => {
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      console.log("QR saved with auto-generated URL:", data);
-      
-      // Add to local list with auto-generated link
+      if (data.error) throw new Error(data.error);
+
       const now = new Date();
-      const formattedDate = now.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+      const formattedDate = now.toLocaleDateString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
       });
-      
-      const newQR = { 
-        type, 
-        purpose, 
+
+      const newQR = {
+        type,
+        purpose,
         processingDays,
-        link: data.queue_link || "#", 
+        processingMethod,
+        releaseType,
+        esignRequired,
+        defaultNotification,
+        alternativeInstructions,
+        link: data.queue_link,
         queueNumber: data.queue_number || 1,
         qrId: data.qr_id,
         created_at: formattedDate
       };
+
       qrList.push(newQR);
       localStorage.setItem("queues", JSON.stringify(qrList));
-      
+
       renderQRs();
       form.reset();
-      
-      // Show helpful message
-      showAlert("✅ Queue created successfully!", "success");
+      showAlert("Queue created successfully!", "success");
     })
     .catch(err => {
-      console.error("Error generating QR:", err);
-      const errorMsg = err.message || 'Please try again.';
-      showAlert(`Error generating QR: ${errorMsg}\n\nCheck browser console (F12) for details.`, "error");
-      
-      // Log full error details
-      console.error("Full error details:", {
-        message: err.message,
-        stack: err.stack,
-        error: err
-      });
+      console.error(err);
+      showAlert(`Error generating QR: ${err.message}`, "error");
     });
   });
 
-  // Resolve QR id either from the saved reference or by looking up the link
-  async function resolveQrId(qrItem) {
-    if (qrItem.qrId) {
-      return qrItem.qrId;
-    }
-
-    const link = (qrItem.link || '').trim();
-    if (!link) {
-      return null;
-    }
-
-    const tryLookup = async (endpoint) => {
-      const response = await fetch(endpoint);
-      if (!response.ok) {
-        return null;
-      }
-      const rows = await response.json();
-      const match = rows.find(row => (row.queue_link || '').trim() === link);
-      return match ? match.id : null;
-    };
-
-    try {
-      // Prefer active temp_qr table first
-      let foundId = await tryLookup("/temp_qr_data");
-      if (!foundId) {
-        // Fall back to permanent history
-        foundId = await tryLookup("/qr_history_data");
-      }
-
-      if (foundId) {
-        qrItem.qrId = foundId;
-        localStorage.setItem("queues", JSON.stringify(qrList));
-      }
-
-      return foundId;
-    } catch (error) {
-      console.error("Error resolving QR id:", error);
-      return null;
-    }
-  }
-
-  // Delete QR
+  /* ================= DELETE QR ================= */
   async function deleteQR(index) {
-    const qrToDelete = qrList[index];
-    
+    const qr = qrList[index];
+
     showConfirmation(
-      'Delete Queue',
-      `Are you sure you want to delete "${qrToDelete.type}" from the generated queues?`,
+      "Delete Queue",
+      `Are you sure you want to delete "${qr.type}"?`,
       async () => {
-        let qrId = await resolveQrId(qrToDelete);
-
-        if (!qrId) {
-          showConfirmation(
-            'QR Not Found on Server',
-            'QR record was not found on the server.\n\nDo you want to remove it locally from this list?',
-            () => {
-              qrList.splice(index, 1);
-              localStorage.setItem("queues", JSON.stringify(qrList));
-              renderQRs();
-              showAlert("QR entry removed locally.", "success");
-            }
-          );
-          return;
-        }
-
-        try {
-          const response = await fetch("/delete_qr", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: qrId, force: true })
-          });
-
-          const data = await response.json();
-          console.log("Delete response:", response.status, data);
-
-          if (data.status === "success") {
-            qrList.splice(index, 1);
-            localStorage.setItem("queues", JSON.stringify(qrList));
-            renderQRs();
-            console.log("QR deleted successfully");
-            showAlert("QR deleted successfully!", "success");
-          } else {
-            throw new Error(data.message || "Failed to delete QR");
-          }
-        } catch (err) {
-          console.error("Error deleting QR:", err);
-          // Force remove from localStorage anyway since backend may have already deleted it
-          showConfirmation(
-            'Server Error',
-            `Server error: ${err.message}\n\nThe QR may already be deleted on the server.\nDo you want to remove it from this list anyway?`,
-            () => {
-              qrList.splice(index, 1);
-              localStorage.setItem("queues", JSON.stringify(qrList));
-              renderQRs();
-              showAlert("QR entry removed from list.", "success");
-            }
-          );
-        }
+        qrList.splice(index, 1);
+        localStorage.setItem("queues", JSON.stringify(qrList));
+        renderQRs();
+        showAlert("Queue removed.", "success");
       }
     );
   }
 
-  // Download QR as image
+  /* ================= DOWNLOAD QR ================= */
   function downloadQR(index) {
-    const qrCanvas = document.querySelector(`#qr${index} canvas`);
-    if (!qrCanvas) return;
-    const link = document.createElement('a');
-    link.href = qrCanvas.toDataURL("image/png");
+    const canvas = document.querySelector(`#qr${index} canvas`);
+    if (!canvas) return;
+
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
     link.download = `QR_${qrList[index].type}.png`;
     link.click();
   }
-
-  // View QR History with toggle functionality
-  const viewHistoryBtn = document.getElementById("viewHistoryBtn");
-  const qrContainerTitle = document.getElementById("qrContainerTitle");
-  let isShowingHistory = false;
-
-  viewHistoryBtn.addEventListener("click", () => {
-    if (isShowingHistory) {
-      // Show generated queues again
-      renderQRs();
-      viewHistoryBtn.textContent = "View QR History";
-      qrContainerTitle.textContent = "Generated Queues";
-      isShowingHistory = false;
-    } else {
-      // Show history
-      fetch("/qr_history_data")
-        .then(response => response.json())
-        .then(data => {
-          container.innerHTML = "";
-          qrContainerTitle.textContent = "QR History";
-          
-          if (data.length === 0) {
-            container.innerHTML = "<p style='text-align: center; color: #666; padding: 20px;'>No history available yet.</p>";
-            viewHistoryBtn.textContent = "View Generated Queues";
-            isShowingHistory = true;
-            return;
-          }
-          
-          data.forEach(item => {
-            const box = document.createElement("div");
-            box.className = "qr-box";
-            
-            // Format date from database (YYYY-MM-DD HH:MM:SS) to readable format
-            let formattedDate = 'N/A';
-            if (item.created_at && item.created_at !== 'N/A') {
-              try {
-                const date = new Date(item.created_at);
-                formattedDate = date.toLocaleDateString('en-US', { 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-              } catch (e) {
-                formattedDate = item.created_at; // Fallback to original if parsing fails
-              }
-            }
-            
-            box.innerHTML = `
-              <h4>${item.queue_type}</h4>
-              <p>${item.queue_purpose}</p>
-              <p><strong>Created:</strong> ${formattedDate}</p>
-              <p><strong>Processing Time:</strong> ${item.processing_days || 'N/A'} day(s)</p>
-              <div id="historyQR${item.id}"></div>
-              <div class="qr-url-container">
-                <p><small><strong>URL:</strong></small></p>
-                <a href="${item.queue_link}" target="_blank" class="qr-url-link">${item.queue_link}</a>
-              </div>
-              <p><small>Created by: ${item.created_by}</small></p>
-            `;
-            container.appendChild(box);
-
-            new QRCode(document.getElementById(`historyQR${item.id}`), {
-              text: item.queue_link,
-              width: 128,
-              height: 128
-            });
-          });
-          
-          viewHistoryBtn.textContent = "View Generated Queues";
-          isShowingHistory = true;
-        })
-        .catch(err => {
-          console.error(err);
-          showAlert("Error loading QR history. Please try again.", "error");
-        });
-    }
-  });
 </script>
+
 </body>
 </html>
