@@ -832,3 +832,76 @@ body.dark button {
     width: 100%;
   }
 }
+
+
+
+/* =========================================================
+   FORM CONTROLS — SELECT & TEXTAREA
+   (Queue Configuration + Notifications Sections)
+========================================================= */
+
+/* Select dropdown styling */
+.HomeRightContainer .form-section select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: 'Montserrat', sans-serif;
+  background-color: #ffffff;
+  color: #333;
+  outline: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  appearance: none; /* clean modern look */
+  cursor: pointer;
+}
+
+/* Select focus state */
+.HomeRightContainer .form-section select:focus {
+  border-color: #66B2FF;
+  box-shadow: 0 0 0 2px rgba(102, 178, 255, 0.2);
+}
+
+/* Textarea styling */
+.HomeRightContainer .form-section textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: 'Montserrat', sans-serif;
+  resize: vertical;
+  min-height: 70px;
+  outline: none;
+  line-height: 1.5;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  box-sizing: border-box;
+}
+
+/* Textarea focus state */
+.HomeRightContainer .form-section textarea:focus {
+  border-color: #66B2FF;
+  box-shadow: 0 0 0 2px rgba(102, 178, 255, 0.2);
+}
+
+/* Placeholder consistency */
+.HomeRightContainer .form-section textarea::placeholder {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+/* =========================================================
+   DARK MODE SUPPORT
+========================================================= */
+body.dark .HomeRightContainer .form-section select,
+body.dark .HomeRightContainer .form-section textarea {
+  background-color: #222;
+  color: #f0f0f0;
+  border-color: #444;
+}
+
+body.dark .HomeRightContainer .form-section select:focus,
+body.dark .HomeRightContainer .form-section textarea:focus {
+  border-color: #66b2ff;
+  box-shadow: 0 0 0 2px rgba(102, 178, 255, 0.25);
+}
