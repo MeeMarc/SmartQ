@@ -47,72 +47,7 @@
           </p>
         </div>
 
-        <!-- ========== SECTION 2: Queue Capacity Inputs ========== -->
-        <div class="form-section" style="background: #fff3cd; border: 2px solid #ffc107;">
-          <h3 style="border-bottom-color: #ffc107;">⚙️ Queue Capacity Settings</h3>
-          
-          <!-- Average Service Time per Customer -->
-          <label for="avgServiceTime">
-            <strong>1.</strong> Average Service Time per Customer:
-          </label>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="number" id="serviceMinutes" min="0" placeholder="00" style="width: 80px; text-align: center;" required>
-            <span style="font-weight: bold; font-size: 1.2rem;">:</span>
-            <input type="number" id="serviceSeconds" min="0" max="59" placeholder="00" style="width: 80px; text-align: center;" required>
-            <span style="font-size: 0.9rem; color: #666; margin-left: 5px;">(MM:SS)</span>
-          </div>
-          <p style="color: #666; font-size: 0.85rem; margin-top: 5px; margin-bottom: 0; font-style: italic;">
-            Enter minutes and seconds (e.g., 15 minutes 30 seconds)
-          </p>
 
-          <!-- Total Available Service Time -->
-          <label>
-            <strong>2.</strong> Total Available Service Time:
-          </label>
-          <div class="time-slots-container">
-            <div class="time-slot">
-              <label for="morningStart">Morning Start:</label>
-              <input type="time" id="morningStart" value="08:00" required>
-            </div>
-            <div class="time-slot">
-              <label for="morningEnd">Morning End<br>(Lunch Break):</label>
-              <input type="time" id="morningEnd" value="12:00" required>
-            </div>
-            <div class="time-slot">
-              <label for="afternoonStart">Afternoon Start:</label>
-              <input type="time" id="afternoonStart" value="13:00" required>
-            </div>
-            <div class="time-slot">
-              <label for="afternoonEnd">Afternoon End<br>(Time Out):</label>
-              <input type="time" id="afternoonEnd" value="17:00" required>
-            </div>
-          </div>
-
-          <!-- Number of Staff/Window -->
-          <label for="staffCount">
-            <strong>3.</strong> Number of Staff/Windows:
-          </label>
-          <input type="number" id="staffCount" min="1" placeholder="e.g. 3" required>
-        </div>
-
-        <!-- ========== SECTION 3: Auto-calculated Queue Limit ========== -->
-        <div class="form-section" style="background: #d4edda; border: 2px solid #28a745;">
-          <h3 style="border-bottom-color: #28a745;">📊 Calculated Queue Limit</h3>
-          
-          <label for="queueLimit">Queue Limit (Customers per Day):</label>
-          <input type="number" id="queueLimit" readonly placeholder="Will be calculated automatically" style="font-size: 1.1rem;">
-          
-          <div class="formula-box">
-            <p>
-              <strong>Formula:</strong><br>
-              Queue Limit = (Total Available Service Time ÷ Average Service Time per Customer) × Number of Staff
-            </p>
-          </div>
-          
-          <p style="color: #666; font-size: 0.88rem; font-style: italic; margin-top: 12px; margin-bottom: 0;">
-            ℹ️ This field is automatically calculated and cannot be edited manually.
-          </p>
-        </div>
 
         <div class="button-container">
           <button type="submit">Generate QR</button>
@@ -218,10 +153,6 @@
     qrList.forEach((item, index) => {
       const box = document.createElement("div");
       box.className = "qr-box";
-      // Format service time display
-      const serviceTimeDisplay = item.serviceMinutes !== undefined && item.serviceSeconds !== undefined
-        ? `${item.serviceMinutes}m ${item.serviceSeconds}s`
-        : `${item.avgServiceTime || 'N/A'} min`;
 
       // Format date for display
       const displayDate = item.created_at || 'N/A';
@@ -231,12 +162,6 @@
         <p>${item.purpose}</p>
         ${item.queueNumber ? `<p><strong>Queue #${item.queueNumber}</strong></p>` : ''}
         <p><strong>Created:</strong> ${displayDate}</p>
-        <p><strong>Avg Service Time:</strong> ${serviceTimeDisplay}</p>
-        <p><strong>Staff/Windows:</strong> ${item.staffCount}</p>
-        <p><strong>Queue Limit:</strong> ${item.queueLimit || 'N/A'} customers/day</p>
-        <p><strong>Schedule:</strong><br>
-        Morning: ${item.morningStart} - ${item.morningEnd}<br>
-        Afternoon: ${item.afternoonStart} - ${item.afternoonEnd}</p>
         <div id="qr${index}"></div>
         <div class="qr-url-container">
           <p><small><strong>URL:</strong></small></p>
@@ -259,177 +184,18 @@
 
   renderQRs();
 
-  // Auto-calculate Queue Limit
-  function calculateQueueLimit() {
-    const serviceMinutes = parseInt(document.getElementById("serviceMinutes").value) || 0;
-    const serviceSeconds = parseInt(document.getElementById("serviceSeconds").value) || 0;
-    const morningStart = document.getElementById("morningStart").value;
-    const morningEnd = document.getElementById("morningEnd").value;
-    const afternoonStart = document.getElementById("afternoonStart").value;
-    const afternoonEnd = document.getElementById("afternoonEnd").value;
-    const staffCount = parseInt(document.getElementById("staffCount").value) || 0;
-
-    // Convert service time to total minutes (including fractional minutes from seconds)
-    const avgServiceTime = serviceMinutes + (serviceSeconds / 60);
-
-    // Calculate total available time in minutes
-    let totalMinutes = 0;
-    
-    if (morningStart && morningEnd) {
-      const morningStartTime = new Date(`1970-01-01T${morningStart}`);
-      const morningEndTime = new Date(`1970-01-01T${morningEnd}`);
-      const morningMinutes = (morningEndTime - morningStartTime) / (1000 * 60);
-      if (morningMinutes > 0) totalMinutes += morningMinutes;
-    }
-    
-    if (afternoonStart && afternoonEnd) {
-      const afternoonStartTime = new Date(`1970-01-01T${afternoonStart}`);
-      const afternoonEndTime = new Date(`1970-01-01T${afternoonEnd}`);
-      const afternoonMinutes = (afternoonEndTime - afternoonStartTime) / (1000 * 60);
-      if (afternoonMinutes > 0) totalMinutes += afternoonMinutes;
-    }
-
-    // Calculate queue limit (always a whole number)
-    if (avgServiceTime > 0 && totalMinutes > 0 && staffCount > 0) {
-      const queueLimit = Math.floor((totalMinutes / avgServiceTime) * staffCount);
-      document.getElementById("queueLimit").value = queueLimit;
-    } else {
-      document.getElementById("queueLimit").value = "";
-    }
-  }
-
-  // Validate and auto-format seconds input
-  const secondsInput = document.getElementById("serviceSeconds");
-  secondsInput.addEventListener("input", function() {
-    let value = parseInt(this.value);
-    if (value > 59) {
-      this.value = 59;
-    } else if (value < 0) {
-      this.value = 0;
-    }
-    calculateQueueLimit();
-  });
-
-  // Validate minutes input (no negatives)
-  const minutesInput = document.getElementById("serviceMinutes");
-  minutesInput.addEventListener("input", function() {
-    let value = parseInt(this.value);
-    if (value < 0) {
-      this.value = 0;
-    }
-    calculateQueueLimit();
-  });
-
-  // Add event listeners to recalculate when inputs change
-  document.getElementById("morningStart").addEventListener("change", calculateQueueLimit);
-  document.getElementById("morningEnd").addEventListener("change", calculateQueueLimit);
-  document.getElementById("afternoonStart").addEventListener("change", calculateQueueLimit);
-  document.getElementById("afternoonEnd").addEventListener("change", calculateQueueLimit);
-  document.getElementById("staffCount").addEventListener("input", calculateQueueLimit);
-  
-  // Initial calculation on page load
-  calculateQueueLimit();
-
-  // Save and Load Previous Settings (All Information)
-  function saveQueueSettings() {
-    const settings = {
-      queueType: document.getElementById("queueType").value.trim(),
-      queuePurpose: document.getElementById("queuePurpose").value.trim(),
-      serviceMinutes: document.getElementById("serviceMinutes").value,
-      serviceSeconds: document.getElementById("serviceSeconds").value,
-      morningStart: document.getElementById("morningStart").value,
-      morningEnd: document.getElementById("morningEnd").value,
-      afternoonStart: document.getElementById("afternoonStart").value,
-      afternoonEnd: document.getElementById("afternoonEnd").value,
-      staffCount: document.getElementById("staffCount").value
-    };
-    localStorage.setItem("lastQueueSettings", JSON.stringify(settings));
-  }
-
-  function loadPreviousSettings() {
-    const saved = localStorage.getItem("lastQueueSettings");
-    if (!saved) {
-      showAlert("No previous queue settings found.", "error");
-      return;
-    }
-    
-    try {
-      const settings = JSON.parse(saved);
-      
-      // Load Basic Information
-      document.getElementById("queueType").value = settings.queueType || "";
-      document.getElementById("queuePurpose").value = settings.queuePurpose || "";
-      
-      // Load Queue Capacity Settings
-      document.getElementById("serviceMinutes").value = settings.serviceMinutes || "";
-      document.getElementById("serviceSeconds").value = settings.serviceSeconds || "";
-      document.getElementById("morningStart").value = settings.morningStart || "08:00";
-      document.getElementById("morningEnd").value = settings.morningEnd || "12:00";
-      document.getElementById("afternoonStart").value = settings.afternoonStart || "13:00";
-      document.getElementById("afternoonEnd").value = settings.afternoonEnd || "17:00";
-      document.getElementById("staffCount").value = settings.staffCount || "";
-      
-      // Recalculate Queue Limit (will auto-update)
-      calculateQueueLimit();
-      
-      showAlert("✅ All previous queue settings loaded successfully! Basic Information, Capacity Settings, and Queue Limit have been restored.", "success");
-    } catch (e) {
-      showAlert("Error loading previous settings.", "error");
-    }
-  }
-
-  function checkForPreviousSettings() {
-    const saved = localStorage.getItem("lastQueueSettings");
-    const loadBtn = document.getElementById("loadPreviousBtn");
-    
-    if (saved) {
-      loadBtn.style.display = "inline-block";
-    } else {
-      loadBtn.style.display = "none";
-    }
-  }
-
-  // Check on page load
-  checkForPreviousSettings();
-
-  // Load Previous Settings button
-  document.getElementById("loadPreviousBtn").addEventListener("click", loadPreviousSettings);
-
   // Handle QR creation
   form.addEventListener("submit", (e) => {
     e.preventDefault();
 
     const type = document.getElementById("queueType").value.trim();
     const purpose = document.getElementById("queuePurpose").value.trim();
-    const serviceMinutes = parseInt(document.getElementById("serviceMinutes").value) || 0;
-    const serviceSeconds = parseInt(document.getElementById("serviceSeconds").value) || 0;
-    const avgServiceTime = serviceMinutes + (serviceSeconds / 60); // Convert to total minutes
-    const morningStart = document.getElementById("morningStart").value;
-    const morningEnd = document.getElementById("morningEnd").value;
-    const afternoonStart = document.getElementById("afternoonStart").value;
-    const afternoonEnd = document.getElementById("afternoonEnd").value;
-    const staffCount = parseInt(document.getElementById("staffCount").value);
-    const queueLimit = parseInt(document.getElementById("queueLimit").value) || 0;
-
-    // Validate time slots
-    if (morningStart >= morningEnd) {
-      showAlert("Morning start time must be before morning end time!", "error");
-      return;
-    }
-    if (afternoonStart >= afternoonEnd) {
-      showAlert("Afternoon start time must be before afternoon end time!", "error");
-      return;
-    }
-    if (morningEnd > afternoonStart) {
-      showAlert("Please ensure there's a break between morning and afternoon sessions!", "error");
-      return;
-    }
 
     // Save QR to backend - URL will be auto-generated
     fetch("/generate_qr_db", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}&avgServiceTime=${avgServiceTime}&morningStart=${encodeURIComponent(morningStart)}&morningEnd=${encodeURIComponent(morningEnd)}&afternoonStart=${encodeURIComponent(afternoonStart)}&afternoonEnd=${encodeURIComponent(afternoonEnd)}&staffCount=${staffCount}&queueLimit=${queueLimit}`
+      body: `type=${encodeURIComponent(type)}&purpose=${encodeURIComponent(purpose)}`
     })
     .then(res => {
       if (!res.ok) {
@@ -460,15 +226,6 @@
         type, 
         purpose, 
         link: data.queue_link || "#", 
-        avgServiceTime,
-        serviceMinutes,
-        serviceSeconds,
-        morningStart,
-        morningEnd,
-        afternoonStart,
-        afternoonEnd,
-        staffCount,
-        queueLimit,
         queueNumber: data.queue_number || 1,
         qrId: data.qr_id,
         created_at: formattedDate
@@ -476,18 +233,11 @@
       qrList.push(newQR);
       localStorage.setItem("queues", JSON.stringify(qrList));
       
-      // Save settings before resetting form (for creating next queue of same type)
-      saveQueueSettings();
-      
       renderQRs();
       form.reset();
-      calculateQueueLimit(); // Clear the queue limit after reset
-      
-      // Show button to load previous settings
-      checkForPreviousSettings();
       
       // Show helpful message
-      showAlert("✅ Queue created successfully! Click '📋 Load Queue' to create another queue with the same settings (Basic Information, Capacity Settings, and Queue Limit).", "success");
+      showAlert("✅ Queue created successfully!", "success");
     })
     .catch(err => {
       console.error("Error generating QR:", err);
