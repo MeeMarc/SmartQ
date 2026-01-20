@@ -100,7 +100,7 @@ header {
   transform: scaleX(1);
 }
 /* =========================================================
-   MAIN CONTENT (FORM ON TOP, QR BELOW)
+   MAIN CONTENT — FORM ON TOP, QR BELOW
 ========================================================= */
 .HomeMainContent {
   display: flex;
@@ -118,7 +118,7 @@ header {
   text-align: center;
 }
 
-/* ✅ Stacked layout: form first, QR section below */
+/* Stacked layout: form first, QR section below */
 .HomeTwoContainer {
   display: flex;
   flex-direction: column;
@@ -129,7 +129,7 @@ header {
 }
 
 /* =========================================================
-   TOP: FORM CONTAINER
+   FORM CONTAINER
 ========================================================= */
 .HomeRightContainer {
   background: #ffffff;
@@ -150,37 +150,56 @@ header {
 
 .HomeRightContainer label {
   font-weight: 600;
-  color: #000000;
+  color: #000;
 }
 
-.HomeRightContainer input {
-  padding: 10px 12px;
+.HomeRightContainer input,
+.HomeRightContainer select,
+.HomeRightContainer textarea {
+  width: 100%;
+  padding: 12px;
   border: 1px solid #ccc;
   border-radius: 8px;
   font-size: 1rem;
+  font-family: 'Montserrat', sans-serif;
   outline: none;
-  transition: border-color 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  box-sizing: border-box;
+  background-color: #fff;
+  color: #000;
 }
 
-.HomeRightContainer input:focus {
-  border-color: #66B2FF;
+.HomeRightContainer input:focus,
+.HomeRightContainer select:focus,
+.HomeRightContainer textarea:focus {
+  border-color: #66b2ff;
+  box-shadow: 0 0 0 2px rgba(102, 178, 255, 0.2);
+}
+
+.HomeRightContainer input[readonly] {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+  font-weight: 600;
+  color: #155724;
 }
 
 /* =========================================================
-   FORM SECTIONS (Basic Info, Queue Settings, Calculated Limit)
+   FORM SECTIONS (Basic Info, Queue Settings, Notifications)
 ========================================================= */
 .HomeRightContainer .form-section {
   padding: 20px;
   border-radius: 10px;
   margin-bottom: 20px;
+  background: #f8faff;
+  border: 1px solid #e0e0e0;
 }
 
 .HomeRightContainer .form-section h3 {
   margin: 0 0 18px 0;
-  color: #333;
+  color: #003366;
   font-size: 1.15rem;
   font-weight: 600;
-  border-bottom: 2px solid;
+  border-bottom: 2px solid #003366;
   padding-bottom: 10px;
   display: flex;
   align-items: center;
@@ -189,37 +208,16 @@ header {
 
 .HomeRightContainer .form-section label {
   display: block;
-  font-weight: 600;
-  color: #000000;
-  font-size: 0.95rem;
-  margin-bottom: 8px;
   margin-top: 12px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #000;
+  font-size: 0.95rem;
   line-height: 1.4;
-  word-wrap: break-word;
-  white-space: normal;
 }
 
 .HomeRightContainer .form-section label:first-of-type {
   margin-top: 0;
-}
-
-.HomeRightContainer .form-section input[type="text"],
-.HomeRightContainer .form-section input[type="number"] {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 1rem;
-  outline: none;
-  transition: border-color 0.3s ease;
-  box-sizing: border-box;
-}
-
-.HomeRightContainer .form-section input[readonly] {
-  background-color: #e9ecef;
-  cursor: not-allowed;
-  font-weight: 600;
-  color: #155724;
 }
 
 .HomeRightContainer .form-section p {
@@ -228,7 +226,20 @@ header {
   font-size: 0.9rem;
 }
 
-/* Formula display box */
+/* Textareas */
+.HomeRightContainer .form-section textarea {
+  resize: vertical;
+  min-height: 70px;
+  line-height: 1.5;
+}
+
+/* Select dropdown */
+.HomeRightContainer .form-section select {
+  appearance: none;
+  cursor: pointer;
+}
+
+/* Formula box */
 .HomeRightContainer .formula-box {
   background: #fff;
   padding: 12px;
@@ -244,28 +255,8 @@ header {
   line-height: 1.6;
 }
 
-/* Timer input styling (MM:SS format) */
-.HomeRightContainer input[type="number"][id="serviceMinutes"],
-.HomeRightContainer input[type="number"][id="serviceSeconds"] {
-  padding: 12px 8px;
-  border: 2px solid #ccc;
-  border-radius: 8px;
-  font-size: 1.2rem;
-  font-weight: 600;
-  outline: none;
-  transition: border-color 0.3s ease;
-  box-sizing: border-box;
-  text-align: center;
-}
-
-.HomeRightContainer input[type="number"][id="serviceMinutes"]:focus,
-.HomeRightContainer input[type="number"][id="serviceSeconds"]:focus {
-  border-color: #ffc107;
-  box-shadow: 0 0 5px rgba(255, 193, 7, 0.3);
-}
-
 /* =========================================================
-   TIME SLOTS CONTAINER (Morning / Afternoon schedule)
+   TIME SLOTS
 ========================================================= */
 .HomeRightContainer .time-slots-container {
   display: grid;
@@ -290,35 +281,14 @@ header {
   font-weight: 500;
   color: #003366;
   line-height: 1.3;
-  word-wrap: break-word;
-  white-space: normal;
 }
 
 .HomeRightContainer .time-slot input[type="time"] {
   padding: 10px 12px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 1rem;
-  outline: none;
-  transition: border-color 0.3s ease;
-  background-color: #fff;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.HomeRightContainer .time-slot input[type="time"]:focus {
-  border-color: #66B2FF;
-}
-
-/* Responsive: stack vertically on small screens */
-@media (max-width: 768px) {
-  .HomeRightContainer .time-slots-container {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* =========================================================
-   BUTTON CONTAINER (Generate QR & View History)
+   BUTTONS
 ========================================================= */
 .HomeRightContainer .button-container {
   display: flex;
@@ -330,7 +300,7 @@ header {
 .HomeRightContainer button {
   flex: 1;
   background-color: #003366;
-  color: #ffffff;
+  color: #fff;
   padding: 12px;
   border: none;
   border-radius: 8px;
@@ -345,12 +315,11 @@ header {
   transform: translateY(-2px);
 }
 
-
 /* =========================================================
-   BELOW: QR DISPLAY CONTAINER
+   QR DISPLAY
 ========================================================= */
 .HomeLeftContainer {
-  background: #ffffff;
+  background: #fff;
   padding: 30px;
   border-radius: 16px;
   box-shadow: 0 4px 10px rgba(0, 51, 102, 0.1);
@@ -369,22 +338,19 @@ header {
   display: flex;
   flex-wrap: wrap;
   gap: 25px;
-  justify-content: center; /* Centers all QR boxes horizontally */
-  align-items: center;      /* Centers them vertically if needed */
-  margin-top: 40px;         /* Adds space below the form */
-  text-align: center;
+  justify-content: center;
+  align-items: center;
+  margin-top: 40px;
 }
 
 .qr-box {
   background: #f8faff;
-  border: 1px solid #000000;
-  box-shadow: 0 4px 8px rgba(0, 51, 102, 0.1);
+  border: 1px solid #000;
   border-radius: 12px;
   padding: 20px;
   width: 240px;
   text-align: center;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  margin: 0 auto;           /* Ensures each box stays centered */
 }
 
 .qr-box:hover {
@@ -392,63 +358,23 @@ header {
   box-shadow: 0 6px 12px rgba(0, 51, 102, 0.2);
 }
 
+.qr-box h4 { color: #003366; margin-bottom: 6px; }
+.qr-box p { font-size: 1rem; margin-bottom: 8px; color: #000; }
+.qr-box small { color: #888; }
 
-.qr-box h4 {
-  color: #003366;
-  margin-bottom: 6px;
-}
-
-.qr-box p {
-  font-size: 1rem;
-  color: #000000;
-  margin-bottom: 8px;
-}
-
-.qr-box small {
-  color: #888;
-}
-
-/* URL Container - Prevents overlap */
-.qr-url-container {
-  margin: 10px 0;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  max-width: 100%;
-}
-
-.qr-url-container p {
-  margin-bottom: 4px;
-}
-
+/* URL Container */
+.qr-url-container { margin: 10px 0; word-wrap: break-word; }
 .qr-url-link {
   display: block;
   color: #0066cc;
   text-decoration: underline;
   font-size: 0.85rem;
-  word-break: break-all;
-  overflow-wrap: break-word;
-  line-height: 1.4;
-  padding: 4px 0;
-  max-width: 100%;
 }
+.qr-url-link:hover { color: #0052a3; text-decoration: none; }
 
-.qr-url-link:hover {
-  color: #0052a3;
-  text-decoration: none;
-}
-
-.qr-box img {
-  display: block;
-  margin: 0 auto 10px auto; /* centers horizontally and adds small spacing below */
-  width: 180px;             /* optional: make all QR codes uniform size */
-  height: 180px;            /* optional: consistent square shape */
-  object-fit: contain;      /* keeps proportions if resized */
-}
-
-
+/* QR Buttons */
 .qr-box button {
   margin: 5px 3px;
-  border: none;
   border-radius: 8px;
   padding: 8px 14px;
   font-weight: 600;
@@ -456,452 +382,23 @@ header {
   transition: all 0.3s ease;
 }
 
-.qr-box button:hover {
-  transform: translateY(-2px);
-}
+.qr-box button:nth-child(5) { background-color: #007bff; color: #fff; }
+.qr-box button:nth-child(6) { background-color: #dc3545; color: #fff; }
 
-.qr-box button:nth-child(5) {
-  background-color: #007bff;
-  color: #fff;
-}
-
-.qr-box button:nth-child(5):hover {
-  background-color: #0056b3;
-}
-
-.qr-box button:nth-child(6) {
-  background-color: #ff0000;
-  color: #000000;
-}
-
-.qr-box button:nth-child(6):hover {
-  background-color: #3399FF;
-}
-
-.qr-box button:nth-child(7) {
-  background-color: #dc3545;
-  color: #fff;
-}
-
-.qr-box button:nth-child(7):hover {
-  background-color: #b32a37;
-}
+.qr-box button:hover { transform: translateY(-2px); }
 
 /* =========================================================
-   RESPONSIVE DESIGN
+   RESPONSIVE
 ========================================================= */
-@media (max-width: 1024px) {
-  .HomeRightContainer,
-  .HomeLeftContainer {
-    width: 90%;
-  }
-}
-
-@media (max-width: 600px) {
-  .qr-box {
-    width: 100%;
-  }
-
-  .HomeRightContainer {
-    padding: 25px;
-  }
-}
-
-@media (max-width: 900px) {
-  .HomeNavbar {
-    padding: 1rem 2.5rem;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-
-  .HomeNavMenu {
-    flex-wrap: wrap;
-    justify-content: center;
-    width: 100%;
-    gap: 1.5rem;
-  }
-
-  .HomeRightContainer,
-  .HomeLeftContainer {
-    width: 95%;
-  }
-}
-
 @media (max-width: 768px) {
-  .HomeNavbar {
-    padding: 1rem 1.5rem;
-    justify-content: center;
-  }
-
-  .HomeNavMenu {
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .HomeRightContainer,
-  .HomeLeftContainer {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .HomeLeftContainer {
-    padding: 24px 20px;
-  }
-
-  .HomeRightContainer {
-    padding: 28px 22px;
-  }
-
-  .HomeRightContainer .form-section {
-    padding: 15px;
-  }
-
-  .HomeRightContainer .form-section h3 {
-    font-size: 1rem;
-  }
-
-  .HomeRightContainer .form-section label {
-    font-size: 0.9rem;
-  }
+  .HomeRightContainer, .HomeLeftContainer { width: 100%; padding: 25px; }
+  .HomeRightContainer .form-section h3 { font-size: 1rem; }
+  .HomeRightContainer .form-section label { font-size: 0.9rem; }
+  .HomeRightContainer .time-slots-container { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
-  .HomeNavbar {
-    padding: 0.8rem 1.2rem;
-  }
-
-  .HomeLogo {
-    font-size: 1.3rem;
-  }
-
-  .HomeNavMenu {
-    width: 100%;
-  }
-
-  .HomeRightContainer,
-  .HomeLeftContainer {
-    padding: 22px 16px;
-  }
-
-  .HomeRightContainer .form-section {
-    padding: 12px;
-  }
-
-  .HomeRightContainer .form-section h3 {
-    font-size: 0.95rem;
-  }
-
-  .HomeRightContainer .form-section label {
-    font-size: 0.85rem;
-  }
-
-  .HomeRightContainer .time-slot label {
-    font-size: 0.8rem;
-  }
-}
-body.dark {
-  background-color: #121212;
-  color: #f0f0f0;
-}
-
-body.dark a {
-  color: #80bfff;
-}
-
-body.dark .HomeNavbar {
-  background-color: #1e1e1e;
-}
-
-body.dark input, 
-body.dark button {
-  background-color: #222;
-  color: #fff;
-  border: 1px solid #444;
-}
-
-/* =========================================================
-   CONFIRMATION MODAL
-========================================================= */
-.confirmation-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10000;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.confirmation-modal {
-  background: white;
-  border-radius: 16px;
-  padding: 30px;
-  max-width: 450px;
-  width: 90%;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  text-align: center;
-  animation: slideUp 0.3s ease;
-  position: relative;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(30px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.confirmation-icon {
-  font-size: 3.5rem;
-  margin-bottom: 20px;
-  animation: bounceIn 0.5s ease;
-}
-
-@keyframes bounceIn {
-  0% {
-    transform: scale(0);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.confirmation-modal h3 {
-  color: #003366;
-  font-size: 1.5rem;
-  margin-bottom: 15px;
-  font-weight: 600;
-}
-
-.confirmation-modal p {
-  color: #555;
-  font-size: 1rem;
-  margin-bottom: 25px;
-  line-height: 1.5;
-  white-space: pre-line;
-}
-
-.confirmation-buttons {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.confirm-btn-yes,
-.confirm-btn-no {
-  padding: 12px 30px;
-  border: none;
-  border-radius: 10px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 120px;
-}
-
-.confirm-btn-yes {
-  background: linear-gradient(135deg, #28a745, #20c997);
-  color: white;
-}
-
-.confirm-btn-yes:hover {
-  background: linear-gradient(135deg, #218838, #1aa179);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
-}
-
-.confirm-btn-no {
-  background: linear-gradient(135deg, #6c757d, #5a6268);
-  color: white;
-}
-
-.confirm-btn-no:hover {
-  background: linear-gradient(135deg, #5a6268, #4e555b);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
-}
-
-/* =========================================================
-   ALERT MODAL (Success/Error)
-========================================================= */
-.alert-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10000;
-  animation: fadeIn 0.3s ease;
-}
-
-.alert-modal {
-  background: white;
-  border-radius: 16px;
-  padding: 35px;
-  max-width: 400px;
-  width: 90%;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  text-align: center;
-  animation: slideUp 0.3s ease;
-}
-
-.alert-icon {
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #28a745, #20c997);
-  color: white;
-  font-size: 2.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 20px;
-  font-weight: bold;
-  animation: bounceIn 0.5s ease;
-}
-
-.alert-modal p {
-  color: #333;
-  font-size: 1.1rem;
-  margin-bottom: 25px;
-  line-height: 1.5;
-  font-weight: 500;
-  white-space: pre-line;
-}
-
-.alert-btn {
-  padding: 12px 40px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #003366, #0055aa);
-  color: white;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 140px;
-}
-
-.alert-btn:hover {
-  background: linear-gradient(135deg, #002244, #003d7a);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 51, 102, 0.4);
-}
-
-/* =========================================================
-   RESPONSIVE FOR MODALS
-========================================================= */
-@media (max-width: 600px) {
-  .confirmation-modal,
-  .alert-modal {
-    padding: 25px 20px;
-  }
-  
-  .confirmation-buttons {
-    flex-direction: column;
-  }
-  
-  .confirm-btn-yes,
-  .confirm-btn-no {
-    width: 100%;
-  }
-}
-
-
-
-/* =========================================================
-   FORM CONTROLS — SELECT & TEXTAREA
-   (Queue Configuration + Notifications Sections)
-========================================================= */
-
-/* Select dropdown styling */
-.HomeRightContainer .form-section select {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-family: 'Montserrat', sans-serif;
-  background-color: #ffffff;
-  color: #333;
-  outline: none;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  appearance: none; /* clean modern look */
-  cursor: pointer;
-}
-
-/* Select focus state */
-.HomeRightContainer .form-section select:focus {
-  border-color: #66B2FF;
-  box-shadow: 0 0 0 2px rgba(102, 178, 255, 0.2);
-}
-
-/* Textarea styling */
-.HomeRightContainer .form-section textarea {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-family: 'Montserrat', sans-serif;
-  resize: vertical;
-  min-height: 70px;
-  outline: none;
-  line-height: 1.5;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  box-sizing: border-box;
-}
-
-/* Textarea focus state */
-.HomeRightContainer .form-section textarea:focus {
-  border-color: #66B2FF;
-  box-shadow: 0 0 0 2px rgba(102, 178, 255, 0.2);
-}
-
-/* Placeholder consistency */
-.HomeRightContainer .form-section textarea::placeholder {
-  color: #888;
-  font-size: 0.9rem;
-}
-
-/* =========================================================
-   DARK MODE SUPPORT
-========================================================= */
-body.dark .HomeRightContainer .form-section select,
-body.dark .HomeRightContainer .form-section textarea {
-  background-color: #222;
-  color: #f0f0f0;
-  border-color: #444;
-}
-
-body.dark .HomeRightContainer .form-section select:focus,
-body.dark .HomeRightContainer .form-section textarea:focus {
-  border-color: #66b2ff;
-  box-shadow: 0 0 0 2px rgba(102, 178, 255, 0.25);
+  .qr-box { width: 100%; }
+  .HomeRightContainer .form-section h3 { font-size: 0.95rem; }
+  .HomeRightContainer .form-section label { font-size: 0.85rem; }
 }
