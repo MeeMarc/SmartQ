@@ -317,8 +317,14 @@ def ensure_queue_entries_table(conn):
                 queue_purpose VARCHAR(255),
                 fullname VARCHAR(255) NOT NULL,
                 phone VARCHAR(50) NOT NULL,
+                applicant_id VARCHAR(100),
+                email VARCHAR(255),
                 purpose TEXT,
                 status VARCHAR(50) DEFAULT 'waiting',
+                reference_number VARCHAR(100),
+                id_doc_path VARCHAR(500),
+                req_doc_path VARCHAR(500),
+                signature_path VARCHAR(500),
                 created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
             """
@@ -333,8 +339,14 @@ def ensure_queue_entries_table(conn):
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS queue_purpose VARCHAR(255)",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS fullname VARCHAR(255)",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS phone VARCHAR(50)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS applicant_id VARCHAR(100)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS email VARCHAR(255)",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS purpose TEXT",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'waiting'",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS reference_number VARCHAR(100)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS id_doc_path VARCHAR(500)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS req_doc_path VARCHAR(500)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS signature_path VARCHAR(500)",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS reschedule_status VARCHAR(50)",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS rescheduled_to_queue_number INTEGER",
@@ -991,7 +1003,7 @@ def get_qr_scans(qr_id):
         # Order by status (waiting first) then by created_at
         cur.execute(
             """
-            SELECT id, fullname, phone, purpose, status, created_at
+            SELECT id, fullname, phone, email, purpose, status, created_at, reference_number
             FROM queue_entries
             WHERE queue_slug = %s AND queue_number = %s
             ORDER BY 
@@ -1012,9 +1024,11 @@ def get_qr_scans(qr_id):
                 "id": row[0],
                 "fullname": row[1] or "Unknown",
                 "phone": row[2] or "",
-                "purpose": row[3] or "",
-                "status": row[4] or "waiting",
-                "scanned_at": row[5].strftime('%Y-%m-%d %I:%M %p') if row[5] else ""
+                "email": row[3] or "",
+                "purpose": row[4] or "",
+                "status": row[5] or "waiting",
+                "scanned_at": row[6].strftime('%Y-%m-%d %I:%M %p') if row[6] else "",
+                "reference_number": row[7] or ""
             })
 
         cur.close()
@@ -1779,8 +1793,21 @@ def queue_page(queue_slug, queue_number):
         queue_full = current_count >= queue_limit
 
     if request.method == 'POST':
+        from werkzeug.utils import secure_filename
+        import base64
+        from datetime import datetime
+
+        ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "pdf"}
+        MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+        def allowed_file(filename: str) -> bool:
+            return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
         phone = (request.form.get('phone') or '').strip()
-        
+        applicant_id = (request.form.get('applicant_id') or '').strip()
+        email = (request.form.get('email') or '').strip()
+        declaration = request.form.get('declaration') == 'on'
+
         # Check if user already has an entry (trying to retrieve ticket)
         existing_entry_id = check_existing_entry(queue_slug, queue_number, phone)
         
@@ -1814,9 +1841,53 @@ def queue_page(queue_slug, queue_number):
         
         purpose = (request.form.get('purpose') or '').strip()
 
-        if not lastname or not firstname or not phone:
-            flash("Please provide your last name, first name, and phone number to join the queue.", "error")
+        if not lastname or not firstname or not phone or not applicant_id or not email:
+            flash("Please provide last name, first name, ID, email, and phone number to join the queue.", "error")
             return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+
+        if not declaration:
+            flash("Please certify the information is true and correct before submitting.", "error")
+            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+
+        # Handle uploads
+        id_doc_file = request.files.get('id_doc')
+        req_doc_file = request.files.get('req_doc')
+        signature_data = request.form.get('signature_data', '')
+
+        id_doc_bytes = None
+        req_doc_bytes = None
+        sig_bytes = None
+        id_doc_ext = None
+        req_doc_ext = None
+
+        def validate_and_read(file):
+            if not file or file.filename == '':
+                return None, None
+            if not allowed_file(file.filename):
+                raise ValueError("Invalid file type. Allowed: png, jpg, jpeg, pdf.")
+            data = file.read()
+            if len(data) > MAX_FILE_SIZE:
+                raise ValueError("File too large. Max size is 5MB.")
+            ext = secure_filename(file.filename).rsplit(".", 1)[1].lower()
+            return data, ext
+
+        try:
+            id_doc_bytes, id_doc_ext = validate_and_read(id_doc_file)
+            req_doc_bytes, req_doc_ext = validate_and_read(req_doc_file)
+        except ValueError as ve:
+            flash(str(ve), "error")
+            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+
+        # Signature data URL -> bytes
+        if signature_data:
+            try:
+                if signature_data.startswith("data:image"):
+                    sig_b64 = signature_data.split(",")[1]
+                    sig_bytes = base64.b64decode(sig_b64)
+                else:
+                    sig_bytes = None
+            except Exception:
+                sig_bytes = None
 
         conn = None
         cur = None
@@ -1839,9 +1910,9 @@ def queue_page(queue_slug, queue_number):
                 """
                 INSERT INTO queue_entries (
                     queue_slug, queue_number, queue_type, queue_purpose,
-                    fullname, phone, purpose
+                    fullname, phone, purpose, applicant_id, email, status
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'waiting')
                 RETURNING id
                 """,
                 (
@@ -1852,12 +1923,58 @@ def queue_page(queue_slug, queue_number):
                     fullname,
                     phone,
                     purpose if purpose else None,
+                    applicant_id,
+                    email
                 )
             )
             entry_id = cur.fetchone()[0]
             conn.commit()
+
+            # Save files to disk after we have entry_id
+            upload_dir = os.path.join("static", "uploads")
+            os.makedirs(upload_dir, exist_ok=True)
+
+            id_doc_path = None
+            req_doc_path = None
+            signature_path = None
+
+            if id_doc_bytes and id_doc_ext:
+                id_doc_path = os.path.join(upload_dir, f"{queue_slug}_{queue_number}_{entry_id}_id.{id_doc_ext}")
+                with open(id_doc_path, "wb") as f:
+                    f.write(id_doc_bytes)
+
+            if req_doc_bytes and req_doc_ext:
+                req_doc_path = os.path.join(upload_dir, f"{queue_slug}_{queue_number}_{entry_id}_req.{req_doc_ext}")
+                with open(req_doc_path, "wb") as f:
+                    f.write(req_doc_bytes)
+
+            if sig_bytes:
+                signature_path = os.path.join(upload_dir, f"{queue_slug}_{queue_number}_{entry_id}_sig.png")
+                with open(signature_path, "wb") as f:
+                    f.write(sig_bytes)
+
+            # Generate reference number
+            reference_number = f"SQ-{datetime.now().year}-{entry_id:05d}"
+
+            # Update entry with file paths and reference number
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE queue_entries
+                SET reference_number = %s,
+                    id_doc_path = %s,
+                    req_doc_path = %s,
+                    signature_path = %s
+                WHERE id = %s
+                """,
+                (reference_number, id_doc_path, req_doc_path, signature_path, entry_id)
+            )
+            conn.commit()
+
         except Exception as e:
             print(f"Error saving queue entry: {e}")
+            import traceback
+            traceback.print_exc()
             if conn:
                 conn.rollback()
             flash("Something went wrong while saving your registration. Please try again.", "error")
@@ -1905,7 +2022,8 @@ def queue_waiting(queue_slug, queue_number, entry_id):
         cur.execute(
             """
             SELECT id, queue_slug, queue_number, queue_type, queue_purpose,
-                   fullname, phone, purpose, status, created_at
+                   fullname, phone, purpose, status, created_at,
+                   reference_number, email, applicant_id
             FROM queue_entries
             WHERE id = %s AND queue_slug = %s AND queue_number = %s
             """,
@@ -1928,11 +2046,14 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             "purpose": row[7],
             "status": row[8] or "waiting",
             "created_at": row[9],
+            "reference_number": row[10],
+            "email": row[11],
+            "applicant_id": row[12],
         }
 
         queue_type = entry["queue_type"] or queue_type
         queue_purpose = entry["queue_purpose"] or queue_purpose
-        ticket_reference = generate_ticket_reference(queue_slug, entry["id"])
+        ticket_reference = entry["reference_number"] or generate_ticket_reference(queue_slug, entry["id"])
 
         cur.execute(
             """

@@ -123,7 +123,7 @@
 
 <!-- Section 2: Processing of the Papers -->
 <section id="paper-section" class="paper-section">
-  <form class="paper-form" id="registrationForm" method="post">
+  <form class="paper-form" id="registrationForm" method="post" enctype="multipart/form-data">
     
     <h3>{% if queue_full %}Retrieve Your Ticket{% else %}Registration Form{% endif %}</h3>
     
@@ -199,6 +199,46 @@
     <div class="form-row" id="purposeRow">
       <label for="purpose">Purpose:</label>
       <textarea id="purpose" name="purpose" rows="4" placeholder="Optional"></textarea>
+    </div>
+
+    <!-- Applicant identification & uploads -->
+    <div class="form-row">
+      <label for="applicant_id">Student / Client ID: <span style="color: red;">*</span></label>
+      <input type="text" id="applicant_id" name="applicant_id" placeholder="e.g. 202600123" required>
+    </div>
+
+    <div class="form-row">
+      <label for="email">Email Address: <span style="color: red;">*</span></label>
+      <input type="email" id="email" name="email" placeholder="you@example.com" required>
+    </div>
+
+    <div class="form-row">
+      <label for="id_doc">Upload Valid ID (JPG, PNG, PDF, max 5MB):</label>
+      <input type="file" id="id_doc" name="id_doc" accept="image/*,application/pdf">
+      <div id="validIdPreview" class="file-preview"></div>
+    </div>
+
+    <div class="form-row">
+      <label for="req_doc">Supporting Document (JPG, PNG, PDF, max 5MB):</label>
+      <input type="file" id="req_doc" name="req_doc" accept="image/*,application/pdf">
+      <div id="supportingDocsPreview" class="file-preview"></div>
+    </div>
+
+    <div class="form-row">
+      <label for="signaturePad">E-Signature: <span style="color: red;">*</span></label>
+      <canvas id="signaturePad" width="500" height="200" style="border: 1px dashed #ccc; border-radius: 8px; background: #fff;"></canvas>
+      <div style="margin-top: 8px; display: flex; gap: 10px;">
+        <button type="button" id="clearSignature" class="reschedule-btn" style="padding: 8px 14px;">Clear Signature</button>
+      </div>
+      <input type="hidden" id="signature_data" name="signature_data">
+      <p style="font-size: 0.85rem; color: #666; margin-top: 6px;">Please sign inside the box. Signature is required.</p>
+    </div>
+
+    <div class="form-row">
+      <label style="display: flex; gap: 10px; align-items: flex-start;">
+        <input type="checkbox" id="declaration" name="declaration" required style="margin-top: 4px;">
+        <span>I certify that the information and uploaded documents are true and correct.</span>
+      </label>
     </div>
     {% endif %}
 
@@ -302,23 +342,126 @@
 </script>
 
 <script>
-  // Handle form submission - simplified for faster response
-  const registrationForm = document.getElementById('registrationForm');
-  const submitBtn = document.getElementById('submitBtn');
+  // File previews and E-signature
+  (function() {
+    const idInput = document.getElementById('id_doc');
+    const reqInput = document.getElementById('req_doc');
+    const idPreview = document.getElementById('validIdPreview');
+    const reqPreview = document.getElementById('supportingDocsPreview');
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-  if (registrationForm) {
-    registrationForm.addEventListener('submit', function(event) {
-      // Disable submit button to prevent double submission
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Submitting...';
+    function renderPreview(file, container) {
+      if (!file || !container) return;
+      container.innerHTML = '';
+      const info = document.createElement('div');
+      info.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+      container.appendChild(info);
+      if (file.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.style.maxWidth = '180px';
+        img.style.marginTop = '8px';
+        img.src = URL.createObjectURL(file);
+        container.appendChild(img);
       }
-      
-      // Let the form submit normally - no need to intercept with fetch
-      // This will be much faster as it uses native browser form submission
-      // The download can be done on the waiting page if needed
-    });
-  }
+    }
+
+    function validateFile(input, previewEl) {
+      const file = input.files && input.files[0];
+      if (!file) {
+        if (previewEl) previewEl.innerHTML = '';
+        return true;
+      }
+      const extOk = /(\.jpg|\.jpeg|\.png|\.pdf)$/i.test(file.name);
+      if (!extOk) {
+        alert('Invalid file type. Allowed: JPG, PNG, PDF.');
+        input.value = '';
+        if (previewEl) previewEl.innerHTML = '';
+        return false;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        alert('File too large. Max size is 5MB.');
+        input.value = '';
+        if (previewEl) previewEl.innerHTML = '';
+        return false;
+      }
+      renderPreview(file, previewEl);
+      return true;
+    }
+
+    if (idInput) {
+      idInput.addEventListener('change', () => validateFile(idInput, idPreview));
+    }
+    if (reqInput) {
+      reqInput.addEventListener('change', () => validateFile(reqInput, reqPreview));
+    }
+
+    // Signature pad
+    const canvas = document.getElementById('signaturePad');
+    const clearBtn = document.getElementById('clearSignature');
+    const sigField = document.getElementById('signature_data');
+    if (canvas && sigField) {
+      const ctx = canvas.getContext('2d');
+      let drawing = false;
+      let hasDrawn = false;
+
+      function startDraw(e) {
+        drawing = true;
+        hasDrawn = true;
+        ctx.beginPath();
+        ctx.moveTo(getX(e), getY(e));
+      }
+      function draw(e) {
+        if (!drawing) return;
+        ctx.lineTo(getX(e), getY(e));
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+      function endDraw() {
+        drawing = false;
+      }
+      function getX(e) { return (e.touches ? e.touches[0].clientX : e.clientX) - canvas.getBoundingClientRect().left; }
+      function getY(e) { return (e.touches ? e.touches[0].clientY : e.clientY) - canvas.getBoundingClientRect().top; }
+
+      canvas.addEventListener('mousedown', startDraw);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', endDraw);
+      canvas.addEventListener('mouseleave', endDraw);
+      canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); });
+      canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+      canvas.addEventListener('touchend', (e) => { e.preventDefault(); endDraw(); });
+
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          hasDrawn = false;
+          sigField.value = '';
+        });
+      }
+
+      // Attach submit handler to embed signature data and validate declaration
+      const form = document.getElementById('registrationForm');
+      const declaration = document.getElementById('declaration');
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          if (declaration && !declaration.checked) {
+            e.preventDefault();
+            alert('Please certify that the information is true and correct.');
+            return false;
+          }
+          if (!hasDrawn) {
+            e.preventDefault();
+            alert('Please provide your e-signature before submitting.');
+            return false;
+          }
+          const dataUrl = canvas.toDataURL('image/png');
+          sigField.value = dataUrl;
+          return true;
+        });
+      }
+    }
+  })();
 </script>
 
 
