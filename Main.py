@@ -321,6 +321,7 @@ def ensure_queue_entries_table(conn):
                 email VARCHAR(255),
                 purpose TEXT,
                 status VARCHAR(50) DEFAULT 'waiting',
+                admin_status VARCHAR(50) DEFAULT 'pending',
                 reference_number VARCHAR(100),
                 id_doc_path VARCHAR(500),
                 req_doc_path VARCHAR(500),
@@ -350,7 +351,8 @@ def ensure_queue_entries_table(conn):
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS reschedule_status VARCHAR(50)",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS rescheduled_to_queue_number INTEGER",
-            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS last_rescheduled_at TIMESTAMP WITHOUT TIME ZONE"
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS last_rescheduled_at TIMESTAMP WITHOUT TIME ZONE",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS admin_status VARCHAR(50) DEFAULT 'pending'"
         ]
 
         for stmt in column_statements:
@@ -1003,7 +1005,7 @@ def get_qr_scans(qr_id):
         # Order by status (waiting first) then by created_at
         cur.execute(
             """
-            SELECT id, fullname, phone, email, purpose, status, created_at, reference_number
+            SELECT id, fullname, phone, email, purpose, status, admin_status, created_at, reference_number
             FROM queue_entries
             WHERE queue_slug = %s AND queue_number = %s
             ORDER BY 
@@ -1027,8 +1029,9 @@ def get_qr_scans(qr_id):
                 "email": row[3] or "",
                 "purpose": row[4] or "",
                 "status": row[5] or "waiting",
-                "scanned_at": row[6].strftime('%Y-%m-%d %I:%M %p') if row[6] else "",
-                "reference_number": row[7] or ""
+                "admin_status": row[6] or "pending",
+                "scanned_at": row[7].strftime('%Y-%m-%d %I:%M %p') if row[7] else "",
+                "reference_number": row[8] or ""
             })
 
         cur.close()
@@ -1078,6 +1081,88 @@ def update_queue_status():
         return jsonify({"status": "success", "message": f"Status updated to {new_status}"})
     except Exception as e:
         print(f"Error updating queue status: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/accept_queue_entry/<int:entry_id>', methods=['POST'])
+def accept_queue_entry(entry_id):
+    """Accept a queue entry by setting admin_status to 'accepted'."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        # Check if entry exists
+        cur.execute("SELECT id FROM queue_entries WHERE id = %s", (entry_id,))
+        if not cur.fetchone():
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Entry not found"}), 404
+        
+        # Update admin_status to accepted
+        cur.execute(
+            "UPDATE queue_entries SET admin_status = 'accepted' WHERE id = %s",
+            (entry_id,)
+        )
+        
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Failed to accept entry"}), 500
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({"status": "success", "message": "Entry accepted successfully"})
+    except Exception as e:
+        print(f"Error accepting queue entry: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/reject_queue_entry/<int:entry_id>', methods=['POST'])
+def reject_queue_entry(entry_id):
+    """Reject a queue entry by setting admin_status to 'rejected'."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        # Check if entry exists
+        cur.execute("SELECT id FROM queue_entries WHERE id = %s", (entry_id,))
+        if not cur.fetchone():
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Entry not found"}), 404
+        
+        # Update admin_status to rejected
+        cur.execute(
+            "UPDATE queue_entries SET admin_status = 'rejected' WHERE id = %s",
+            (entry_id,)
+        )
+        
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Failed to reject entry"}), 500
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({"status": "success", "message": "Entry rejected successfully"})
+    except Exception as e:
+        print(f"Error rejecting queue entry: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -1291,9 +1376,9 @@ def auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type):
                 """
                 INSERT INTO queue_entries (
                     queue_slug, queue_number, queue_type, queue_purpose,
-                    fullname, phone, purpose, status
+                    fullname, phone, purpose, status, admin_status
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting')
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
                 RETURNING id
                 """,
                 (
@@ -1502,9 +1587,9 @@ def reschedule_queue_entry(entry_id):
                 """
                 INSERT INTO queue_entries (
                     queue_slug, queue_number, queue_type, queue_purpose,
-                    fullname, phone, purpose, status
+                    fullname, phone, purpose, status, admin_status
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting')
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
                 RETURNING id
                 """,
                 (
@@ -1633,9 +1718,9 @@ def add_candidate_modal():
             """
             INSERT INTO queue_entries (
                 queue_slug, queue_number, queue_type, queue_purpose,
-                fullname, phone, purpose, status
+                fullname, phone, purpose, status, admin_status
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting')
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
             RETURNING id
             """,
             (
@@ -1711,7 +1796,7 @@ def test_db():
         
         cur = conn.cursor()
         
-        # Check if qr_history table exists
+        # Check if qr_history table exists hahahaahaha
         cur.execute("""
             SELECT EXISTS (
                 SELECT FROM information_schema.tables 
@@ -1910,9 +1995,9 @@ def queue_page(queue_slug, queue_number):
                 """
                 INSERT INTO queue_entries (
                     queue_slug, queue_number, queue_type, queue_purpose,
-                    fullname, phone, purpose, applicant_id, email, status
+                    fullname, phone, purpose, applicant_id, email, status, admin_status
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'waiting')
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
                 RETURNING id
                 """,
                 (
