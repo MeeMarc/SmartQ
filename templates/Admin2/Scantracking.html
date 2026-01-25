@@ -90,12 +90,53 @@
   </div>
 </div>
 
+<!-- Modal for Viewing Documents -->
+<div class="modal" id="documentsModal">
+  <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+    <span class="close-modal" onclick="closeDocumentsModal()">×</span>
+    <h3 id="documentsModalTitle">View Documents</h3>
+    <div id="documentsContent">
+      <p>Loading documents...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal for Sending Notifications -->
+<div class="modal" id="notificationModal">
+  <div class="modal-content" style="max-width: 600px;">
+    <span class="close-modal" onclick="closeNotificationModal()">×</span>
+    <h3>Send Notification</h3>
+    <form id="notificationForm">
+      <input type="hidden" id="notificationQRId">
+      
+      <label for="notificationType">Notify:</label>
+      <select id="notificationType" required onchange="toggleEntrySelection()">
+        <option value="all">All entries in this queue</option>
+        <option value="selected">Selected entries only</option>
+      </select>
+      
+      <div id="entrySelectionContainer" style="display: none; margin-top: 15px; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 6px;">
+        <p style="margin: 0 0 10px 0; font-weight: 600;">Select entries to notify:</p>
+        <div id="entryCheckboxes"></div>
+      </div>
+      
+      <label for="notificationMessage" style="margin-top: 15px;">Message: <span style="color: red;">*</span></label>
+      <textarea id="notificationMessage" rows="4" placeholder="Enter notification message..." required></textarea>
+      
+      <button type="submit" style="margin-top: 15px;">Send Notification</button>
+    </form>
+  </div>
+</div>
+
 <script>
 const qrListContainer = document.getElementById("qrListContainer");
 const qrDetailContainer = document.getElementById("qrDetailContainer");
 const modal = document.getElementById("candidateModal");
 const candidateForm = document.getElementById("candidateForm");
 const modalQRLink = document.getElementById("modalQRLink");
+const documentsModal = document.getElementById("documentsModal");
+const notificationModal = document.getElementById("notificationModal");
+const notificationForm = document.getElementById("notificationForm");
 
 let currentScans = [];
 let currentQRId = null;
@@ -187,6 +228,78 @@ function markAsDone(entryId, buttonElement) {
   );
 }
 
+// Accept entry
+function acceptEntry(entryId, buttonElement) {
+  const message = prompt('Enter notification message (optional):', 'Your application has been accepted.');
+  if (message === null) return; // User cancelled
+  
+  showConfirmation(
+    'Accept Entry',
+    'Are you sure you want to accept this entry?',
+    () => {
+      fetch(`/accept_queue_entry/${entryId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification_message: message || 'Your application has been accepted.'
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success') {
+          showAlert('Entry accepted successfully!', 'success');
+          // Refresh the scan list
+          if (currentQRId) {
+            viewScans(currentQRId);
+          }
+        } else {
+          showAlert('Error: ' + data.message, 'error');
+        }
+      })
+      .catch(err => {
+        console.error('Error accepting entry:', err);
+        showAlert('Failed to accept entry', 'error');
+      });
+    }
+  );
+}
+
+// Reject entry
+function rejectEntry(entryId, buttonElement) {
+  const message = prompt('Enter notification message (optional):', 'Your application has been rejected.');
+  if (message === null) return; // User cancelled
+  
+  showConfirmation(
+    'Reject Entry',
+    'Are you sure you want to reject this entry?',
+    () => {
+      fetch(`/reject_queue_entry/${entryId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification_message: message || 'Your application has been rejected.'
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success') {
+          showAlert('Entry rejected successfully!', 'success');
+          // Refresh the scan list
+          if (currentQRId) {
+            viewScans(currentQRId);
+          }
+        } else {
+          showAlert('Error: ' + data.message, 'error');
+        }
+      })
+      .catch(err => {
+        console.error('Error rejecting entry:', err);
+        showAlert('Failed to reject entry', 'error');
+      });
+    }
+  );
+}
+
 // Fetch QR List - shows only ACTIVE queues (not deleted ones)
 function fetchQRList() {
   // First get active queues from temp_qr
@@ -260,6 +373,204 @@ function closeModal() {
   candidateForm.reset();
 }
 
+function openDocumentsModal(entryId) {
+  documentsModal.style.display = "flex";
+  document.getElementById("documentsContent").innerHTML = "<p>Loading documents...</p>";
+  
+  // Fetch document URLs
+  fetch(`/view_entry_documents/${entryId}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'error') {
+        document.getElementById("documentsContent").innerHTML = `<p style="color: red;">Error: ${data.message}</p>`;
+        return;
+      }
+      
+      const documents = data.documents || {};
+      const fullname = data.fullname || "Unknown";
+      const applicantId = data.applicant_id || "N/A";
+      
+      // Update modal title
+      document.getElementById("documentsModalTitle").textContent = `Documents - ${fullname}`;
+      
+      let content = `
+        <div style="margin-bottom: 20px; padding: 15px; background: #f8faff; border-radius: 8px;">
+          <p style="margin: 5px 0;"><strong>Name:</strong> ${fullname}</p>
+          <p style="margin: 5px 0;"><strong>Applicant ID:</strong> ${applicantId}</p>
+        </div>
+      `;
+      
+      if (documents.id_doc) {
+        const isPdf = documents.id_doc.toLowerCase().endsWith('.pdf');
+        content += `
+          <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
+            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">📄 ID Document</h4>
+            ${isPdf ? 
+              `<iframe src="${documents.id_doc}" style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px;"></iframe>
+               <a href="${documents.id_doc}" target="_blank" style="display: inline-block; padding: 8px 15px; background: #003366; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">📥 Open PDF in new tab</a>` :
+              `<div style="text-align: center;">
+                <img src="${documents.id_doc}" alt="ID Document" style="max-width: 100%; max-height: 500px; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; margin-bottom: 10px;" onclick="window.open('${documents.id_doc}', '_blank')">
+                <p style="color: #666; font-size: 0.85rem; margin-top: 5px;">Click image to view full size</p>
+              </div>`
+            }
+          </div>
+        `;
+      }
+      
+      if (documents.req_doc) {
+        const isPdf = documents.req_doc.toLowerCase().endsWith('.pdf');
+        content += `
+          <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
+            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">📋 Required Document</h4>
+            ${isPdf ? 
+              `<iframe src="${documents.req_doc}" style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px;"></iframe>
+               <a href="${documents.req_doc}" target="_blank" style="display: inline-block; padding: 8px 15px; background: #003366; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">📥 Open PDF in new tab</a>` :
+              `<div style="text-align: center;">
+                <img src="${documents.req_doc}" alt="Required Document" style="max-width: 100%; max-height: 500px; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; margin-bottom: 10px;" onclick="window.open('${documents.req_doc}', '_blank')">
+                <p style="color: #666; font-size: 0.85rem; margin-top: 5px;">Click image to view full size</p>
+              </div>`
+            }
+          </div>
+        `;
+      }
+      
+      if (documents.signature) {
+        content += `
+          <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
+            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">✍️ Signature</h4>
+            <div style="text-align: center;">
+              <img src="${documents.signature}" alt="Signature" style="max-width: 100%; max-height: 300px; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; margin-bottom: 10px;" onclick="window.open('${documents.signature}', '_blank')">
+              <p style="color: #666; font-size: 0.85rem; margin-top: 5px;">Click image to view full size</p>
+            </div>
+          </div>
+        `;
+      }
+      
+      if (!documents.id_doc && !documents.req_doc && !documents.signature) {
+        content = '<p style="color: #666;">No documents uploaded for this entry.</p>';
+      }
+      
+      document.getElementById("documentsContent").innerHTML = content;
+    })
+    .catch(err => {
+      console.error('Error loading documents:', err);
+      document.getElementById("documentsContent").innerHTML = '<p style="color: red;">Failed to load documents. Please try again.</p>';
+    });
+}
+
+function closeDocumentsModal() {
+  documentsModal.style.display = "none";
+}
+
+// Close documents modal when clicking outside
+documentsModal.addEventListener('click', function(e) {
+  if (e.target === documentsModal) {
+    closeDocumentsModal();
+  }
+});
+
+// Notification Modal Functions
+function openNotificationModal(qrId) {
+  notificationModal.style.display = "flex";
+  document.getElementById("notificationQRId").value = qrId;
+  document.getElementById("notificationMessage").value = "";
+  document.getElementById("notificationType").value = "all";
+  toggleEntrySelection();
+  populateEntryCheckboxes();
+}
+
+function closeNotificationModal() {
+  notificationModal.style.display = "none";
+  notificationForm.reset();
+}
+
+function toggleEntrySelection() {
+  const type = document.getElementById("notificationType").value;
+  const container = document.getElementById("entrySelectionContainer");
+  container.style.display = type === "selected" ? "block" : "none";
+}
+
+function populateEntryCheckboxes() {
+  const container = document.getElementById("entryCheckboxes");
+  container.innerHTML = "";
+  
+  if (currentScans.length === 0) {
+    container.innerHTML = "<p style='color: #666;'>No entries available.</p>";
+    return;
+  }
+  
+  currentScans.forEach(scan => {
+    const div = document.createElement("div");
+    div.style.marginBottom = "8px";
+    div.innerHTML = `
+      <label style="display: flex; align-items: center; cursor: pointer;">
+        <input type="checkbox" value="${scan.id}" style="margin-right: 8px;">
+        <span>${scan.fullname} (${scan.phone || 'N/A'})</span>
+      </label>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// Handle notification form submission
+notificationForm.addEventListener("submit", function(e) {
+  e.preventDefault();
+  
+  const qrId = document.getElementById("notificationQRId").value;
+  const message = document.getElementById("notificationMessage").value.trim();
+  const notifyType = document.getElementById("notificationType").value;
+  
+  if (!message) {
+    showAlert("Please enter a notification message.", "error");
+    return;
+  }
+  
+  let entryIds = [];
+  if (notifyType === "selected") {
+    const checkboxes = document.querySelectorAll("#entryCheckboxes input[type='checkbox']:checked");
+    entryIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+    
+    if (entryIds.length === 0) {
+      showAlert("Please select at least one entry to notify.", "error");
+      return;
+    }
+  }
+  
+  fetch("/send_notification", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      qr_id: parseInt(qrId),
+      entry_ids: entryIds,
+      message: message
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === "success") {
+      showAlert(data.message, "success");
+      closeNotificationModal();
+      // Refresh scans to show updated notification status
+      if (currentQRId) {
+        viewScans(currentQRId);
+      }
+    } else {
+      showAlert("Error: " + data.message, "error");
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    showAlert("Failed to send notification. Please try again.", "error");
+  });
+});
+
+// Close notification modal when clicking outside
+notificationModal.addEventListener('click', function(e) {
+  if (e.target === notificationModal) {
+    closeNotificationModal();
+  }
+});
+
 // Handle Add Candidate submission
 candidateForm.addEventListener("submit", function(e) {
   e.preventDefault();
@@ -331,8 +642,11 @@ function viewScans(qrId) {
     .then(data => {
       currentScans = data;
       qrDetailContainer.innerHTML = `
-        <h3>Scans for QR #${qrId}</h3>
-        <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, or status">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+          <h3 style="margin: 0;">Scans for QR #${qrId}</h3>
+          <button onclick="openNotificationModal(${qrId})" style="background: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">📢 Send Notification</button>
+        </div>
+        <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, status, or admin status">
         <div class="scan-list" id="scanList"></div>
       `;
       document.getElementById("scanSearch").addEventListener("input", filterScans);
@@ -359,15 +673,43 @@ function renderScans(scans) {
     const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
     const statusClass = user.status === 'completed' ? 'status-completed' : user.status === 'cancelled' ? 'status-cancelled' : user.status === 'rescheduled' ? 'status-rescheduled' : 'status-waiting';
     
+    // Admin status badge
+    const adminStatus = user.admin_status || 'pending';
+    const adminStatusText = adminStatus.charAt(0).toUpperCase() + adminStatus.slice(1);
+    const adminStatusClass = adminStatus === 'accepted' ? 'status-accepted' : adminStatus === 'rejected' ? 'status-rejected' : 'status-pending';
+    
+    // Show Accept/Reject buttons only for pending entries
+    const showAdminActions = adminStatus === 'pending' && user.status !== 'completed' && user.status !== 'cancelled' && user.status !== 'rescheduled';
+    
+    // Check if entry has documents
+    const hasDocuments = user.has_documents || (user.id_doc_url || user.req_doc_url || user.signature_url);
+    
+    // Check if there's a notification message
+    const hasNotification = user.notification_message && user.notification_message.trim() !== '';
+    
     card.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
-        <div style="flex: 1;">
-          <strong>${user.fullname}</strong>${phone}${purpose}${scannedAt}
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+          <div style="flex: 1;">
+            <strong>${user.fullname}</strong>${phone}${purpose}${scannedAt}
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span class="status-badge ${statusClass}">${status}</span>
+            <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
+            ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})" style="background: #007bff; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">View Docs</button>` : ''}
+            ${showAdminActions ? `
+              <button class="accept-btn" onclick="acceptEntry(${user.id}, this)" style="background: #28a745; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">Accept</button>
+              <button class="reject-btn" onclick="rejectEntry(${user.id}, this)" style="background: #dc3545; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">Reject</button>
+            ` : ''}
+            ${user.status !== 'completed' && user.status !== 'cancelled' && user.status !== 'rescheduled' ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
+          </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span class="status-badge ${statusClass}">${status}</span>
-          ${user.status !== 'completed' && user.status !== 'cancelled' && user.status !== 'rescheduled' ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
-        </div>
+        ${hasNotification ? `
+          <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
+            <strong style="color: #003366;">📢 Notification:</strong>
+            <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
+          </div>
+        ` : ''}
       </div>
     `;
     scanList.appendChild(card);
@@ -381,7 +723,8 @@ function filterScans() {
     (user.fullname && user.fullname.toLowerCase().includes(query)) ||
     (user.phone && user.phone.toLowerCase().includes(query)) ||
     (user.purpose && user.purpose.toLowerCase().includes(query)) ||
-    (user.status && user.status.toLowerCase().includes(query))
+    (user.status && user.status.toLowerCase().includes(query)) ||
+    (user.admin_status && user.admin_status.toLowerCase().includes(query))
   );
   renderScans(filtered);
 }

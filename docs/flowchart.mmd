@@ -1,0 +1,47 @@
+flowchart TD
+  Start([User hits site /]) --> RootRedirect[/redirect to /admin/]
+  RootRedirect --> AdminPage["/admin\n(Admin/admin.html)"]
+
+  AdminPage --> Signup["/signup\n(Admin/SignUp.html)"]
+  AdminPage --> Login["/login\n(Admin/login.html)"]
+  Login -->|success| Homepage["/homepage\n(Admin2/Homepage.html)"]
+  Login -->|fail| Signup
+
+  Homepage --> CreateQ["/createq\n(Admin2/CreateQ.html)"]
+  Homepage --> AddCandidate["/addcandidate\n(Admin2/AddCandidate.html)"]
+  Homepage --> ScanTracking["/scantracking\n(Admin2/Scantracking.html)"]
+  Homepage --> AdminSettings["/admin_settings\n(Admin2/AdminSettings.html)"]
+  AdminSettings --> Logout["/logout"]
+
+  CreateQ -->|POST /generate_qr_db| QRCreated["QR saved (qr_history / temp_qr)"]
+  QRCreated --> QRImage["QR image (base64) returned to UI"]
+  CreateQ --> QRHistory["/qr_history_data\n(list of historical QRs)"]
+  CreateQ --> TempQR["/temp_qr_data\n(active QRs)"]
+
+  %% User-facing area
+  subgraph User_Area [User-facing pages]
+    UserPage["/user\n(User/User.html)"]
+    QueuePage["/queue/:slug/:number\n(User/User.html)"]
+    QueueSubmit[[POST form -> create queue entry]]
+    WaitingPage["/queue/:slug/:num/waiting/:entry_id\n(User/Waiting.html)"]
+    Download["/download_ticket/:slug/:num/:entry_id"]
+
+    QueuePage -->|POST form| QueueSubmit
+    QueueSubmit --> WaitingPage
+    WaitingPage --> Download
+  end
+
+  %% Admin tools interacting with user queues
+  Homepage -->|manage| QRCreated
+  Homepage -->|view scans| QRScans["/get_qr_scans/:qr_id"]
+  QRScans --> UpdateStatus["/update_queue_status (POST)"]
+
+  %% Misc utilities
+  AdminPage --> GenerateSiteQR["/generate_site_qr"]
+  AdminPage --> GenerateQR["/generate_qr (quick)\n/ generate_qr_db (save)"]
+
+  %% Entry links
+  AdminPage --> UserPage["link: /user or direct queue links"]
+
+  classDef admin fill:#f9f,stroke:#333,stroke-width:1px;
+  class AdminPage,Homepage,CreateQ,AddCandidate,ScanTracking,AdminSettings admin;

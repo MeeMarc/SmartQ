@@ -48,6 +48,26 @@
     <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
     <p>Your ticket reference: <strong>{{ ticket_reference }}</strong></p>
     <p class="status-display">Status: <span class="status-badge status-{{ entry.status|default('waiting') }}">{{ entry.status|default('waiting')|capitalize }}</span></p>
+    
+    <!-- Admin Approval Status -->
+    {% if entry.admin_status %}
+    <div style="margin: 15px 0; padding: 12px; border-radius: 8px; {% if entry.admin_status == 'accepted' %}background: #d4edda; border: 2px solid #28a745;{% elif entry.admin_status == 'rejected' %}background: #f8d7da; border: 2px solid #dc3545;{% else %}background: #fff3cd; border: 2px solid #ffc107;{% endif %}">
+      <p style="margin: 0; font-weight: 600; color: {% if entry.admin_status == 'accepted' %}#155724{% elif entry.admin_status == 'rejected' %}#721c24{% else %}#856404{% endif %};">
+        {% if entry.admin_status == 'accepted' %}
+          ✅ <strong>Application Approved</strong>
+        {% elif entry.admin_status == 'rejected' %}
+          ❌ <strong>Application Rejected</strong>
+        {% else %}
+          ⏳ <strong>Application Pending Review</strong>
+        {% endif %}
+      </p>
+      {% if entry.notification_message %}
+      <p style="margin: 8px 0 0 0; color: {% if entry.admin_status == 'accepted' %}#155724{% elif entry.admin_status == 'rejected' %}#721c24{% else %}#856404{% endif %};">
+        {{ entry.notification_message }}
+      </p>
+      {% endif %}
+    </div>
+    {% endif %}
     {% if entry.status != 'cancelled' %}
     <p class="queue-note">Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.</p>
     {% endif %}

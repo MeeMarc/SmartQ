@@ -321,10 +321,13 @@ def ensure_queue_entries_table(conn):
                 email VARCHAR(255),
                 purpose TEXT,
                 status VARCHAR(50) DEFAULT 'waiting',
+                admin_status VARCHAR(50) DEFAULT 'pending',
                 reference_number VARCHAR(100),
                 id_doc_path VARCHAR(500),
                 req_doc_path VARCHAR(500),
                 signature_path VARCHAR(500),
+                notification_sent BOOLEAN DEFAULT FALSE,
+                notification_message TEXT,
                 created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
             """
@@ -350,7 +353,10 @@ def ensure_queue_entries_table(conn):
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS reschedule_status VARCHAR(50)",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS rescheduled_to_queue_number INTEGER",
-            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS last_rescheduled_at TIMESTAMP WITHOUT TIME ZONE"
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS last_rescheduled_at TIMESTAMP WITHOUT TIME ZONE",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS admin_status VARCHAR(50) DEFAULT 'pending'",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS notification_sent BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS notification_message TEXT"
         ]
 
         for stmt in column_statements:
@@ -1003,7 +1009,8 @@ def get_qr_scans(qr_id):
         # Order by status (waiting first) then by created_at
         cur.execute(
             """
-            SELECT id, fullname, phone, email, purpose, status, created_at, reference_number
+            SELECT id, fullname, phone, email, purpose, status, admin_status, created_at, reference_number,
+                   id_doc_path, req_doc_path, signature_path, applicant_id, notification_message
             FROM queue_entries
             WHERE queue_slug = %s AND queue_number = %s
             ORDER BY 
@@ -1020,6 +1027,40 @@ def get_qr_scans(qr_id):
 
         scans = []
         for row in rows:
+            # Convert file paths to URLs if they exist
+            id_doc_url = None
+            req_doc_url = None
+            signature_url = None
+            
+            if row[9]:  # id_doc_path
+                # Paths are stored as "static/uploads/filename.ext"
+                # Flask serves static files from /static/ URL
+                path = row[9].replace('\\', '/')  # Normalize path separators
+                if path.startswith('static/'):
+                    id_doc_url = f"/{path}"
+                elif path.startswith('/static/'):
+                    id_doc_url = path
+                else:
+                    id_doc_url = f"/static/uploads/{os.path.basename(path)}"
+            
+            if row[10]:  # req_doc_path
+                path = row[10].replace('\\', '/')
+                if path.startswith('static/'):
+                    req_doc_url = f"/{path}"
+                elif path.startswith('/static/'):
+                    req_doc_url = path
+                else:
+                    req_doc_url = f"/static/uploads/{os.path.basename(path)}"
+            
+            if row[11]:  # signature_path
+                path = row[11].replace('\\', '/')
+                if path.startswith('static/'):
+                    signature_url = f"/{path}"
+                elif path.startswith('/static/'):
+                    signature_url = path
+                else:
+                    signature_url = f"/static/uploads/{os.path.basename(path)}"
+            
             scans.append({
                 "id": row[0],
                 "fullname": row[1] or "Unknown",
@@ -1027,8 +1068,15 @@ def get_qr_scans(qr_id):
                 "email": row[3] or "",
                 "purpose": row[4] or "",
                 "status": row[5] or "waiting",
-                "scanned_at": row[6].strftime('%Y-%m-%d %I:%M %p') if row[6] else "",
-                "reference_number": row[7] or ""
+                "admin_status": row[6] or "pending",
+                "scanned_at": row[7].strftime('%Y-%m-%d %I:%M %p') if row[7] else "",
+                "reference_number": row[8] or "",
+                "applicant_id": row[12] or "",
+                "id_doc_url": id_doc_url,
+                "req_doc_url": req_doc_url,
+                "signature_url": signature_url,
+                "has_documents": bool(id_doc_url or req_doc_url or signature_url),
+                "notification_message": row[13] or ""
             })
 
         cur.close()
@@ -1078,6 +1126,252 @@ def update_queue_status():
         return jsonify({"status": "success", "message": f"Status updated to {new_status}"})
     except Exception as e:
         print(f"Error updating queue status: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/accept_queue_entry/<int:entry_id>', methods=['POST'])
+def accept_queue_entry(entry_id):
+    """Accept a queue entry by setting admin_status to 'accepted'."""
+    try:
+        data = request.get_json() if request.is_json else {}
+        notification_message = data.get('notification_message', 'Your application has been accepted.')
+        
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        # Check if entry exists and get email
+        cur.execute("SELECT id, email FROM queue_entries WHERE id = %s", (entry_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Entry not found"}), 404
+        
+        # Update admin_status to accepted and store notification message
+        cur.execute(
+            "UPDATE queue_entries SET admin_status = 'accepted', notification_message = %s WHERE id = %s",
+            (notification_message, entry_id)
+        )
+        
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Failed to accept entry"}), 500
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({"status": "success", "message": "Entry accepted successfully"})
+    except Exception as e:
+        print(f"Error accepting queue entry: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/reject_queue_entry/<int:entry_id>', methods=['POST'])
+def reject_queue_entry(entry_id):
+    """Reject a queue entry by setting admin_status to 'rejected'."""
+    try:
+        data = request.get_json() if request.is_json else {}
+        notification_message = data.get('notification_message', 'Your application has been rejected.')
+        
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        # Check if entry exists
+        cur.execute("SELECT id FROM queue_entries WHERE id = %s", (entry_id,))
+        if not cur.fetchone():
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Entry not found"}), 404
+        
+        # Update admin_status to rejected and store notification message
+        cur.execute(
+            "UPDATE queue_entries SET admin_status = 'rejected', notification_message = %s WHERE id = %s",
+            (notification_message, entry_id)
+        )
+        
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Failed to reject entry"}), 500
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({"status": "success", "message": "Entry rejected successfully"})
+    except Exception as e:
+        print(f"Error rejecting queue entry: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/view_entry_documents/<int:entry_id>', methods=['GET'])
+def view_entry_documents(entry_id):
+    """Get document URLs for a specific queue entry."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        cur.execute(
+            """
+            SELECT id_doc_path, req_doc_path, signature_path, fullname, applicant_id
+            FROM queue_entries
+            WHERE id = %s
+            """,
+            (entry_id,)
+        )
+        row = cur.fetchone()
+        
+        if not row:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Entry not found"}), 404
+        
+        id_doc_path, req_doc_path, signature_path, fullname, applicant_id = row
+        
+        # Convert paths to URLs
+        documents = {}
+        
+        if id_doc_path:
+            # Normalize path separators and ensure correct URL format
+            path = id_doc_path.replace('\\', '/')
+            if path.startswith('static/'):
+                documents['id_doc'] = f"/{path}"
+            elif path.startswith('/static/'):
+                documents['id_doc'] = path
+            else:
+                documents['id_doc'] = f"/static/uploads/{os.path.basename(path)}"
+        
+        if req_doc_path:
+            path = req_doc_path.replace('\\', '/')
+            if path.startswith('static/'):
+                documents['req_doc'] = f"/{path}"
+            elif path.startswith('/static/'):
+                documents['req_doc'] = path
+            else:
+                documents['req_doc'] = f"/static/uploads/{os.path.basename(path)}"
+        
+        if signature_path:
+            path = signature_path.replace('\\', '/')
+            if path.startswith('static/'):
+                documents['signature'] = f"/{path}"
+            elif path.startswith('/static/'):
+                documents['signature'] = path
+            else:
+                documents['signature'] = f"/static/uploads/{os.path.basename(path)}"
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            "status": "success",
+            "documents": documents,
+            "fullname": fullname or "Unknown",
+            "applicant_id": applicant_id or ""
+        })
+    except Exception as e:
+        print(f"Error fetching entry documents: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/send_notification', methods=['POST'])
+def send_notification():
+    """Send notification to queue entries - all or specific ones."""
+    try:
+        data = request.get_json()
+        qr_id = data.get('qr_id')
+        entry_ids = data.get('entry_ids', [])  # Empty list means notify all
+        notification_message = data.get('message', '').strip()
+        
+        if not notification_message:
+            return jsonify({"status": "error", "message": "Notification message is required"}), 400
+        
+        if not qr_id:
+            return jsonify({"status": "error", "message": "QR ID is required"}), 400
+        
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        # Get queue link to find queue_slug and queue_number
+        cur.execute("SELECT queue_link FROM qr_history WHERE id = %s", (qr_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT queue_link FROM temp_qr WHERE id = %s", (qr_id,))
+            row = cur.fetchone()
+        
+        if not row:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "QR not found"}), 404
+        
+        queue_link = row[0]
+        # Extract queue_slug and queue_number from queue_link
+        match = re.search(r'/queue/([^/]+)/(\d+)', queue_link)
+        if not match:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Invalid queue link"}), 400
+        
+        queue_slug = match.group(1)
+        queue_number = int(match.group(2))
+        
+        # Build query to update notifications
+        if entry_ids and len(entry_ids) > 0:
+            # Notify specific entries
+            placeholders = ','.join(['%s'] * len(entry_ids))
+            cur.execute(
+                f"""
+                UPDATE queue_entries 
+                SET notification_message = %s, notification_sent = TRUE
+                WHERE id IN ({placeholders}) AND queue_slug = %s AND queue_number = %s
+                """,
+                [notification_message] + entry_ids + [queue_slug, queue_number]
+            )
+        else:
+            # Notify all entries in this queue
+            cur.execute(
+                """
+                UPDATE queue_entries 
+                SET notification_message = %s, notification_sent = TRUE
+                WHERE queue_slug = %s AND queue_number = %s
+                """,
+                (notification_message, queue_slug, queue_number)
+            )
+        
+        updated_count = cur.rowcount
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            "status": "success", 
+            "message": f"Notification sent to {updated_count} entry/entries successfully"
+        })
+    except Exception as e:
+        print(f"Error sending notification: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -1291,9 +1585,9 @@ def auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type):
                 """
                 INSERT INTO queue_entries (
                     queue_slug, queue_number, queue_type, queue_purpose,
-                    fullname, phone, purpose, status
+                    fullname, phone, purpose, status, admin_status
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting')
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
                 RETURNING id
                 """,
                 (
@@ -1502,9 +1796,9 @@ def reschedule_queue_entry(entry_id):
                 """
                 INSERT INTO queue_entries (
                     queue_slug, queue_number, queue_type, queue_purpose,
-                    fullname, phone, purpose, status
+                    fullname, phone, purpose, status, admin_status
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting')
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
                 RETURNING id
                 """,
                 (
@@ -1633,9 +1927,9 @@ def add_candidate_modal():
             """
             INSERT INTO queue_entries (
                 queue_slug, queue_number, queue_type, queue_purpose,
-                fullname, phone, purpose, status
+                fullname, phone, purpose, status, admin_status
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting')
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
             RETURNING id
             """,
             (
@@ -1711,7 +2005,7 @@ def test_db():
         
         cur = conn.cursor()
         
-        # Check if qr_history table exists
+        # Check if qr_history table exists hahahaahaha
         cur.execute("""
             SELECT EXISTS (
                 SELECT FROM information_schema.tables 
@@ -1910,9 +2204,9 @@ def queue_page(queue_slug, queue_number):
                 """
                 INSERT INTO queue_entries (
                     queue_slug, queue_number, queue_type, queue_purpose,
-                    fullname, phone, purpose, applicant_id, email, status
+                    fullname, phone, purpose, applicant_id, email, status, admin_status
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'waiting')
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
                 RETURNING id
                 """,
                 (
@@ -2023,7 +2317,7 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             """
             SELECT id, queue_slug, queue_number, queue_type, queue_purpose,
                    fullname, phone, purpose, status, created_at,
-                   reference_number, email, applicant_id
+                   reference_number, email, applicant_id, admin_status, notification_message
             FROM queue_entries
             WHERE id = %s AND queue_slug = %s AND queue_number = %s
             """,
@@ -2049,6 +2343,8 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             "reference_number": row[10],
             "email": row[11],
             "applicant_id": row[12],
+            "admin_status": row[13] or "pending",
+            "notification_message": row[14] or ""
         }
 
         queue_type = entry["queue_type"] or queue_type
