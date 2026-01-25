@@ -346,6 +346,30 @@ header {
   transform: translateY(0);
 }
 
+/* View Documents button */
+.view-docs-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.view-docs-btn:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+}
+
+.view-docs-btn:active {
+  transform: translateY(0);
+}
+
 /* Done button */
 .done-btn {
   background-color: #28a745;

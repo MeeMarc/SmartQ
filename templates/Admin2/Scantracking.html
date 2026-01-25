@@ -90,12 +90,24 @@
   </div>
 </div>
 
+<!-- Modal for Viewing Documents -->
+<div class="modal" id="documentsModal">
+  <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+    <span class="close-modal" onclick="closeDocumentsModal()">×</span>
+    <h3 id="documentsModalTitle">View Documents</h3>
+    <div id="documentsContent">
+      <p>Loading documents...</p>
+    </div>
+  </div>
+</div>
+
 <script>
 const qrListContainer = document.getElementById("qrListContainer");
 const qrDetailContainer = document.getElementById("qrDetailContainer");
 const modal = document.getElementById("candidateModal");
 const candidateForm = document.getElementById("candidateForm");
 const modalQRLink = document.getElementById("modalQRLink");
+const documentsModal = document.getElementById("documentsModal");
 
 let currentScans = [];
 let currentQRId = null;
@@ -320,6 +332,102 @@ function closeModal() {
   candidateForm.reset();
 }
 
+function openDocumentsModal(entryId) {
+  documentsModal.style.display = "flex";
+  document.getElementById("documentsContent").innerHTML = "<p>Loading documents...</p>";
+  
+  // Fetch document URLs
+  fetch(`/view_entry_documents/${entryId}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'error') {
+        document.getElementById("documentsContent").innerHTML = `<p style="color: red;">Error: ${data.message}</p>`;
+        return;
+      }
+      
+      const documents = data.documents || {};
+      const fullname = data.fullname || "Unknown";
+      const applicantId = data.applicant_id || "N/A";
+      
+      // Update modal title
+      document.getElementById("documentsModalTitle").textContent = `Documents - ${fullname}`;
+      
+      let content = `
+        <div style="margin-bottom: 20px; padding: 15px; background: #f8faff; border-radius: 8px;">
+          <p style="margin: 5px 0;"><strong>Name:</strong> ${fullname}</p>
+          <p style="margin: 5px 0;"><strong>Applicant ID:</strong> ${applicantId}</p>
+        </div>
+      `;
+      
+      if (documents.id_doc) {
+        const isPdf = documents.id_doc.toLowerCase().endsWith('.pdf');
+        content += `
+          <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
+            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">📄 ID Document</h4>
+            ${isPdf ? 
+              `<iframe src="${documents.id_doc}" style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px;"></iframe>
+               <a href="${documents.id_doc}" target="_blank" style="display: inline-block; padding: 8px 15px; background: #003366; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">📥 Open PDF in new tab</a>` :
+              `<div style="text-align: center;">
+                <img src="${documents.id_doc}" alt="ID Document" style="max-width: 100%; max-height: 500px; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; margin-bottom: 10px;" onclick="window.open('${documents.id_doc}', '_blank')">
+                <p style="color: #666; font-size: 0.85rem; margin-top: 5px;">Click image to view full size</p>
+              </div>`
+            }
+          </div>
+        `;
+      }
+      
+      if (documents.req_doc) {
+        const isPdf = documents.req_doc.toLowerCase().endsWith('.pdf');
+        content += `
+          <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
+            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">📋 Required Document</h4>
+            ${isPdf ? 
+              `<iframe src="${documents.req_doc}" style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px;"></iframe>
+               <a href="${documents.req_doc}" target="_blank" style="display: inline-block; padding: 8px 15px; background: #003366; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">📥 Open PDF in new tab</a>` :
+              `<div style="text-align: center;">
+                <img src="${documents.req_doc}" alt="Required Document" style="max-width: 100%; max-height: 500px; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; margin-bottom: 10px;" onclick="window.open('${documents.req_doc}', '_blank')">
+                <p style="color: #666; font-size: 0.85rem; margin-top: 5px;">Click image to view full size</p>
+              </div>`
+            }
+          </div>
+        `;
+      }
+      
+      if (documents.signature) {
+        content += `
+          <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
+            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">✍️ Signature</h4>
+            <div style="text-align: center;">
+              <img src="${documents.signature}" alt="Signature" style="max-width: 100%; max-height: 300px; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; margin-bottom: 10px;" onclick="window.open('${documents.signature}', '_blank')">
+              <p style="color: #666; font-size: 0.85rem; margin-top: 5px;">Click image to view full size</p>
+            </div>
+          </div>
+        `;
+      }
+      
+      if (!documents.id_doc && !documents.req_doc && !documents.signature) {
+        content = '<p style="color: #666;">No documents uploaded for this entry.</p>';
+      }
+      
+      document.getElementById("documentsContent").innerHTML = content;
+    })
+    .catch(err => {
+      console.error('Error loading documents:', err);
+      document.getElementById("documentsContent").innerHTML = '<p style="color: red;">Failed to load documents. Please try again.</p>';
+    });
+}
+
+function closeDocumentsModal() {
+  documentsModal.style.display = "none";
+}
+
+// Close documents modal when clicking outside
+documentsModal.addEventListener('click', function(e) {
+  if (e.target === documentsModal) {
+    closeDocumentsModal();
+  }
+});
+
 // Handle Add Candidate submission
 candidateForm.addEventListener("submit", function(e) {
   e.preventDefault();
@@ -427,6 +535,9 @@ function renderScans(scans) {
     // Show Accept/Reject buttons only for pending entries
     const showAdminActions = adminStatus === 'pending' && user.status !== 'completed' && user.status !== 'cancelled' && user.status !== 'rescheduled';
     
+    // Check if entry has documents
+    const hasDocuments = user.has_documents || (user.id_doc_url || user.req_doc_url || user.signature_url);
+    
     card.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
         <div style="flex: 1;">
@@ -435,6 +546,7 @@ function renderScans(scans) {
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
           <span class="status-badge ${statusClass}">${status}</span>
           <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
+          ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})" style="background: #007bff; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">View Docs</button>` : ''}
           ${showAdminActions ? `
             <button class="accept-btn" onclick="acceptEntry(${user.id}, this)" style="background: #28a745; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">Accept</button>
             <button class="reject-btn" onclick="rejectEntry(${user.id}, this)" style="background: #dc3545; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">Reject</button>

@@ -1005,7 +1005,8 @@ def get_qr_scans(qr_id):
         # Order by status (waiting first) then by created_at
         cur.execute(
             """
-            SELECT id, fullname, phone, email, purpose, status, admin_status, created_at, reference_number
+            SELECT id, fullname, phone, email, purpose, status, admin_status, created_at, reference_number,
+                   id_doc_path, req_doc_path, signature_path, applicant_id
             FROM queue_entries
             WHERE queue_slug = %s AND queue_number = %s
             ORDER BY 
@@ -1022,6 +1023,40 @@ def get_qr_scans(qr_id):
 
         scans = []
         for row in rows:
+            # Convert file paths to URLs if they exist
+            id_doc_url = None
+            req_doc_url = None
+            signature_url = None
+            
+            if row[9]:  # id_doc_path
+                # Paths are stored as "static/uploads/filename.ext"
+                # Flask serves static files from /static/ URL
+                path = row[9].replace('\\', '/')  # Normalize path separators
+                if path.startswith('static/'):
+                    id_doc_url = f"/{path}"
+                elif path.startswith('/static/'):
+                    id_doc_url = path
+                else:
+                    id_doc_url = f"/static/uploads/{os.path.basename(path)}"
+            
+            if row[10]:  # req_doc_path
+                path = row[10].replace('\\', '/')
+                if path.startswith('static/'):
+                    req_doc_url = f"/{path}"
+                elif path.startswith('/static/'):
+                    req_doc_url = path
+                else:
+                    req_doc_url = f"/static/uploads/{os.path.basename(path)}"
+            
+            if row[11]:  # signature_path
+                path = row[11].replace('\\', '/')
+                if path.startswith('static/'):
+                    signature_url = f"/{path}"
+                elif path.startswith('/static/'):
+                    signature_url = path
+                else:
+                    signature_url = f"/static/uploads/{os.path.basename(path)}"
+            
             scans.append({
                 "id": row[0],
                 "fullname": row[1] or "Unknown",
@@ -1031,7 +1066,12 @@ def get_qr_scans(qr_id):
                 "status": row[5] or "waiting",
                 "admin_status": row[6] or "pending",
                 "scanned_at": row[7].strftime('%Y-%m-%d %I:%M %p') if row[7] else "",
-                "reference_number": row[8] or ""
+                "reference_number": row[8] or "",
+                "applicant_id": row[12] or "",
+                "id_doc_url": id_doc_url,
+                "req_doc_url": req_doc_url,
+                "signature_url": signature_url,
+                "has_documents": bool(id_doc_url or req_doc_url or signature_url)
             })
 
         cur.close()
@@ -1163,6 +1203,80 @@ def reject_queue_entry(entry_id):
         return jsonify({"status": "success", "message": "Entry rejected successfully"})
     except Exception as e:
         print(f"Error rejecting queue entry: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/view_entry_documents/<int:entry_id>', methods=['GET'])
+def view_entry_documents(entry_id):
+    """Get document URLs for a specific queue entry."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        
+        cur.execute(
+            """
+            SELECT id_doc_path, req_doc_path, signature_path, fullname, applicant_id
+            FROM queue_entries
+            WHERE id = %s
+            """,
+            (entry_id,)
+        )
+        row = cur.fetchone()
+        
+        if not row:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Entry not found"}), 404
+        
+        id_doc_path, req_doc_path, signature_path, fullname, applicant_id = row
+        
+        # Convert paths to URLs
+        documents = {}
+        
+        if id_doc_path:
+            # Normalize path separators and ensure correct URL format
+            path = id_doc_path.replace('\\', '/')
+            if path.startswith('static/'):
+                documents['id_doc'] = f"/{path}"
+            elif path.startswith('/static/'):
+                documents['id_doc'] = path
+            else:
+                documents['id_doc'] = f"/static/uploads/{os.path.basename(path)}"
+        
+        if req_doc_path:
+            path = req_doc_path.replace('\\', '/')
+            if path.startswith('static/'):
+                documents['req_doc'] = f"/{path}"
+            elif path.startswith('/static/'):
+                documents['req_doc'] = path
+            else:
+                documents['req_doc'] = f"/static/uploads/{os.path.basename(path)}"
+        
+        if signature_path:
+            path = signature_path.replace('\\', '/')
+            if path.startswith('static/'):
+                documents['signature'] = f"/{path}"
+            elif path.startswith('/static/'):
+                documents['signature'] = path
+            else:
+                documents['signature'] = f"/static/uploads/{os.path.basename(path)}"
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            "status": "success",
+            "documents": documents,
+            "fullname": fullname or "Unknown",
+            "applicant_id": applicant_id or ""
+        })
+    except Exception as e:
+        print(f"Error fetching entry documents: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
