@@ -256,14 +256,22 @@
     const defaultNotification = document.getElementById("defaultNotification").value.trim();
     const alternativeInstructions = document.getElementById("alternativeInstructions").value.trim();
 
+    // Validate required fields
+    if (!type || !purpose) {
+      showAlert("Please fill in Queue Type and Purpose fields.", "error");
+      return;
+    }
+
+    // Create FormData object for proper form submission
+    const formData = new URLSearchParams();
+    formData.append('type', type);
+    formData.append('purpose', purpose);
+    if (processingDays) formData.append('processingDays', processingDays);
+
     fetch("/generate_qr_db", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `
-        type=${encodeURIComponent(type)}
-        &purpose=${encodeURIComponent(purpose)}
-        &processingDays=${encodeURIComponent(processingDays)}
-      `
+      body: formData.toString()
     })
     .then(res => res.json())
     .then(data => {

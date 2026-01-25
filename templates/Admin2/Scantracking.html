@@ -101,6 +101,33 @@
   </div>
 </div>
 
+<!-- Modal for Sending Notifications -->
+<div class="modal" id="notificationModal">
+  <div class="modal-content" style="max-width: 600px;">
+    <span class="close-modal" onclick="closeNotificationModal()">×</span>
+    <h3>Send Notification</h3>
+    <form id="notificationForm">
+      <input type="hidden" id="notificationQRId">
+      
+      <label for="notificationType">Notify:</label>
+      <select id="notificationType" required onchange="toggleEntrySelection()">
+        <option value="all">All entries in this queue</option>
+        <option value="selected">Selected entries only</option>
+      </select>
+      
+      <div id="entrySelectionContainer" style="display: none; margin-top: 15px; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 6px;">
+        <p style="margin: 0 0 10px 0; font-weight: 600;">Select entries to notify:</p>
+        <div id="entryCheckboxes"></div>
+      </div>
+      
+      <label for="notificationMessage" style="margin-top: 15px;">Message: <span style="color: red;">*</span></label>
+      <textarea id="notificationMessage" rows="4" placeholder="Enter notification message..." required></textarea>
+      
+      <button type="submit" style="margin-top: 15px;">Send Notification</button>
+    </form>
+  </div>
+</div>
+
 <script>
 const qrListContainer = document.getElementById("qrListContainer");
 const qrDetailContainer = document.getElementById("qrDetailContainer");
@@ -108,6 +135,8 @@ const modal = document.getElementById("candidateModal");
 const candidateForm = document.getElementById("candidateForm");
 const modalQRLink = document.getElementById("modalQRLink");
 const documentsModal = document.getElementById("documentsModal");
+const notificationModal = document.getElementById("notificationModal");
+const notificationForm = document.getElementById("notificationForm");
 
 let currentScans = [];
 let currentQRId = null;
@@ -201,13 +230,19 @@ function markAsDone(entryId, buttonElement) {
 
 // Accept entry
 function acceptEntry(entryId, buttonElement) {
+  const message = prompt('Enter notification message (optional):', 'Your application has been accepted.');
+  if (message === null) return; // User cancelled
+  
   showConfirmation(
     'Accept Entry',
     'Are you sure you want to accept this entry?',
     () => {
       fetch(`/accept_queue_entry/${entryId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification_message: message || 'Your application has been accepted.'
+        })
       })
       .then(res => res.json())
       .then(data => {
@@ -231,13 +266,19 @@ function acceptEntry(entryId, buttonElement) {
 
 // Reject entry
 function rejectEntry(entryId, buttonElement) {
+  const message = prompt('Enter notification message (optional):', 'Your application has been rejected.');
+  if (message === null) return; // User cancelled
+  
   showConfirmation(
     'Reject Entry',
     'Are you sure you want to reject this entry?',
     () => {
       fetch(`/reject_queue_entry/${entryId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification_message: message || 'Your application has been rejected.'
+        })
       })
       .then(res => res.json())
       .then(data => {
@@ -428,6 +469,108 @@ documentsModal.addEventListener('click', function(e) {
   }
 });
 
+// Notification Modal Functions
+function openNotificationModal(qrId) {
+  notificationModal.style.display = "flex";
+  document.getElementById("notificationQRId").value = qrId;
+  document.getElementById("notificationMessage").value = "";
+  document.getElementById("notificationType").value = "all";
+  toggleEntrySelection();
+  populateEntryCheckboxes();
+}
+
+function closeNotificationModal() {
+  notificationModal.style.display = "none";
+  notificationForm.reset();
+}
+
+function toggleEntrySelection() {
+  const type = document.getElementById("notificationType").value;
+  const container = document.getElementById("entrySelectionContainer");
+  container.style.display = type === "selected" ? "block" : "none";
+}
+
+function populateEntryCheckboxes() {
+  const container = document.getElementById("entryCheckboxes");
+  container.innerHTML = "";
+  
+  if (currentScans.length === 0) {
+    container.innerHTML = "<p style='color: #666;'>No entries available.</p>";
+    return;
+  }
+  
+  currentScans.forEach(scan => {
+    const div = document.createElement("div");
+    div.style.marginBottom = "8px";
+    div.innerHTML = `
+      <label style="display: flex; align-items: center; cursor: pointer;">
+        <input type="checkbox" value="${scan.id}" style="margin-right: 8px;">
+        <span>${scan.fullname} (${scan.phone || 'N/A'})</span>
+      </label>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// Handle notification form submission
+notificationForm.addEventListener("submit", function(e) {
+  e.preventDefault();
+  
+  const qrId = document.getElementById("notificationQRId").value;
+  const message = document.getElementById("notificationMessage").value.trim();
+  const notifyType = document.getElementById("notificationType").value;
+  
+  if (!message) {
+    showAlert("Please enter a notification message.", "error");
+    return;
+  }
+  
+  let entryIds = [];
+  if (notifyType === "selected") {
+    const checkboxes = document.querySelectorAll("#entryCheckboxes input[type='checkbox']:checked");
+    entryIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+    
+    if (entryIds.length === 0) {
+      showAlert("Please select at least one entry to notify.", "error");
+      return;
+    }
+  }
+  
+  fetch("/send_notification", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      qr_id: parseInt(qrId),
+      entry_ids: entryIds,
+      message: message
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === "success") {
+      showAlert(data.message, "success");
+      closeNotificationModal();
+      // Refresh scans to show updated notification status
+      if (currentQRId) {
+        viewScans(currentQRId);
+      }
+    } else {
+      showAlert("Error: " + data.message, "error");
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    showAlert("Failed to send notification. Please try again.", "error");
+  });
+});
+
+// Close notification modal when clicking outside
+notificationModal.addEventListener('click', function(e) {
+  if (e.target === notificationModal) {
+    closeNotificationModal();
+  }
+});
+
 // Handle Add Candidate submission
 candidateForm.addEventListener("submit", function(e) {
   e.preventDefault();
@@ -499,7 +642,10 @@ function viewScans(qrId) {
     .then(data => {
       currentScans = data;
       qrDetailContainer.innerHTML = `
-        <h3>Scans for QR #${qrId}</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+          <h3 style="margin: 0;">Scans for QR #${qrId}</h3>
+          <button onclick="openNotificationModal(${qrId})" style="background: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">📢 Send Notification</button>
+        </div>
         <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, status, or admin status">
         <div class="scan-list" id="scanList"></div>
       `;
@@ -538,21 +684,32 @@ function renderScans(scans) {
     // Check if entry has documents
     const hasDocuments = user.has_documents || (user.id_doc_url || user.req_doc_url || user.signature_url);
     
+    // Check if there's a notification message
+    const hasNotification = user.notification_message && user.notification_message.trim() !== '';
+    
     card.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
-        <div style="flex: 1;">
-          <strong>${user.fullname}</strong>${phone}${purpose}${scannedAt}
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+          <div style="flex: 1;">
+            <strong>${user.fullname}</strong>${phone}${purpose}${scannedAt}
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span class="status-badge ${statusClass}">${status}</span>
+            <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
+            ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})" style="background: #007bff; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">View Docs</button>` : ''}
+            ${showAdminActions ? `
+              <button class="accept-btn" onclick="acceptEntry(${user.id}, this)" style="background: #28a745; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">Accept</button>
+              <button class="reject-btn" onclick="rejectEntry(${user.id}, this)" style="background: #dc3545; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">Reject</button>
+            ` : ''}
+            ${user.status !== 'completed' && user.status !== 'cancelled' && user.status !== 'rescheduled' ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
+          </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <span class="status-badge ${statusClass}">${status}</span>
-          <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
-          ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})" style="background: #007bff; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">View Docs</button>` : ''}
-          ${showAdminActions ? `
-            <button class="accept-btn" onclick="acceptEntry(${user.id}, this)" style="background: #28a745; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">Accept</button>
-            <button class="reject-btn" onclick="rejectEntry(${user.id}, this)" style="background: #dc3545; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">Reject</button>
-          ` : ''}
-          ${user.status !== 'completed' && user.status !== 'cancelled' && user.status !== 'rescheduled' ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
-        </div>
+        ${hasNotification ? `
+          <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
+            <strong style="color: #003366;">📢 Notification:</strong>
+            <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
+          </div>
+        ` : ''}
       </div>
     `;
     scanList.appendChild(card);
