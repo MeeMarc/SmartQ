@@ -1090,6 +1090,110 @@ def get_qr_scans(qr_id):
         traceback.print_exc()
         return jsonify([])
 
+
+@app.route('/download_scans/<int:qr_id>', methods=['GET'])
+def download_scans(qr_id):
+    """Download all scans for a specific QR as a CSV file (physical proof of who scanned)."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return "Database connection failed", 500
+
+        cur = conn.cursor()
+
+        # Resolve queue link using qr_history first, then fallback to temp_qr
+        queue_link = None
+        cur.execute("SELECT queue_link FROM qr_history WHERE id = %s", (qr_id,))
+        row = cur.fetchone()
+        if row:
+            queue_link = row[0]
+        else:
+            cur.execute("SELECT queue_link FROM temp_qr WHERE id = %s", (qr_id,))
+            row = cur.fetchone()
+            if row:
+                queue_link = row[0]
+
+        if not queue_link:
+            cur.close()
+            conn.close()
+            return "QR not found", 404
+
+        # Extract queue_slug and queue_number from the queue_link
+        match = re.search(r'/queue/([^/]+)/(\d+)', queue_link)
+        if not match:
+            cur.close()
+            conn.close()
+            return "Invalid queue link format", 400
+
+        queue_slug = match.group(1)
+        queue_number = int(match.group(2))
+
+        ensure_queue_entries_table(conn)
+
+        # Fetch entries for this queue
+        cur.execute(
+            """
+            SELECT fullname, phone, email, purpose, status, admin_status, created_at, reference_number, applicant_id
+            FROM queue_entries
+            WHERE queue_slug = %s AND queue_number = %s
+            ORDER BY created_at ASC
+            """,
+            (queue_slug, queue_number)
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        # Build CSV content
+        import csv
+        import io as _io
+
+        output = _io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "Full Name",
+            "Phone",
+            "Email",
+            "Purpose",
+            "Queue Status",
+            "Admin Status",
+            "Scanned At",
+            "Reference Number",
+            "Applicant ID",
+        ])
+
+        for r in rows:
+            fullname, phone, email, purpose, status, admin_status, created_at, ref_no, applicant_id = r
+            writer.writerow([
+                fullname or "",
+                phone or "",
+                email or "",
+                purpose or "",
+                status or "",
+                admin_status or "",
+                created_at.strftime('%Y-%m-%d %H:%M:%S') if created_at else "",
+                ref_no or "",
+                applicant_id or "",
+            ])
+
+        csv_data = output.getvalue()
+        output.close()
+
+        from flask import Response
+        filename = f"scans_qr_{qr_id}.csv"
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            },
+        )
+    except Exception as e:
+        print(f"Error generating scans CSV: {e}")
+        import traceback
+        traceback.print_exc()
+        return "Error generating CSV", 500
+
 @app.route('/update_queue_status', methods=['POST'])
 def update_queue_status():
     """Update the status of a queue entry."""

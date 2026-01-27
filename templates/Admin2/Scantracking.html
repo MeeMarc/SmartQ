@@ -644,7 +644,10 @@ function viewScans(qrId) {
       qrDetailContainer.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
           <h3 style="margin: 0;">Scans for QR #${qrId}</h3>
-          <button onclick="openNotificationModal(${qrId})" style="background: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">📢 Send Notification</button>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button onclick="openNotificationModal(${qrId})" style="background: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">📢 Send Notification</button>
+            <button onclick="downloadScans(${qrId})" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">⬇ Download Scans</button>
+          </div>
         </div>
         <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, status, or admin status">
         <div class="scan-list" id="scanList"></div>
@@ -686,6 +689,9 @@ function renderScans(scans) {
     
     // Check if there's a notification message
     const hasNotification = user.notification_message && user.notification_message.trim() !== '';
+
+    // Allow "Done" only if admin has already accepted or rejected
+    const canMarkDone = adminStatus !== 'pending' && user.status !== 'completed' && user.status !== 'cancelled' && user.status !== 'rescheduled';
     
     card.innerHTML = `
       <div>
@@ -701,7 +707,7 @@ function renderScans(scans) {
               <button class="accept-btn" onclick="acceptEntry(${user.id}, this)" style="background: #28a745; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">Accept</button>
               <button class="reject-btn" onclick="rejectEntry(${user.id}, this)" style="background: #dc3545; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">Reject</button>
             ` : ''}
-            ${user.status !== 'completed' && user.status !== 'cancelled' && user.status !== 'rescheduled' ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
+            ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
           </div>
         </div>
         ${hasNotification ? `
@@ -714,6 +720,13 @@ function renderScans(scans) {
     `;
     scanList.appendChild(card);
   });
+}
+
+// Download scans (physical proof of all who scanned)
+function downloadScans(qrId) {
+  if (!qrId && !currentQRId) return;
+  const targetId = qrId || currentQRId;
+  window.location.href = `/download_scans/${targetId}`;
 }
 
 // Filter scans by search

@@ -76,23 +76,6 @@
           </select>
         </div>
 
-        <!-- ========== SECTION 3: Notifications & Instructions ========== -->
-        <div class="form-section">
-          <h3>📢 Notifications & Instructions</h3>
-
-          <label for="defaultNotification">Default Notification Message:</label>
-          <textarea id="defaultNotification" rows="2" required>
-            We have accepted your application for documents.
-          </textarea>
-
-          <label for="alternativeInstructions">Alternative Solution Instructions:</label>
-          <textarea
-            id="alternativeInstructions"
-            rows="3"
-            placeholder="e.g. If processing is delayed, please visit the registrar office."
-          ></textarea>
-        </div>
-
         <!-- ========== ACTION BUTTONS ========== -->
         <div class="button-container">
           <button type="submit">Generate QR</button>
@@ -209,12 +192,6 @@
         <p><strong>Release Type:</strong> ${item.releaseType}</p>
         <p><strong>E-Signature Required:</strong> ${item.esignRequired}</p>
 
-        <p><strong>Notification Message:</strong><br>${item.defaultNotification}</p>
-
-        ${item.alternativeInstructions
-          ? `<p><strong>Alternative Instructions:</strong><br>${item.alternativeInstructions}</p>`
-          : ``}
-
         <p><strong>Created:</strong> ${item.created_at}</p>
 
         <div id="qr${index}"></div>
@@ -253,9 +230,6 @@
     const processingMethod = document.getElementById("processingMethod").value;
     const releaseType = document.getElementById("releaseType").value;
     const esignRequired = document.getElementById("esignRequired").value;
-    const defaultNotification = document.getElementById("defaultNotification").value.trim();
-    const alternativeInstructions = document.getElementById("alternativeInstructions").value.trim();
-
     // Validate required fields
     if (!type || !purpose) {
       showAlert("Please fill in Queue Type and Purpose fields.", "error");
@@ -290,8 +264,6 @@
         processingMethod,
         releaseType,
         esignRequired,
-        defaultNotification,
-        alternativeInstructions,
         link: data.queue_link,
         queueNumber: data.queue_number || 1,
         qrId: data.qr_id,
@@ -319,10 +291,25 @@
       "Delete Queue",
       `Are you sure you want to delete "${qr.type}"?`,
       async () => {
-        qrList.splice(index, 1);
-        localStorage.setItem("queues", JSON.stringify(qrList));
-        renderQRs();
-        showAlert("Queue removed.", "success");
+        try {
+          // Remove from active queue list in the backend (temp_qr / active queues)
+          if (qr.qrId) {
+            await fetch("/delete_qr", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: qr.qrId })
+            });
+          }
+
+          // Remove from local storage / UI list
+          qrList.splice(index, 1);
+          localStorage.setItem("queues", JSON.stringify(qrList));
+          renderQRs();
+          showAlert("Queue removed from active list.", "success");
+        } catch (err) {
+          console.error(err);
+          showAlert("Error deleting queue. Please try again.", "error");
+        }
       }
     );
   }
