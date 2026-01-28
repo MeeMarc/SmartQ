@@ -10,6 +10,22 @@
   font-family: 'Montserrat', sans-serif;
 }
 
+:root {
+  --page-padding: clamp(1rem, 3vw, 5rem);
+}
+
+html {
+  font-size: clamp(16px, 0.35vw + 14px, 18px);
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
 body {
   background-color: #f5f7fb;
   color: #333;
@@ -32,7 +48,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 5rem;
+  padding: 1rem var(--page-padding);
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -586,5 +602,14 @@ header {
 
   .card p {
     font-size: 1rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .intro-section .container,
+  .how-it-works-section .container,
+  .features-section .container,
+  .how-it-works-slider .container {
+    max-width: min(1400px, 92vw);
   }
 }

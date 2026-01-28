@@ -8,6 +8,22 @@
   font-family: 'Montserrat', sans-serif;
 }
 
+:root {
+  --page-padding: clamp(1rem, 3vw, 5rem);
+}
+
+html {
+  font-size: clamp(16px, 0.35vw + 14px, 18px);
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
 body {
   background:#E6EEF8;
   min-height: 100vh;
@@ -34,7 +50,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 5rem;
+  padding: 1rem var(--page-padding);
   height: 70px;
   box-sizing: border-box;
   position: relative;
@@ -309,6 +325,116 @@ header {
   color: rgba(255, 255, 255, 0.9);
 }
 
+/* Ticket QR */
+.ticket-qr {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.ticket-qr-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ticket-qr-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.ticket-qr-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.ticket-qr-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0b2e13;
+  background: rgba(255, 255, 255, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ticket-qr-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  opacity: 0.95;
+}
+
+.ticket-qr-frame {
+  background: #fff;
+  padding: 10px;
+  border-radius: 14px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.ticket-qr-img {
+  width: 190px;
+  height: 190px;
+  max-width: 100%;
+  border-radius: 10px;
+  display: block;
+}
+
+.ticket-qr-actions {
+  margin-top: 2px;
+}
+
+.ticket-qr-link {
+  display: inline-block;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.ticket-qr-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.ticket-qr-hint {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
 /* Status Display and Badge */
 .status-display {
   margin: 18px 0;
@@ -563,6 +689,15 @@ header {
     font-size: 0.8rem;
     padding: 4px 10px;
   }
+
+  .ticket-qr-header {
+    justify-content: center;
+  }
+
+  .ticket-qr-img {
+    width: 170px;
+    height: 170px;
+  }
 }
 
 /* Enhanced mobile responsiveness for very small devices */
@@ -585,6 +720,11 @@ header {
 
   .queue-card p {
     font-size: 0.9rem;
+  }
+
+  .ticket-qr-img {
+    width: 160px;
+    height: 160px;
   }
 
   .queue-name,
@@ -998,5 +1138,16 @@ h4 {
   .confirm-btn-yes,
   .confirm-btn-no {
     width: 100%;
+  }
+}
+
+@media (min-width: 1200px) {
+  .navbar {
+    padding-left: var(--page-padding);
+    padding-right: var(--page-padding);
+  }
+
+  .queue-card {
+    max-width: min(440px, 92vw);
   }
 }

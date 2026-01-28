@@ -10,6 +10,22 @@
   font-family: 'Montserrat', sans-serif;
 }
 
+:root {
+  --page-padding: clamp(1rem, 3vw, 5rem);
+}
+
+html {
+  font-size: clamp(16px, 0.35vw + 14px, 18px);
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
 body {
   background-color: #f5f7fb;
   color: #333;
@@ -38,7 +54,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 5rem;
+  padding: 1rem var(--page-padding);
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -278,5 +294,11 @@ button:hover {
 
   button {
     width: 100%;
+  }
+}
+
+@media (min-width: 1200px) {
+  .settings-section {
+    max-width: min(720px, 90vw);
   }
 }

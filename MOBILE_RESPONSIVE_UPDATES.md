@@ -1,7 +1,7 @@
 # Mobile Responsive Updates for SmartQ
 
 ## Summary
-Enhanced mobile responsiveness for both the Queue registration page (User.html) and Waiting page (Waiting.html) to ensure all elements, especially the Queue Number card, are visible and properly sized on all mobile devices.
+Enhanced mobile responsiveness for both the Queue registration page (User.html) and Waiting page (Waiting.html) to ensure all elements, especially the Queue Number card, are visible and properly sized on all mobile devices. Added laptop/desktop scaling improvements so layouts no longer look overly zoomed out on larger screens.
 
 ## Changes Made
 
@@ -98,6 +98,17 @@ Enhanced mobile responsiveness for both the Queue registration page (User.html) 
 - Gap values progressively reduced for smaller screens
 - Proper use of `box-sizing: border-box` throughout
 
+### 4. Desktop/Laptop Scaling Improvements (All Major Pages)
+
+#### Fluid Typography
+- Added `html { font-size: clamp(16px, 0.35vw + 14px, 18px); }` across stylesheets to keep text readable on high-resolution laptops.
+
+#### Fluid Page Padding
+- Introduced `--page-padding` with `clamp(1rem, 3vw, 5rem)` so navbars and page gutters scale smoothly with screen width.
+
+#### Wider Content on Large Screens
+- Widened key containers and cards at large breakpoints (>= 1200px) to reduce the “zoomed out” feel on laptops.
+
 ## Tested Breakpoints
 
 1. **Desktop**: 992px and above - Original design
@@ -106,6 +117,11 @@ Enhanced mobile responsiveness for both the Queue registration page (User.html) 
 4. **Mobile Medium**: 360px - 480px - Optimized queue card
 5. **Mobile Small**: 320px - 360px - Maximum compression
 6. **Landscape Mobile**: max-height 500px - Horizontal optimization
+
+### Recommended Laptop/Desktop Checks
+- 1366px x 768px (common laptops)
+- 1440px x 900px
+- 1920px x 1080px
 
 ## Devices Covered
 

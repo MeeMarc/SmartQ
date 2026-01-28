@@ -2454,6 +2454,8 @@ def queue_waiting(queue_slug, queue_number, entry_id):
         queue_type = entry["queue_type"] or queue_type
         queue_purpose = entry["queue_purpose"] or queue_purpose
         ticket_reference = entry["reference_number"] or generate_ticket_reference(queue_slug, entry["id"])
+        ticket_qr_url = url_for('ticket_qr', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
+        ticket_proof_url = url_for('ticket_proof', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
 
         cur.execute(
             """
@@ -2485,6 +2487,8 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             queue_slug=queue_slug,
             entry=entry,
             ticket_reference=ticket_reference,
+            ticket_qr_url=ticket_qr_url,
+            ticket_proof_url=ticket_proof_url,
             recent_entries=recent_entries,
         )
     except Exception as e:
@@ -2497,6 +2501,116 @@ def queue_waiting(queue_slug, queue_number, entry_id):
         if conn:
             conn.close()
 
+
+@app.route('/ticket/<queue_slug>/<int:queue_number>/<int:entry_id>')
+def ticket_proof(queue_slug, queue_number, entry_id):
+    """Read-only ticket proof page for QR scans."""
+    queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return "Database connection failed", 500
+
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, queue_slug, queue_number, queue_type, queue_purpose,
+                   fullname, phone, purpose, status, created_at,
+                   reference_number, email, applicant_id, admin_status, notification_message
+            FROM queue_entries
+            WHERE id = %s AND queue_slug = %s AND queue_number = %s
+            """,
+            (entry_id, queue_slug, queue_number)
+        )
+        row = cur.fetchone()
+
+        if not row:
+            return "Ticket not found", 404
+
+        entry = {
+            "id": row[0],
+            "queue_slug": row[1],
+            "queue_number": row[2],
+            "queue_type": row[3] or queue_type,
+            "queue_purpose": row[4] or queue_purpose,
+            "fullname": row[5],
+            "phone": row[6],
+            "purpose": row[7],
+            "status": row[8] or "waiting",
+            "created_at": row[9],
+            "reference_number": row[10],
+            "email": row[11],
+            "applicant_id": row[12],
+            "admin_status": row[13] or "pending",
+            "notification_message": row[14] or ""
+        }
+
+        queue_type = entry["queue_type"] or queue_type
+        queue_purpose = entry["queue_purpose"] or queue_purpose
+        ticket_reference = entry["reference_number"] or generate_ticket_reference(queue_slug, entry["id"])
+
+        return render_template(
+            "User/TicketProof.html",
+            queue_type=queue_type,
+            queue_purpose=queue_purpose,
+            queue_number=queue_number,
+            queue_slug=queue_slug,
+            entry=entry,
+            ticket_reference=ticket_reference,
+        )
+    except Exception as e:
+        print(f"Error loading ticket proof page: {e}")
+        return "Unable to load ticket", 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route('/ticket_qr/<queue_slug>/<int:queue_number>/<int:entry_id>')
+def ticket_qr(queue_slug, queue_number, entry_id):
+    """Generate a QR image that links to the ticket proof page."""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return "Database connection failed", 500
+
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id FROM queue_entries WHERE id = %s AND queue_slug = %s AND queue_number = %s",
+            (entry_id, queue_slug, queue_number)
+        )
+        row = cur.fetchone()
+        if not row:
+            return "Ticket not found", 404
+
+        ticket_path = url_for('ticket_proof', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
+        ticket_url = f"{get_public_base_url()}{ticket_path}"
+
+        qr_img = qrcode.make(ticket_url)
+        buffer = io.BytesIO()
+        qr_img.save(buffer, format="PNG")
+        buffer.seek(0)
+
+        response = make_response(buffer.getvalue())
+        response.headers.set("Content-Type", "image/png")
+        return response
+    except Exception as e:
+        print(f"Error generating ticket QR: {e}")
+        return "Error generating QR", 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 

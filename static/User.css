@@ -8,6 +8,22 @@
   font-family: 'Montserrat', sans-serif;
 }
 
+:root {
+  --page-padding: clamp(1rem, 3vw, 5rem);
+}
+
+html {
+  font-size: clamp(16px, 0.35vw + 14px, 18px);
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
 body {
   background: #f5f7fb;
   min-height: 100vh;
@@ -239,7 +255,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 5rem;
+  padding: 1rem var(--page-padding);
   height: 70px;
   box-sizing: border-box;
   position: relative;
@@ -1099,4 +1115,18 @@ html {
   margin: 0;
   font-weight: 600;
   color: #856404;
+}
+
+@media (min-width: 1200px) {
+  .flash-container {
+    max-width: min(1100px, 92vw);
+  }
+
+  .hero-content {
+    max-width: min(1300px, 92vw);
+  }
+
+  .paper-form {
+    max-width: min(760px, 92vw);
+  }
 }

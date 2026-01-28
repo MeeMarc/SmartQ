@@ -98,6 +98,7 @@ After successful registration, you'll see your digital ticket with:
 - ✅ **Ticket Confirmed!** message
 - **Queue Number** - Your position reference (e.g., Queue #1)
 - **Ticket Reference** - Unique identifier for your registration
+- **Ticket QR Code** - Show this code to staff so they can scan and view your ticket proof page
 - **Status Badge** - Current status (Waiting, Completed, Cancelled, Rescheduled)
 - **Ticket Holder Name** - Your full name
 - **Important Instructions** - What to bring and when to proceed
@@ -703,7 +704,7 @@ This will show you all entries with detailed status information.
 
 ---
 
-*Last Updated: November 2025*
+*Last Updated: January 2026*
 *Version: 1.0*
 
 ---

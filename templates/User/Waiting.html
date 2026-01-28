@@ -68,6 +68,25 @@
       {% endif %}
     </div>
     {% endif %}
+    {% if ticket_qr_url %}
+    <div class="ticket-qr">
+      <div class="ticket-qr-header">
+        <div class="ticket-qr-title">
+          <span class="ticket-qr-icon">QR</span>
+          Ticket Proof
+        </div>
+        <span class="ticket-qr-badge">Scan</span>
+      </div>
+      <p class="ticket-qr-label">Show this QR code to verify your application.</p>
+      <div class="ticket-qr-frame">
+        <img class="ticket-qr-img" src="{{ ticket_qr_url }}" alt="Ticket QR code">
+      </div>
+      <div class="ticket-qr-actions">
+        <a class="ticket-qr-link" href="{{ ticket_proof_url }}">Open ticket proof page</a>
+      </div>
+      <p class="ticket-qr-hint">Staff can scan to confirm your ticket instantly.</p>
+    </div>
+    {% endif %}
     {% if entry.status != 'cancelled' %}
     <p class="queue-note">Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.</p>
     {% endif %}
