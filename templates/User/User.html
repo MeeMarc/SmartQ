@@ -124,7 +124,6 @@
 <!-- Section 2: Processing of the Papers -->
 <section id="paper-section" class="paper-section">
   <form class="paper-form" id="registrationForm" method="post" enctype="multipart/form-data">
-  <form class="paper-form" id="registrationForm" method="post">
     
     <h3>{% if queue_full %}Retrieve Your Ticket{% else %}Registration Form{% endif %}</h3>
     
@@ -225,19 +224,21 @@
       <div id="supportingDocsPreview" class="file-preview"></div>
     </div>
 
-    <div class="form-row">
+    <div class="form-row signature-block">
       <label for="signaturePad">E-Signature: <span style="color: red;">*</span></label>
-      <canvas id="signaturePad" width="500" height="200" style="border: 1px dashed #ccc; border-radius: 8px; background: #fff;"></canvas>
-      <div style="margin-top: 8px; display: flex; gap: 10px;">
-        <button type="button" id="clearSignature" class="reschedule-btn" style="padding: 8px 14px;">Clear Signature</button>
+      <div class="signature-pad">
+        <canvas id="signaturePad" class="signature-canvas" aria-label="Signature area"></canvas>
+        <div class="signature-actions">
+          <button type="button" id="clearSignature" class="signature-clear-btn">Clear Signature</button>
+        </div>
+        <input type="hidden" id="signature_data" name="signature_data">
+        <p class="signature-hint">Please sign inside the box. Signature is required.</p>
       </div>
-      <input type="hidden" id="signature_data" name="signature_data">
-      <p style="font-size: 0.85rem; color: #666; margin-top: 6px;">Please sign inside the box. Signature is required.</p>
     </div>
 
-    <div class="form-row">
-      <label style="display: flex; gap: 10px; align-items: flex-start;">
-        <input type="checkbox" id="declaration" name="declaration" required style="margin-top: 4px;">
+    <div class="form-row form-row--checkbox">
+      <label class="checkbox-label" for="declaration">
+        <input type="checkbox" id="declaration" name="declaration" required>
         <span>I certify that the information and uploaded documents are true and correct.</span>
       </label>
     </div>
@@ -349,6 +350,8 @@
     const reqInput = document.getElementById('req_doc');
     const idPreview = document.getElementById('validIdPreview');
     const reqPreview = document.getElementById('supportingDocsPreview');
+    const registrationForm = document.getElementById('registrationForm');
+    const submitBtn = document.getElementById('submitBtn');
     const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
     function renderPreview(file, container) {
@@ -363,16 +366,6 @@
         img.style.marginTop = '8px';
         img.src = URL.createObjectURL(file);
         container.appendChild(img);
-  // Handle form submission - simplified for faster response
-  const registrationForm = document.getElementById('registrationForm');
-  const submitBtn = document.getElementById('submitBtn');
-
-  if (registrationForm) {
-    registrationForm.addEventListener('submit', function(event) {
-      // Disable submit button to prevent double submission
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Submitting...';
       }
     }
 
@@ -410,30 +403,58 @@
     const canvas = document.getElementById('signaturePad');
     const clearBtn = document.getElementById('clearSignature');
     const sigField = document.getElementById('signature_data');
+    const declaration = document.getElementById('declaration');
+
     if (canvas && sigField) {
       const ctx = canvas.getContext('2d');
       let drawing = false;
       let hasDrawn = false;
 
+      function resizeCanvas() {
+        const ratio = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        const snapshot = hasDrawn ? canvas.toDataURL('image/png') : null;
+        canvas.width = rect.width * ratio;
+        canvas.height = rect.height * ratio;
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        if (snapshot) {
+          const img = new Image();
+          img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+          img.src = snapshot;
+        }
+      }
+
+      function getPoint(e) {
+        const rect = canvas.getBoundingClientRect();
+        const point = e.touches ? e.touches[0] : e;
+        return {
+          x: point.clientX - rect.left,
+          y: point.clientY - rect.top
+        };
+      }
+
       function startDraw(e) {
         drawing = true;
         hasDrawn = true;
+        const { x, y } = getPoint(e);
         ctx.beginPath();
-        ctx.moveTo(getX(e), getY(e));
+        ctx.moveTo(x, y);
       }
+
       function draw(e) {
         if (!drawing) return;
-        ctx.lineTo(getX(e), getY(e));
-        ctx.strokeStyle = '#000';
+        const { x, y } = getPoint(e);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = '#0b2e13';
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.stroke();
       }
+
       function endDraw() {
         drawing = false;
       }
-      function getX(e) { return (e.touches ? e.touches[0].clientX : e.clientX) - canvas.getBoundingClientRect().left; }
-      function getY(e) { return (e.touches ? e.touches[0].clientY : e.clientY) - canvas.getBoundingClientRect().top; }
 
       canvas.addEventListener('mousedown', startDraw);
       canvas.addEventListener('mousemove', draw);
@@ -443,6 +464,12 @@
       canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
       canvas.addEventListener('touchend', (e) => { e.preventDefault(); endDraw(); });
 
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+      });
+
+      resizeCanvas();
+
       if (clearBtn) {
         clearBtn.addEventListener('click', () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -451,34 +478,35 @@
         });
       }
 
-      // Attach submit handler to embed signature data and validate declaration
-      const form = document.getElementById('registrationForm');
-      const declaration = document.getElementById('declaration');
-      if (form) {
-        form.addEventListener('submit', (e) => {
+      if (registrationForm) {
+        registrationForm.addEventListener('submit', (event) => {
           if (declaration && !declaration.checked) {
-            e.preventDefault();
+            event.preventDefault();
             alert('Please certify that the information is true and correct.');
             return false;
           }
           if (!hasDrawn) {
-            e.preventDefault();
+            event.preventDefault();
             alert('Please provide your e-signature before submitting.');
             return false;
           }
-          const dataUrl = canvas.toDataURL('image/png');
-          sigField.value = dataUrl;
+          sigField.value = canvas.toDataURL('image/png');
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+          }
           return true;
         });
       }
+    } else if (registrationForm) {
+      registrationForm.addEventListener('submit', () => {
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Submitting...';
+        }
+      });
     }
   })();
-      
-      // Let the form submit normally - no need to intercept with fetch
-      // This will be much faster as it uses native browser form submission
-      // The download can be done on the waiting page if needed
-    });
-  }
 </script>
 
 
