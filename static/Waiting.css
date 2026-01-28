@@ -13,7 +13,7 @@
 }
 
 html {
-  font-size: clamp(16px, 0.35vw + 14px, 18px);
+  font-size: 16px;
 }
 
 img,
@@ -1151,3 +1151,4 @@ h4 {
     max-width: min(440px, 92vw);
   }
 }
+

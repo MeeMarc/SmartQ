@@ -15,7 +15,7 @@
 }
 
 html {
-  font-size: clamp(16px, 0.35vw + 14px, 18px);
+  font-size: 16px;
 }
 
 img,
@@ -302,3 +302,4 @@ button:hover {
     max-width: min(720px, 90vw);
   }
 }
+

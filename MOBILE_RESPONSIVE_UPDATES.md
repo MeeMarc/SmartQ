@@ -100,8 +100,8 @@ Enhanced mobile responsiveness for both the Queue registration page (User.html) 
 
 ### 4. Desktop/Laptop Scaling Improvements (All Major Pages)
 
-#### Fluid Typography
-- Added `html { font-size: clamp(16px, 0.35vw + 14px, 18px); }` across stylesheets to keep text readable on high-resolution laptops.
+#### Consistent Base Typography
+- Set `html { font-size: 16px; }` across stylesheets to keep layout scale consistent across different window sizes and devices.
 
 #### Fluid Page Padding
 - Introduced `--page-padding` with `clamp(1rem, 3vw, 5rem)` so navbars and page gutters scale smoothly with screen width.
