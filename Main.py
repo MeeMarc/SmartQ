@@ -271,7 +271,6 @@ def generate_qr():
     return jsonify({"qr_image": qr_base64})
 
 
-
 # Upload folder
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -296,18 +295,20 @@ def upload_document():
     if not allowed_file(file.filename):
         return jsonify({"error": "File type not allowed"}), 400
 
-    # Get id_number from form
-    id_number = request.form.get('id_number', 'unknown')
+    # ✅ Use applicant_id instead of id_number
+    applicant_id = request.form.get('applicant_id')
+    if not applicant_id:
+        return jsonify({"error": "Missing applicant_id"}), 400
 
     # Create a safe, unique filename
     timestamp = int(time.time())
-    filename = f"{id_number}_{timestamp}_{secure_filename(file.filename)}"
+    filename = f"{applicant_id}_{timestamp}_{secure_filename(file.filename)}"
     save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(save_path)
 
     # Return download URL
     download_url = request.host_url.rstrip('/') + f'/uploads/{filename}'
-    return jsonify({"download_url": download_url})
+    return jsonify({"download_url": download_url, "applicant_id": applicant_id})
 
 # Serve uploaded files
 @app.route('/uploads/<filename>')
