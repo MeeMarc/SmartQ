@@ -800,46 +800,49 @@ function filterScans() {
 
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 <script>
-(function(){
-  emailjs.init("jpZBXk-dH8pr1YLy4"); // Your EmailJS public key
-})();
+  // Initialize EmailJS
+  (function() {
+    emailjs.init("jpZBXk-dH8pr1YLy4"); // Your EmailJS public key
+  })();
 
-// Open modal and set entry ID
-function openSendDocumentModal(entryId) {
-  document.getElementById("sendDocEntryId").value = entryId;
-  document.getElementById("sendDocumentForm").reset();
-  document.getElementById("sendDocumentModal").style.display = "flex";
-}
+  // Send document for a specific entry
+  function sendDocument(e, entryId) {
+    e.preventDefault();
+    
+    const form = document.getElementById(`sendDocumentForm-${entryId}`);
+    if (!form) return;
 
-// Close modal
-function closeSendDocumentModal() {
-  document.getElementById("sendDocumentForm").reset();
-  document.getElementById("sendDocumentModal").style.display = "none";
-}
+    const fileInput = form.querySelector('input[type="file"]');
+    if (!fileInput || !fileInput.files.length) {
+      showAlert("Please attach a document.", "error");
+      return;
+    }
 
-function sendDocument(e, entryId) {
-  e.preventDefault();
-  const form = document.getElementById(`sendDocumentForm-${entryId}`);
-  const fileInput = form.querySelector('input[type="file"]');
-
-  if (!fileInput.files.length) {
-    showAlert("Please attach a document.", "error");
-    return;
+    emailjs.sendForm(
+      "service_t9g8qmw",
+      "template_smlzhta",
+      form
+    ).then(() => {
+      showAlert("Document sent successfully!", "success");
+      toggleSendDocumentForm(entryId); // Hide the form after sending
+      form.reset(); // Reset form fields
+    }).catch(err => {
+      console.error(err);
+      showAlert("Failed to send document.", "error");
+    });
   }
 
-  emailjs.sendForm(
-    "service_t9g8qmw",
-    "template_smlzhta",
-    form
-  ).then(() => {
-    showAlert("Document sent successfully!", "success");
-    toggleSendDocumentForm(entryId); // Hide form
-  }).catch(err => {
-    console.error(err);
-    showAlert("Failed to send document.", "error");
-  });
-}
+  // Toggle Send Document form
+  function toggleSendDocumentForm(entryId) {
+    const container = document.getElementById(`sendDocContainer-${entryId}`);
+    if (!container) return;
+    container.style.display = container.style.display === 'none' ? 'block' : 'none';
+  }
 
+  // Simple alert function
+  function showAlert(message, type) {
+    alert(`${type.toUpperCase()}: ${message}`);
+  }
 </script>
 
 
