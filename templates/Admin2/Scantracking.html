@@ -707,12 +707,13 @@ function renderScans(scans) {
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
 
             <!-- Send Document button opens modal with proper parameters -->
-            <button onclick="openSendDocumentModal(
-              '${user.applicant_id}',     // ✅ applicant_id
-              '${user.fullname}',         // ✅ user's full name
-              '${user.queue_type}',    // ✅ queue purpose (document name)
-              '${user.email}'       // ✅ email
-            )" class="send-doc-btn">Send Document</button>
+            <button class="send-doc-btn"
+                    data-applicant-id="${user.applicant_id}"
+                    data-fullname="${user.fullname}"
+                    data-queue-type="${user.queue_type || 'Document'}"
+                    data-email="${user.email || ''}">
+              Send Document
+            </button>
 
 
         </div>
@@ -755,6 +756,18 @@ function filterScans() {
     (user.status && user.status.toLowerCase().includes(query)) ||
     (user.admin_status && user.admin_status.toLowerCase().includes(query))
   );
+
+  document.querySelectorAll(".send-doc-btn").forEach(btn => {
+  btn.addEventListener("click", function() {
+    const applicantId = this.dataset.applicantId;
+    const userName = this.dataset.fullname;
+    const documenttype = this.dataset.queueType;
+    const email = this.dataset.email;
+
+    openSendDocumentModal(applicantId, userName, documenttype, email);
+  });
+});
+
   renderScans(filtered);
 }
 </script>
