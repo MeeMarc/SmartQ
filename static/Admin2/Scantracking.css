@@ -681,6 +681,34 @@ header {
   box-shadow: 0 4px 12px rgba(0, 51, 102, 0.4);
 }
 
+
+
+
+/* =========================================================
+   SEND DOCUMENT MODAL FIXES
+========================================================= */
+.modal-content textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccd6e0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+  resize: vertical;
+}
+
+.modal-content textarea:focus {
+  border-color: #66b2ff;
+  box-shadow: 0 0 5px rgba(102, 178, 255, 0.3);
+}
+
+.modal-content input[type="file"] {
+  padding: 8px;
+  background: #f8faff;
+  cursor: pointer;
+}
+
+
 /* =========================================================
    RESPONSIVE
 ========================================================= */
