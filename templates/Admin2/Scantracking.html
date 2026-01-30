@@ -708,10 +708,10 @@ function renderScans(scans) {
 
             <!-- Send Document button opens modal with proper parameters -->
             <button onclick="openSendDocumentModal(
-              '${user.applicant_id}',
-              '${user.fullname}',
-              '${user.purpose || ''}',
-              '${user.email || user.gmail || ''}'  <!-- ✅ email here -->
+              '${user.applicant_id}',     // ✅ applicant_id
+              '${user.fullname}',         // ✅ user's full name
+              '${user.purpose || ''}',    // ✅ queue purpose (document name)
+              '${user.email || ''}'       // ✅ email
             )" class="send-doc-btn">Send Document</button>
 
 
@@ -781,13 +781,13 @@ function filterScans() {
       <input
         type="text"
         id="sendDocDocumentName"
-        name="request_document"
+        name="queue_purpose"  
         readonly
         style="width:100%; padding:8px; margin-bottom:10px;
-               background:#f3f4f6; border:1px solid #ccc; border-radius:4px;"
+              background:#f3f4f6; border:1px solid #ccc; border-radius:4px;"
       >
 
-      <!-- Optional Message -->
+
       <label>Message (optional):</label>
       <textarea
         id="sendDocMessage"
@@ -795,6 +795,7 @@ function filterScans() {
         placeholder="Your document is ready for release..."
         style="width:100%; margin-bottom:10px;">
       </textarea>
+      
 
       <!-- File Upload -->
       <label>Attach Document:</label>
@@ -872,9 +873,10 @@ async function sendDocumentModal(e) {
       applicant_id: applicantId,
       user_name: userName,
       user_message: message,
-      request_document: documentName,
+      queue_purpose: documentName,  // ✅ changed here
       download_link: data.download_url
     };
+
 
     await emailjs.send("service_t9g8qmw", "template_smlzhta", emailParams);
 
