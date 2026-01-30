@@ -707,8 +707,12 @@ function renderScans(scans) {
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
 
             <!-- Send Document button opens modal with proper parameters -->
-            <button onclick="openSendDocumentModal(${user.id}, '${user.fullname}', '${user.document_name || ''}', '${user.status || ''}')" class="send-doc-btn">Send Document</button>
-          </div>
+            <button onclick="openSendDocumentModal(
+              ${user.id_number},
+              '${user.fullname}',
+              '${user.document_name || ''}',
+              '${user.gmail || ''}'
+            )" class="send-doc-btn">Send Document</button>
         </div>
 
         ${hasNotification ? `
@@ -762,10 +766,11 @@ function filterScans() {
     <h3>Send Document</h3>
 
     <form id="sendDocumentForm" onsubmit="sendDocumentModal(event)">
-      <input type="hidden" id="sendDocEntryId" name="entry_id">
+      <input type="hidden" id="sendDocIdNumber" name="id_number">
       <input type="hidden" id="sendDocUserName" name="user_name">
       <input type="hidden" id="sendDocDocumentName" name="document_name">
-      <input type="hidden" id="sendDocStatus" name="status">
+      <input type="hidden" id="sendDocGmail" name="gmail">
+
 
       <label>Message (optional):</label>
       <textarea id="sendDocMessage" name="message" rows="4" placeholder="Your document is ready for release..." style="width: 100%; margin-bottom: 10px;"></textarea>
@@ -785,13 +790,13 @@ function filterScans() {
     emailjs.init("jpZBXk-dH8pr1YLy4");
   })();
 
-  // Open modal and set entry ID + template variables
-  function openSendDocumentModal(entryId, userName, documentName, status) {
+  // Open modal and set template variables
+  function openSendDocumentModal(idNumber, userName, documentName, gmail) {
     const modal = document.getElementById("sendDocumentModal");
-    document.getElementById("sendDocEntryId").value = entryId;
-    document.getElementById("sendDocUserName").value = userName;
-    document.getElementById("sendDocDocumentName").value = documentName;
-    document.getElementById("sendDocStatus").value = status;
+    document.getElementById("sendDocIdNumber").value = idNumber;      // replaces entry_id
+    document.getElementById("sendDocUserName").value = userName;      // keep
+    document.getElementById("sendDocDocumentName").value = documentName; // keep
+    document.getElementById("sendDocGmail").value = gmail;            // replaces status
     document.getElementById("sendDocFile").value = "";
     document.getElementById("sendDocMessage").value = "";
     modal.style.display = "flex";
@@ -805,10 +810,10 @@ function filterScans() {
   async function sendDocumentModal(e) {
     e.preventDefault();
 
-    const entryId = document.getElementById("sendDocEntryId").value;
+    const idNumber = document.getElementById("sendDocIdNumber").value;
     const userName = document.getElementById("sendDocUserName").value;
     const documentName = document.getElementById("sendDocDocumentName").value;
-    const status = document.getElementById("sendDocStatus").value;
+    const gmail = document.getElementById("sendDocGmail").value;
     const message = document.getElementById("sendDocMessage").value;
     const fileInput = document.getElementById("sendDocFile");
 
@@ -825,9 +830,9 @@ function filterScans() {
     }
 
     try {
-      // Step 1: Upload the file to your Python backend
+      // Step 1: Upload the file to your backend
       const formData = new FormData();
-      formData.append("entry_id", entryId);
+      formData.append("id_number", idNumber);   // replaces entry_id
       formData.append("document", file);
 
       const uploadResponse = await fetch("/upload_document", {
@@ -842,11 +847,11 @@ function filterScans() {
 
       // Step 2: Send EmailJS email
       const emailParams = {
-        entry_id: entryId,
-        user_name: userName,
-        document_name: documentName,
-        status: status,
-        message: message,
+        id_number: idNumber,         // replaces entry_id
+        user_name: userName,         // keep
+        document_name: documentName, // keep
+        gmail: gmail,                // replaces status
+        message: message,            // keep
         download_link: downloadLink
       };
 
@@ -862,7 +867,6 @@ function filterScans() {
     }
   }
 </script>
-
 
 
 

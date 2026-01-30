@@ -271,15 +271,25 @@ def generate_qr():
 
 
 
+import os
+import time
+from flask import Flask, request, jsonify, send_from_directory
+from werkzeug.utils import secure_filename
+
+app = Flask(__name__)
+
+# Upload folder
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# Allowed file types
 ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'jpg', 'png', 'zip'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Upload document endpoint
 @app.route('/upload_document', methods=['POST'])
 def upload_document():
     if 'document' not in request.files:
@@ -292,16 +302,24 @@ def upload_document():
     if not allowed_file(file.filename):
         return jsonify({"error": "File type not allowed"}), 400
 
-    filename = secure_filename(file.filename)
+    # Get id_number from form
+    id_number = request.form.get('id_number', 'unknown')
+
+    # Create a safe, unique filename
+    timestamp = int(time.time())
+    filename = f"{id_number}_{timestamp}_{secure_filename(file.filename)}"
     save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(save_path)
 
-    download_url = request.host_url + f'uploads/{filename}'
+    # Return download URL
+    download_url = request.host_url.rstrip('/') + f'/uploads/{filename}'
     return jsonify({"download_url": download_url})
 
+# Serve uploaded files
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 
 # ==============================================================  
 # QR DATABASE HANDLING (NEW)
