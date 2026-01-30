@@ -708,11 +708,12 @@ function renderScans(scans) {
 
             <!-- Send Document button opens modal with proper parameters -->
             <button onclick="openSendDocumentModal(
-              ${user.id_number},
+              '${user.id_number}',
               '${user.fullname}',
               '${user.document_name || ''}',
               '${user.gmail || ''}'
             )" class="send-doc-btn">Send Document</button>
+
         </div>
 
         ${hasNotification ? `
@@ -822,50 +823,45 @@ function filterScans() {
       return;
     }
 
-    const file = fileInput.files[0];
-
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      alert("File is too large. Max 10 MB allowed.");
-      return;
-    }
-
     try {
-      // Step 1: Upload the file to your backend
       const formData = new FormData();
-      formData.append("id_number", idNumber);   // replaces entry_id
-      formData.append("document", file);
+      formData.append("id_number", idNumber);
+      formData.append("document", fileInput.files[0]);
 
       const uploadResponse = await fetch("/upload_document", {
         method: "POST",
         body: formData
       });
 
-      if (!uploadResponse.ok) throw new Error("Failed to upload document to server.");
+      if (!uploadResponse.ok) throw new Error("Upload failed");
 
       const data = await uploadResponse.json();
-      const downloadLink = data.download_url;
 
-      // Step 2: Send EmailJS email
       const emailParams = {
-        id_number: idNumber,         // replaces entry_id
-        user_name: userName,         // keep
-        document_name: documentName, // keep
-        gmail: gmail,                // replaces status
-        message: message,            // keep
-        download_link: downloadLink
+        to_email: gmail,
+        user_id: idNumber,
+        user_name: userName,
+        user_message: message,
+        request_document: documentName,
+        download_link: data.download_url
       };
 
-      await emailjs.send("service_t9g8qmw", "template_smlzhta", emailParams);
+      await emailjs.send(
+        "service_t9g8qmw",
+        "template_smlzhta",
+        emailParams
+      );
 
       alert("Document sent successfully!");
       closeSendDocumentModal();
       document.getElementById("sendDocumentForm").reset();
 
     } catch (err) {
-      console.error("Error sending document:", err);
-      alert("Failed to send document. Check console for details.");
+      console.error(err);
+      alert("Failed to send document.");
     }
   }
+
 </script>
 
 

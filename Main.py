@@ -15,6 +15,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import qrcode
 import io
 import base64
+import time
 from werkzeug.utils import secure_filename
 
 load_dotenv()  # Load variables from .env if present (local dev)
@@ -270,13 +271,6 @@ def generate_qr():
     return jsonify({"qr_image": qr_base64})
 
 
-
-import os
-import time
-from flask import Flask, request, jsonify, send_from_directory
-from werkzeug.utils import secure_filename
-
-app = Flask(__name__)
 
 # Upload folder
 UPLOAD_FOLDER = 'uploads'
