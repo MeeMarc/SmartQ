@@ -101,6 +101,27 @@
   </div>
 </div>
 
+<!-- Modal for Sending Documents -->
+<div class="modal" id="sendDocumentModal">
+  <div class="modal-content" style="max-width: 600px;">
+    <span class="close-modal" onclick="closeSendDocumentModal()">×</span>
+    <h3>Send Document</h3>
+
+    <form id="sendDocumentForm">
+      <input type="hidden" id="sendDocEntryId">
+
+      <label>Message (optional):</label>
+      <textarea id="sendDocMessage" rows="4" placeholder="Your document is ready for release..."></textarea>
+
+      <label style="margin-top: 10px;">Attach Document:</label>
+      <input type="file" id="sendDocFile" required>
+
+      <button type="submit" style="margin-top: 15px;">Send Document</button>
+    </form>
+  </div>
+</div>
+
+
 <!-- Modal for Sending Notifications -->
 <div class="modal" id="notificationModal">
   <div class="modal-content" style="max-width: 600px;">
@@ -742,6 +763,52 @@ function filterScans() {
   renderScans(filtered);
 }
 </script>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<script>
+  (function(){
+    emailjs.init("jpZBXk-dH8pr1YLy4"); // 🔴 replace with your EmailJS public key
+  })();
+
+
+document.getElementById("sendDocumentForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+
+  const entryId = document.getElementById("sendDocEntryId").value;
+  const message = document.getElementById("sendDocMessage").value || "Your requested document is attached.";
+  const fileInput = document.getElementById("sendDocFile");
+
+  if (!fileInput.files.length) {
+    showAlert("Please attach a document.", "error");
+    return;
+  }
+
+  const templateParams = {
+    entry_id: entryId,
+    message: message
+  };
+
+  emailjs.sendForm(
+    "service_t9g8qmw",   // 🔴 EmailJS Service ID
+    "template_smlzhta",  // 🔴 EmailJS Template ID
+    this
+  )
+  .then(() => {
+    showAlert("Document sent successfully via email!", "success");
+    closeSendDocumentModal();
+  })
+  .catch((error) => {
+    console.error("EmailJS Error:", error);
+    showAlert("Failed to send document.", "error");
+  });
+});
+</script>
+
+</script>
+
+
 
 </body>
 </html>
