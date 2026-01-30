@@ -678,25 +678,14 @@ function renderScans(scans) {
     const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
     const statusClass = user.status === 'completed' ? 'status-completed' : user.status === 'cancelled' ? 'status-cancelled' : user.status === 'rescheduled' ? 'status-rescheduled' : 'status-waiting';
 
-    // Admin status badge
     const adminStatus = user.admin_status || 'pending';
     const adminStatusText = adminStatus.charAt(0).toUpperCase() + adminStatus.slice(1);
     const adminStatusClass = adminStatus === 'accepted' ? 'status-accepted' : adminStatus === 'rejected' ? 'status-rejected' : 'status-pending';
 
-    // Show Accept/Reject buttons only for pending entries
-    const showAdminActions = adminStatus === 'pending' && !['completed', 'cancelled', 'rescheduled'].includes(user.status);
-
-    // Check if entry has documents
+    const showAdminActions = adminStatus === 'pending' && !['completed','cancelled','rescheduled'].includes(user.status);
     const hasDocuments = user.has_documents || (user.id_doc_url || user.req_doc_url || user.signature_url);
-
-    // Check if there's a notification message
     const hasNotification = user.notification_message && user.notification_message.trim() !== '';
-
-    // Allow "Done" only if admin has already accepted or rejected
-    const canMarkDone = adminStatus !== 'pending' && !['completed', 'cancelled', 'rescheduled'].includes(user.status);
-
-    // Show Send Document form only for pending entries
-    const showSendDoc = adminStatus === 'pending';
+    const canMarkDone = adminStatus !== 'pending' && !['completed','cancelled','rescheduled'].includes(user.status);
 
     card.innerHTML = `
       <div>
@@ -713,7 +702,9 @@ function renderScans(scans) {
               <button class="reject-btn" onclick="rejectEntry(${user.id}, this)">Reject</button>
             ` : ''}
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
-            ${showSendDoc ? `<button onclick="toggleSendDocumentForm(${user.id})" class="send-doc-btn">Send Document</button>` : ''}
+
+            <!-- Send Document button opens modal -->
+            <button onclick="openSendDocumentModal(${user.id})" class="send-doc-btn">Send Document</button>
           </div>
         </div>
 
@@ -721,16 +712,6 @@ function renderScans(scans) {
           <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
             <strong style="color: #003366;">📢 Notification:</strong>
             <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
-          </div>
-        ` : ''}
-
-        ${showSendDoc ? `
-          <div id="sendDocContainer-${user.id}" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; background: #f9f9f9;">
-            <form id="sendDocumentForm-${user.id}" onsubmit="sendDocument(event, ${user.id})">
-              <textarea name="message" placeholder="Message (optional)" style="width: 100%; height: 60px; margin-bottom: 5px;"></textarea>
-              <input type="file" name="document" required>
-              <button type="submit" style="margin-top: 5px;">Send</button>
-            </form>
           </div>
         ` : ''}
       </div>
@@ -771,50 +752,56 @@ function filterScans() {
 
 
 <!-- Send Document Modal -->
-<div class="modal" id="sendDocumentModal" style="display:none;">
-  <div class="modal-content">
-    <span class="close-modal" onclick="closeSendDocumentModal()">×</span>
+<div class="modal" id="sendDocumentModal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center;">
+  <div class="modal-content" style="background: #fff; padding: 20px; border-radius: 8px; width: 90%; max-width: 450px; position: relative;">
+    <span class="close-modal" onclick="closeSendDocumentModal()" style="position:absolute; top:10px; right:15px; cursor:pointer; font-size:20px;">×</span>
     <h3>Send Document</h3>
-    <form id="sendDocumentForm">
+
+    <form id="sendDocumentForm" onsubmit="sendDocumentModal(event)">
       <input type="hidden" id="sendDocEntryId" name="entry_id">
 
       <label>Message (optional):</label>
-      <textarea
-        id="sendDocMessage"
-        name="message"
-        rows="4"
-        placeholder="Your document is ready for release...">
-      </textarea>
+      <textarea id="sendDocMessage" name="message" rows="4" placeholder="Your document is ready for release..." style="width: 100%; margin-bottom: 10px;"></textarea>
 
-      <label style="margin-top: 10px;">Attach Document:</label>
-      <input
-        type="file"
-        id="sendDocFile"
-        name="document" <!-- ⚠ Must match EmailJS template attachment field -->
-        required>
+      <label>Attach Document:</label>
+      <input type="file" id="sendDocFile" name="document" required style="margin-bottom: 10px;">
 
-      <button type="submit" style="margin-top: 15px;">Send Document</button>
+      <button type="submit" style="padding: 10px 15px; background: #2563eb; color:#fff; border:none; border-radius: 5px;">Send Document</button>
     </form>
   </div>
 </div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 <script>
   // Initialize EmailJS
   (function() {
-    emailjs.init("jpZBXk-dH8pr1YLy4"); // Your EmailJS public key
+    emailjs.init("jpZBXk-dH8pr1YLy4");
   })();
 
-  // Send document for a specific entry
-  function sendDocument(e, entryId) {
-    e.preventDefault();
-    
-    const form = document.getElementById(`sendDocumentForm-${entryId}`);
-    if (!form) return;
+  // Open modal and set entry ID
+  function openSendDocumentModal(entryId) {
+    const modal = document.getElementById("sendDocumentModal");
+    document.getElementById("sendDocEntryId").value = entryId;
+    document.getElementById("sendDocFile").value = "";
+    document.getElementById("sendDocMessage").value = "";
+    modal.style.display = "flex";
+  }
 
-    const fileInput = form.querySelector('input[type="file"]');
-    if (!fileInput || !fileInput.files.length) {
-      showAlert("Please attach a document.", "error");
+  // Close modal
+  function closeSendDocumentModal() {
+    document.getElementById("sendDocumentModal").style.display = "none";
+  }
+
+  // Send document from modal
+  function sendDocumentModal(e) {
+    e.preventDefault();
+
+    const form = document.getElementById("sendDocumentForm");
+    const fileInput = document.getElementById("sendDocFile");
+
+    if (!fileInput.files.length) {
+      alert("Please attach a document.");
       return;
     }
 
@@ -823,28 +810,15 @@ function filterScans() {
       "template_smlzhta",
       form
     ).then(() => {
-      showAlert("Document sent successfully!", "success");
-      toggleSendDocumentForm(entryId); // Hide the form after sending
-      form.reset(); // Reset form fields
+      alert("Document sent successfully!");
+      closeSendDocumentModal();
+      form.reset();
     }).catch(err => {
-      console.error(err);
-      showAlert("Failed to send document.", "error");
+      console.error("EmailJS Error:", err);
+      alert("Failed to send document. Check console for details.");
     });
   }
-
-  // Toggle Send Document form
-  function toggleSendDocumentForm(entryId) {
-    const container = document.getElementById(`sendDocContainer-${entryId}`);
-    if (!container) return;
-    container.style.display = container.style.display === 'none' ? 'block' : 'none';
-  }
-
-  // Simple alert function
-  function showAlert(message, type) {
-    alert(`${type.toUpperCase()}: ${message}`);
-  }
 </script>
-
 
 
 
