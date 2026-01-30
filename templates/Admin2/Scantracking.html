@@ -757,16 +757,16 @@ function filterScans() {
     (user.admin_status && user.admin_status.toLowerCase().includes(query))
   );
 
-  document.querySelectorAll(".send-doc-btn").forEach(btn => {
-  btn.addEventListener("click", function() {
-    const applicantId = this.dataset.applicantId;
-    const userName = this.dataset.fullname;
-    const documenttype = this.dataset.queueType;
-    const email = this.dataset.email;
+    document.querySelectorAll(".send-doc-btn").forEach(btn => {
+      btn.addEventListener("click", function() {
+        const applicantId = this.dataset.applicantId;
+        const userName = this.dataset.fullname;
+        const documenttype = this.dataset.queueType;
+        const email = this.dataset.email;
 
-    openSendDocumentModal(applicantId, userName, documenttype, email);
-  });
-});
+        openSendDocumentModal(applicantId, userName, documenttype, email);
+      });
+    });
 
   renderScans(filtered);
 }
