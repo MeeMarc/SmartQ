@@ -710,8 +710,8 @@ function renderScans(scans) {
             <button onclick="openSendDocumentModal(
               '${user.applicant_id}',     // ✅ applicant_id
               '${user.fullname}',         // ✅ user's full name
-              '${user.purpose || ''}',    // ✅ queue purpose (document name)
-              '${user.email || ''}'       // ✅ email
+              '${user.queue_type}',    // ✅ queue purpose (document name)
+              '${user.email}'       // ✅ email
             )" class="send-doc-btn">Send Document</button>
 
 
@@ -781,7 +781,7 @@ function filterScans() {
       <input
         type="text"
         id="sendDocDocumentName"
-        name="queue_purpose"  
+        name="queue_type"  
         readonly
         style="width:100%; padding:8px; margin-bottom:10px;
               background:#f3f4f6; border:1px solid #ccc; border-radius:4px;"
@@ -873,7 +873,7 @@ async function sendDocumentModal(e) {
       applicant_id: applicantId,
       user_name: userName,
       user_message: message,
-      queue_purpose: documentName,  // ✅ changed here
+      queue_type: documentName,  // ✅ changed here
       download_link: data.download_url
     };
 
