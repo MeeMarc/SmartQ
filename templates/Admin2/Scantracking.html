@@ -728,18 +728,19 @@ function renderScans(scans) {
 
     scanList.appendChild(card);
 
-    // ✅ Attach Send Document listener immediately
-    const sendBtn = card.querySelector(".send-doc-btn");
-    if (sendBtn) {
-      sendBtn.addEventListener("click", function() {
-        openSendDocumentModal(
-          this.dataset.applicantId,
-          this.dataset.fullname,
-          this.dataset.queueType || "Document",
-          this.dataset.email || ""
-        );
-      });
-    }
+// Attach Send Document listener immediately
+const sendBtn = card.querySelector(".send-doc-btn");
+if (sendBtn) {
+  sendBtn.addEventListener("click", function() {
+    openSendDocumentModal(
+      this.dataset.applicantId,
+      this.dataset.fullname,
+      this.dataset.queueType || "Document",
+      this.dataset.email || ""
+    );
+  });
+}
+
   });
 }
 
