@@ -271,18 +271,15 @@ def generate_qr():
 
 
 
-# Folder to save uploaded documents
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Allowed extensions
-ALLOWED_EXTENSIONS = set(['pdf', 'docx', 'txt', 'jpg', 'png', 'zip'])
+ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'jpg', 'png', 'zip'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Upload endpoint
 @app.route('/upload_document', methods=['POST'])
 def upload_document():
     if 'document' not in request.files:
@@ -299,16 +296,12 @@ def upload_document():
     save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(save_path)
 
-    # Build a download URL
     download_url = request.host_url + f'uploads/{filename}'
     return jsonify({"download_url": download_url})
 
-# Serve uploaded files
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-
 
 # ==============================================================  
 # QR DATABASE HANDLING (NEW)

@@ -676,11 +676,14 @@ function renderScans(scans) {
     const purpose = user.purpose ? ` • ${user.purpose}` : "";
     const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
     const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
-    const statusClass = user.status === 'completed' ? 'status-completed' : user.status === 'cancelled' ? 'status-cancelled' : user.status === 'rescheduled' ? 'status-rescheduled' : 'status-waiting';
+    const statusClass = user.status === 'completed' ? 'status-completed' :
+                        user.status === 'cancelled' ? 'status-cancelled' :
+                        user.status === 'rescheduled' ? 'status-rescheduled' : 'status-waiting';
 
     const adminStatus = user.admin_status || 'pending';
     const adminStatusText = adminStatus.charAt(0).toUpperCase() + adminStatus.slice(1);
-    const adminStatusClass = adminStatus === 'accepted' ? 'status-accepted' : adminStatus === 'rejected' ? 'status-rejected' : 'status-pending';
+    const adminStatusClass = adminStatus === 'accepted' ? 'status-accepted' :
+                             adminStatus === 'rejected' ? 'status-rejected' : 'status-pending';
 
     const showAdminActions = adminStatus === 'pending' && !['completed','cancelled','rescheduled'].includes(user.status);
     const hasDocuments = user.has_documents || (user.id_doc_url || user.req_doc_url || user.signature_url);
@@ -703,8 +706,8 @@ function renderScans(scans) {
             ` : ''}
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
 
-            <!-- Send Document button opens modal -->
-            <button onclick="openSendDocumentModal(${user.id})" class="send-doc-btn">Send Document</button>
+            <!-- Send Document button opens modal with proper parameters -->
+            <button onclick="openSendDocumentModal(${user.id}, '${user.fullname}', '${user.document_name || ''}', '${user.status || ''}')" class="send-doc-btn">Send Document</button>
           </div>
         </div>
 
@@ -720,6 +723,7 @@ function renderScans(scans) {
     scanList.appendChild(card);
   });
 }
+
 
 // Toggle Send Document form
 function toggleSendDocumentForm(entryId) {
@@ -759,6 +763,9 @@ function filterScans() {
 
     <form id="sendDocumentForm" onsubmit="sendDocumentModal(event)">
       <input type="hidden" id="sendDocEntryId" name="entry_id">
+      <input type="hidden" id="sendDocUserName" name="user_name">
+      <input type="hidden" id="sendDocDocumentName" name="document_name">
+      <input type="hidden" id="sendDocStatus" name="status">
 
       <label>Message (optional):</label>
       <textarea id="sendDocMessage" name="message" rows="4" placeholder="Your document is ready for release..." style="width: 100%; margin-bottom: 10px;"></textarea>
@@ -771,7 +778,6 @@ function filterScans() {
   </div>
 </div>
 
-
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 <script>
   // Initialize EmailJS
@@ -779,16 +785,18 @@ function filterScans() {
     emailjs.init("jpZBXk-dH8pr1YLy4");
   })();
 
-  // Open modal and set entry ID
-  function openSendDocumentModal(entryId) {
+  // Open modal and set entry ID + template variables
+  function openSendDocumentModal(entryId, userName, documentName, status) {
     const modal = document.getElementById("sendDocumentModal");
     document.getElementById("sendDocEntryId").value = entryId;
+    document.getElementById("sendDocUserName").value = userName;
+    document.getElementById("sendDocDocumentName").value = documentName;
+    document.getElementById("sendDocStatus").value = status;
     document.getElementById("sendDocFile").value = "";
     document.getElementById("sendDocMessage").value = "";
     modal.style.display = "flex";
   }
 
-  // Close modal
   function closeSendDocumentModal() {
     document.getElementById("sendDocumentModal").style.display = "none";
   }
@@ -798,6 +806,9 @@ function filterScans() {
     e.preventDefault();
 
     const entryId = document.getElementById("sendDocEntryId").value;
+    const userName = document.getElementById("sendDocUserName").value;
+    const documentName = document.getElementById("sendDocDocumentName").value;
+    const status = document.getElementById("sendDocStatus").value;
     const message = document.getElementById("sendDocMessage").value;
     const fileInput = document.getElementById("sendDocFile");
 
@@ -808,38 +819,33 @@ function filterScans() {
 
     const file = fileInput.files[0];
 
-    // Optional: check file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
       alert("File is too large. Max 10 MB allowed.");
       return;
     }
 
     try {
-      // =========================
       // Step 1: Upload the file to your Python backend
-      // =========================
       const formData = new FormData();
       formData.append("entry_id", entryId);
       formData.append("document", file);
 
-      // <-- THIS is where the fetch call uploads the document
       const uploadResponse = await fetch("/upload_document", {
         method: "POST",
         body: formData
       });
 
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload document to server.");
-      }
+      if (!uploadResponse.ok) throw new Error("Failed to upload document to server.");
 
       const data = await uploadResponse.json();
-      const downloadLink = data.download_url; // backend should return this
+      const downloadLink = data.download_url;
 
-      // =========================
-      // Step 2: Send EmailJS email with the download link
-      // =========================
+      // Step 2: Send EmailJS email
       const emailParams = {
         entry_id: entryId,
+        user_name: userName,
+        document_name: documentName,
+        status: status,
         message: message,
         download_link: downloadLink
       };
@@ -856,6 +862,7 @@ function filterScans() {
     }
   }
 </script>
+
 
 
 
