@@ -793,11 +793,12 @@ function filterScans() {
     document.getElementById("sendDocumentModal").style.display = "none";
   }
 
-  // Send document from modal
-  function sendDocumentModal(e) {
+  // Send document from modal (upload to server first)
+  async function sendDocumentModal(e) {
     e.preventDefault();
 
-    const form = document.getElementById("sendDocumentForm");
+    const entryId = document.getElementById("sendDocEntryId").value;
+    const message = document.getElementById("sendDocMessage").value;
     const fileInput = document.getElementById("sendDocFile");
 
     if (!fileInput.files.length) {
@@ -805,20 +806,54 @@ function filterScans() {
       return;
     }
 
-    emailjs.sendForm(
-      "service_t9g8qmw",
-      "template_smlzhta",
-      form
-    ).then(() => {
+    const file = fileInput.files[0];
+
+    // Optional: check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert("File is too large. Max 10 MB allowed.");
+      return;
+    }
+
+    try {
+      // Step 1: Upload the file to your server
+      const formData = new FormData();
+      formData.append("entry_id", entryId);
+      formData.append("document", file);
+
+      // Replace this URL with your server endpoint that handles file uploads
+      const uploadResponse = await fetch("/upload_document", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload document to server.");
+      }
+
+      const data = await uploadResponse.json();
+      // Expecting the server to return a download link
+      const downloadLink = data.download_url;
+
+      // Step 2: Send EmailJS notification with download link
+      const emailParams = {
+        entry_id: entryId,
+        message: message,
+        download_link: downloadLink
+      };
+
+      await emailjs.send("service_t9g8qmw", "template_smlzhta", emailParams);
+
       alert("Document sent successfully!");
       closeSendDocumentModal();
-      form.reset();
-    }).catch(err => {
-      console.error("EmailJS Error:", err);
+      document.getElementById("sendDocumentForm").reset();
+
+    } catch (err) {
+      console.error("Error sending document:", err);
       alert("Failed to send document. Check console for details.");
-    });
+    }
   }
 </script>
+
 
 
 
