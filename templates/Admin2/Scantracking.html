@@ -780,7 +780,7 @@ function filterScans() {
       <label>Document Name:</label>
       <input
         type="text"
-        id="sendDocDocumentName"
+        id="sendDocDocumenttype"
         name="queue_type"  
         readonly
         style="width:100%; padding:8px; margin-bottom:10px;
@@ -822,7 +822,7 @@ function openSendDocumentModal(applicantId, userName, documentName, email) {
 
   document.getElementById("sendDocApplicantId").value = applicantId; // ✅ applicant_id
   document.getElementById("sendDocUserName").value = userName;
-  document.getElementById("sendDocDocumentName").value = documentName;
+  document.getElementById("sendDocDocumenttype").value = documenttype;
   document.getElementById("sendDocEmail").value = email; // ✅ email
 
   document.getElementById("sendDocFile").value = "";
@@ -842,7 +842,7 @@ async function sendDocumentModal(e) {
 
   const applicantId = document.getElementById("sendDocApplicantId").value;
   const userName = document.getElementById("sendDocUserName").value;
-  const documentName = document.getElementById("sendDocDocumentName").value;
+  const documenttype = document.getElementById("sendDocDocumenttype").value;
   const email = document.getElementById("sendDocEmail").value;
   const message = document.getElementById("sendDocMessage").value;
   const fileInput = document.getElementById("sendDocFile");
@@ -873,7 +873,7 @@ async function sendDocumentModal(e) {
       applicant_id: applicantId,
       user_name: userName,
       user_message: message,
-      queue_type: documentName,  // ✅ changed here
+      queue_type: documenttype,  // ✅ changed here
       download_link: data.download_url
     };
 
