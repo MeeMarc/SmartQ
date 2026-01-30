@@ -710,7 +710,7 @@ function renderScans(scans) {
             <button onclick="openSendDocumentModal(
               '${user.id_number}',
               '${user.fullname}',
-              '${user.document_name || ''}',
+              '${user.purpose || ''}',
               '${user.gmail || ''}'
             )" class="send-doc-btn">Send Document</button>
 
@@ -760,28 +760,26 @@ function filterScans() {
 
 
 
-<!-- Send Document Modal -->
-<div id="sendDocumentModal" class="modal" hidden>
+<div id="sendDocumentModal" class="modal" style="display:none;">
   <div class="modal-backdrop"></div>
 
   <div class="modal-content">
-    <button type="button" class="close-modal" id="closeSendDocBtn">×</button>
+    <button type="button" class="close-modal" onclick="closeSendDocumentModal()">×</button>
 
     <h3>Send Document</h3>
 
-    <form id="sendDocumentForm">
+    <form id="sendDocumentForm" onsubmit="sendDocumentModal(event)">
 
-      <!-- REQUIRED hidden fields -->
       <input type="hidden" id="sendDocIdNumber">
       <input type="hidden" id="sendDocUserName">
       <input type="hidden" id="sendDocGmail">
 
-      <!-- ✅ VISIBLE Document Name -->
+      <!-- ✅ FIXED Document Name -->
       <label>Document Name:</label>
       <input
         type="text"
         id="sendDocDocumentName"
-        name="document_name"
+        name="request_document"
         readonly
         style="width:100%; padding:8px; margin-bottom:10px;
                background:#f3f4f6; border:1px solid #ccc; border-radius:4px;"
@@ -796,19 +794,13 @@ function filterScans() {
       </textarea>
 
       <label>Attach Document:</label>
-      <input
-        type="file"
-        id="sendDocFile"
-        required
-        style="margin-bottom:10px;"
-      >
+      <input type="file" id="sendDocFile" required>
 
-      <button type="submit" class="send-btn">
-        Send Document
-      </button>
+      <button type="submit" class="send-btn">Send Document</button>
     </form>
   </div>
 </div>
+
 
 
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
@@ -821,18 +813,21 @@ function filterScans() {
   // Open modal and set template variables
   function openSendDocumentModal(idNumber, userName, documentName, gmail) {
     const modal = document.getElementById("sendDocumentModal");
-    document.getElementById("sendDocIdNumber").value = idNumber;      // replaces entry_id
-    document.getElementById("sendDocUserName").value = userName;      // keep
-    document.getElementById("sendDocDocumentName").value = documentName; // keep
-    document.getElementById("sendDocGmail").value = gmail;            // replaces status
+
+    document.getElementById("sendDocIdNumber").value = idNumber;
+    document.getElementById("sendDocUserName").value = userName;
+    document.getElementById("sendDocDocumentName").value = documentName; // ✅ FIX
+    document.getElementById("sendDocGmail").value = gmail;
+
     document.getElementById("sendDocFile").value = "";
     document.getElementById("sendDocMessage").value = "";
+
     modal.style.display = "flex";
   }
 
-  function closeSendDocumentModal() {
-    document.getElementById("sendDocumentModal").style.display = "none";
-  }
+      function closeSendDocumentModal() {
+        document.getElementById("sendDocumentModal").style.display = "none";
+      }
 
   // Send document from modal
   async function sendDocumentModal(e) {
@@ -872,6 +867,7 @@ function filterScans() {
         request_document: documentName,
         download_link: data.download_url
       };
+
 
       await emailjs.send(
         "service_t9g8qmw",
