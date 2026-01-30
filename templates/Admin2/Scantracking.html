@@ -770,6 +770,13 @@ function filterScans() {
 
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 <script>
+
+  function openSendDocumentModal(entryId) {
+  document.getElementById("sendDocEntryId").value = entryId;
+  document.getElementById("sendDocumentForm").reset();
+  document.getElementById("sendDocumentModal").style.display = "flex";
+}
+
   (function(){
     emailjs.init("jpZBXk-dH8pr1YLy4"); // 🔴 replace with your EmailJS public key
   })();
