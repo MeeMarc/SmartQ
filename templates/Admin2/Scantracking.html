@@ -793,7 +793,7 @@ function filterScans() {
     document.getElementById("sendDocumentModal").style.display = "none";
   }
 
-  // Send document from modal (upload to server first)
+  // Send document from modal
   async function sendDocumentModal(e) {
     e.preventDefault();
 
@@ -815,12 +815,14 @@ function filterScans() {
     }
 
     try {
-      // Step 1: Upload the file to your server
+      // =========================
+      // Step 1: Upload the file to your Python backend
+      // =========================
       const formData = new FormData();
       formData.append("entry_id", entryId);
       formData.append("document", file);
 
-      // Replace this URL with your server endpoint that handles file uploads
+      // <-- THIS is where the fetch call uploads the document
       const uploadResponse = await fetch("/upload_document", {
         method: "POST",
         body: formData
@@ -831,10 +833,11 @@ function filterScans() {
       }
 
       const data = await uploadResponse.json();
-      // Expecting the server to return a download link
-      const downloadLink = data.download_url;
+      const downloadLink = data.download_url; // backend should return this
 
-      // Step 2: Send EmailJS notification with download link
+      // =========================
+      // Step 2: Send EmailJS email with the download link
+      // =========================
       const emailParams = {
         entry_id: entryId,
         message: message,

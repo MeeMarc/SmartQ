@@ -5,7 +5,7 @@ import smtplib
 import hashlib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response, send_from_directory
 from datetime import timedelta
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
@@ -15,6 +15,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import qrcode
 import io
 import base64
+from werkzeug.utils import secure_filename
 
 load_dotenv()  # Load variables from .env if present (local dev)
 
@@ -267,6 +268,46 @@ def generate_qr():
     qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     return jsonify({"qr_image": qr_base64})
+
+
+
+# Folder to save uploaded documents
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Allowed extensions
+ALLOWED_EXTENSIONS = set(['pdf', 'docx', 'txt', 'jpg', 'png', 'zip'])
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Upload endpoint
+@app.route('/upload_document', methods=['POST'])
+def upload_document():
+    if 'document' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['document']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({"error": "File type not allowed"}), 400
+
+    filename = secure_filename(file.filename)
+    save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(save_path)
+
+    # Build a download URL
+    download_url = request.host_url + f'uploads/{filename}'
+    return jsonify({"download_url": download_url})
+
+# Serve uploaded files
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 
 
 # ==============================================================  
