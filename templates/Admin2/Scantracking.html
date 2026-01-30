@@ -820,16 +820,17 @@ function filterScans() {
 function openSendDocumentModal(applicantId, userName, documenttype, email) {
   const modal = document.getElementById("sendDocumentModal");
 
-  document.getElementById("sendDocApplicantId").value = applicantId; // ✅ applicant_id
+  document.getElementById("sendDocApplicantId").value = applicantId;
   document.getElementById("sendDocUserName").value = userName;
-  document.getElementById("sendDocDocumenttype").value = documenttype;
-  document.getElementById("sendDocEmail").value = email; // ✅ email
+  document.getElementById("sendDocDocumenttype").value = documenttype || "Document"; // fallback
+  document.getElementById("sendDocEmail").value = email || "";
 
   document.getElementById("sendDocFile").value = "";
   document.getElementById("sendDocMessage").value = "";
 
   modal.style.display = "flex";
 }
+
 
 // Close modal
 function closeSendDocumentModal() {
