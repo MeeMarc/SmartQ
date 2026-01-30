@@ -706,16 +706,15 @@ function renderScans(scans) {
             ` : ''}
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
 
-            <!-- Send Document button opens modal with proper parameters -->
+            <!-- Send Document button -->
             <button class="send-doc-btn"
-                    data-applicant-id="${user.applicant_id}"
-                    data-fullname="${user.fullname}"
+                    data-applicant-id="${user.applicant_id || ''}"
+                    data-fullname="${user.fullname || ''}"
                     data-queue-type="${user.queue_type || 'Document'}"
                     data-email="${user.email || ''}">
               Send Document
             </button>
-
-
+          </div>
         </div>
 
         ${hasNotification ? `
@@ -728,22 +727,20 @@ function renderScans(scans) {
     `;
 
     scanList.appendChild(card);
+
+    // ✅ Attach Send Document listener immediately
+    const sendBtn = card.querySelector(".send-doc-btn");
+    if (sendBtn) {
+      sendBtn.addEventListener("click", function() {
+        openSendDocumentModal(
+          this.dataset.applicantId,
+          this.dataset.fullname,
+          this.dataset.queueType || "Document",
+          this.dataset.email || ""
+        );
+      });
+    }
   });
-}
-
-
-// Toggle Send Document form
-function toggleSendDocumentForm(entryId) {
-  const container = document.getElementById(`sendDocContainer-${entryId}`);
-  container.style.display = container.style.display === 'none' ? 'block' : 'none';
-}
-
-
-// Download scans (physical proof of all who scanned)
-function downloadScans(qrId) {
-  if (!qrId && !currentQRId) return;
-  const targetId = qrId || currentQRId;
-  window.location.href = `/download_scans/${targetId}`;
 }
 
 // Filter scans by search
@@ -757,19 +754,10 @@ function filterScans() {
     (user.admin_status && user.admin_status.toLowerCase().includes(query))
   );
 
-    document.querySelectorAll(".send-doc-btn").forEach(btn => {
-      btn.addEventListener("click", function() {
-        const applicantId = this.dataset.applicantId;
-        const userName = this.dataset.fullname;
-        const documenttype = this.dataset.queueType;
-        const email = this.dataset.email;
-
-        openSendDocumentModal(applicantId, userName, documenttype, email);
-      });
-    });
-
+  // ✅ Render filtered scans (listeners attached automatically inside renderScans)
   renderScans(filtered);
 }
+
 </script>
 
 
