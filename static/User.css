@@ -13,7 +13,7 @@
 }
 
 html {
-  font-size: clamp(16px, 0.35vw + 14px, 18px);
+  font-size: 16px;
 }
 
 img,
@@ -1207,3 +1207,4 @@ html {
     max-width: min(760px, 92vw);
   }
 }
+
