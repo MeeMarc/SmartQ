@@ -1057,8 +1057,10 @@ def get_qr_scans(qr_id):
         cur.execute(
             """
             SELECT id, fullname, phone, email, purpose, status, admin_status, created_at, reference_number,
-                   id_doc_path, req_doc_path, signature_path, applicant_id, notification_message
+                id_doc_path, req_doc_path, signature_path, applicant_id, notification_message,
+                queue_type
             FROM queue_entries
+
             WHERE queue_slug = %s AND queue_number = %s
             ORDER BY 
                 CASE 
@@ -1119,6 +1121,7 @@ def get_qr_scans(qr_id):
                 "scanned_at": row[7].strftime('%Y-%m-%d %I:%M %p') if row[7] else "",
                 "reference_number": row[8] or "",
                 "applicant_id": row[12] or "",
+                "queue_type": row[14] or "Document",
                 "id_doc_url": id_doc_url,
                 "req_doc_url": req_doc_url,
                 "signature_url": signature_url,
