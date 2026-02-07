@@ -250,7 +250,7 @@ function acceptEntry(entryId) {
       .then(data => {
         if (data.status === 'success') {
 
-          emailjs.send("SERVICE_ID", "TEMPLATE_ID", {
+          emailjs.send("service_t9g8qmw", "template_hnn5wpo", {
             user_name: data.user_name,
             created_at: data.created_at,
             application_status: "✅ Your application has been ACCEPTED.",
@@ -291,7 +291,7 @@ function rejectEntry(entryId) {
       .then(data => {
         if (data.status === 'success') {
 
-          emailjs.send("SERVICE_ID", "TEMPLATE_ID", {
+          emailjs.send("service_t9g8qmw", "template_hnn5wpo", {
             user_name: data.user_name,
             created_at: data.created_at,
             application_status: "❌ Your application has been REJECTED.",
@@ -714,23 +714,14 @@ function renderScans(scans) {
             <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
             ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})">View Docs</button>` : ''}
             ${showAdminActions ? `
-              <button class="accept-btn"
-                onclick="acceptEntry(
-                  ${user.id},
-                  '${user.fullname}',
-                  '${user.created_at}'
-                )">
+              <button class="accept-btn" onclick="acceptEntry(${user.id})">
                 Accept
               </button>
 
-              <button class="reject-btn"
-                onclick="rejectEntry(
-                  ${user.id},
-                  '${user.fullname}',
-                  '${user.created_at}'
-                )">
+              <button class="reject-btn" onclick="rejectEntry(${user.id})">
                 Reject
               </button>
+
 
             ` : ''}
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
