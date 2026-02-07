@@ -1297,7 +1297,7 @@ def accept_queue_entry(entry_id):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT full_name, created_at
+            SELECT user_name, created_at
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -1343,7 +1343,7 @@ def reject_queue_entry(entry_id):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT full_name, created_at
+            SELECT user_name, created_at
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -1373,6 +1373,8 @@ def reject_queue_entry(entry_id):
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
 
 @app.route('/view_entry_documents/<int:entry_id>', methods=['GET'])
 def view_entry_documents(entry_id):
