@@ -126,6 +126,19 @@
 
   let qrList = JSON.parse(localStorage.getItem("queues")) || [];
 
+function formatDateTime(value) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
   /* ================= CONFIRMATION MODAL ================= */
   function showConfirmation(title, message, onConfirm) {
     const modal = document.getElementById('confirmationModal');
@@ -252,10 +265,7 @@
       if (data.error) throw new Error(data.error);
 
       const now = new Date();
-      const formattedDate = now.toLocaleDateString('en-US', {
-        year: 'numeric', month: 'long', day: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
+      const formattedDate = formatDateTime(now);
 
       const newQR = {
         type,

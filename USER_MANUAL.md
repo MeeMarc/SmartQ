@@ -95,11 +95,11 @@ Optional Fields:
 
 After successful registration, you'll see your digital ticket with:
 
-- ✅ **Ticket Confirmed!** message
+- **Ticket Status** message (Pending Review, Accepted, Rejected, Completed, Cancelled, Rescheduled)
 - **Queue Number** - Your position reference (e.g., Queue #1)
 - **Ticket Reference** - Unique identifier for your registration
 - **Ticket QR Code** - Show this code to staff so they can scan and view your ticket proof page
-- **Status Badge** - Current status (Waiting, Completed, Cancelled, Rescheduled)
+- **Status Badge** - Current status (Pending Review, Accepted, Rejected, Completed, Cancelled, Rescheduled)
 - **Ticket Holder Name** - Your full name
 - **Important Instructions** - What to bring and when to proceed
 
@@ -189,10 +189,12 @@ Your ticket will display one of these status badges:
 
 | Status | Color | Meaning |
 |--------|-------|---------|
-| **Waiting** | 🟡 Yellow | You're in the queue, waiting for your turn |
-| **Completed** | 🟢 Green | Your service has been completed |
-| **Cancelled** | 🔴 Red | Your registration was cancelled |
-| **Rescheduled** | 🔵 Blue | You've been moved to another queue |
+| **Pending Review** | ?? Yellow | Your registration is awaiting admin review |
+| **Accepted** | ?? Green | Your registration has been approved |
+| **Rejected** | ?? Red | Your registration was not approved |
+| **Completed** | ?? Green | Your service has been completed |
+| **Cancelled** | ?? Red | Your registration was cancelled |
+| **Rescheduled** | ?? Blue | You've been moved to another queue |
 
 ![Screenshot: Status Badges]
 *[Insert screenshot showing all different status badges]*
@@ -433,7 +435,7 @@ Each entry shows:
 - **Phone Number** - Contact information
 - **Purpose** - Reason for visit (if provided)
 - **Scanned At** - Registration timestamp
-- **Status Badge** - Current status (color-coded)
+- **Status Badge** - Review/queue status (Pending Review, Accepted, Rejected, Completed, Cancelled, Rescheduled)
 - **Action Buttons** - Available actions based on status
 
 ![Screenshot: Entry Card]
@@ -561,7 +563,7 @@ Can't wait for users to scan? Add them directly!
 #### Issue: Can't Reschedule
 **Possible Causes:**
 - Already rescheduled within the last 24 hours
-- Ticket status is not "Waiting"
+- Ticket status is not "Pending Review"
 
 **Solution:**
 - Wait 24 hours from your last reschedule
