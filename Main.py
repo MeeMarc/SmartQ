@@ -558,6 +558,39 @@ def get_queue_entry_count(queue_slug, queue_number):
         print(f"Error counting queue entries: {e}")
         return 0
 
+DISPLAY_STATUS_LABELS = {
+    "waiting": "Waiting",
+    "pending": "Pending Review",
+    "accepted": "Accepted",
+    "rejected": "Rejected",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "rescheduled": "Rescheduled",
+}
+
+DISPLAY_STATUS_CARD_CLASS = {
+    "accepted": "completed",
+    "completed": "completed",
+    "rejected": "cancelled",
+    "cancelled": "cancelled",
+    "pending": "waiting",
+    "waiting": "waiting",
+    "rescheduled": "waiting",
+}
+
+def derive_display_status(queue_status, admin_status):
+    """Derive a single display status from queue + admin state."""
+    status_value = (queue_status or "waiting").strip().lower()
+    admin_value = (admin_status or "pending").strip().lower()
+
+    if status_value in {"completed", "cancelled", "rescheduled"}:
+        return status_value
+    if admin_value == "rejected":
+        return "rejected"
+    if admin_value == "accepted":
+        return "accepted"
+    return "pending"
+
 def check_existing_entry(queue_slug, queue_number, phone):
     """Check if a user with this phone number already has an entry in this queue."""
     try:
@@ -2542,6 +2575,11 @@ def queue_waiting(queue_slug, queue_number, entry_id):
 
         queue_type = entry["queue_type"] or queue_type
         queue_purpose = entry["queue_purpose"] or queue_purpose
+        display_status_key = derive_display_status(entry["status"], entry["admin_status"])
+        display_status_label = DISPLAY_STATUS_LABELS.get(display_status_key, "Waiting")
+        display_status_class = f"status-{display_status_key}"
+        card_status_class = DISPLAY_STATUS_CARD_CLASS.get(display_status_key, "waiting")
+        actions_allowed = display_status_key == "pending"
         ticket_reference = entry["reference_number"] or generate_ticket_reference(queue_slug, entry["id"])
         ticket_qr_url = url_for('ticket_qr', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
         ticket_proof_url = url_for('ticket_proof', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
@@ -2575,6 +2613,11 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             queue_number=queue_number,
             queue_slug=queue_slug,
             entry=entry,
+            display_status_key=display_status_key,
+            display_status_label=display_status_label,
+            display_status_class=display_status_class,
+            card_status_class=card_status_class,
+            actions_allowed=actions_allowed,
             ticket_reference=ticket_reference,
             ticket_qr_url=ticket_qr_url,
             ticket_proof_url=ticket_proof_url,
@@ -2640,6 +2683,10 @@ def ticket_proof(queue_slug, queue_number, entry_id):
 
         queue_type = entry["queue_type"] or queue_type
         queue_purpose = entry["queue_purpose"] or queue_purpose
+        display_status_key = derive_display_status(entry["status"], entry["admin_status"])
+        display_status_label = DISPLAY_STATUS_LABELS.get(display_status_key, "Waiting")
+        display_status_class = f"status-{display_status_key}"
+        card_status_class = DISPLAY_STATUS_CARD_CLASS.get(display_status_key, "waiting")
         ticket_reference = entry["reference_number"] or generate_ticket_reference(queue_slug, entry["id"])
 
         return render_template(
@@ -2649,6 +2696,10 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             queue_number=queue_number,
             queue_slug=queue_slug,
             entry=entry,
+            display_status_key=display_status_key,
+            display_status_label=display_status_label,
+            display_status_class=display_status_class,
+            card_status_class=card_status_class,
             ticket_reference=ticket_reference,
         )
     except Exception as e:

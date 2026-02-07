@@ -14,7 +14,7 @@
     </nav>
   </header>
 
-  <section class="queue-card {% if entry.status == 'completed' %}completed{% elif entry.status == 'cancelled' %}cancelled{% else %}waiting{% endif %}">
+  <section class="queue-card {{ card_status_class }}">
     <h3>Ticket Proof</h3>
     <div class="number">Queue #{{ queue_number }}</div>
     <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
@@ -23,10 +23,10 @@
     {% endif %}
     <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
     <p>Ticket Reference: <strong>{{ ticket_reference }}</strong></p>
-    <p class="status-display">Status: <span class="status-badge status-{{ entry.status|default('waiting') }}">{{ entry.status|default('waiting')|capitalize }}</span></p>
+    <p class="status-display">Status: <span class="status-badge {{ display_status_class }}">{{ display_status_label }}</span></p>
     <p>Applied: <strong>{{ entry.created_at.strftime('%Y-%m-%d %I:%M %p') if entry.created_at else 'N/A' }}</strong></p>
 
-    {% if entry.admin_status %}
+    {% if entry.notification_message %}
     <div style="margin: 15px 0; padding: 12px; border-radius: 8px; {% if entry.admin_status == 'accepted' %}background: #d4edda; border: 2px solid #28a745;{% elif entry.admin_status == 'rejected' %}background: #f8d7da; border: 2px solid #dc3545;{% else %}background: #fff3cd; border: 2px solid #ffc107;{% endif %}">
       <p style="margin: 0; font-weight: 600; color: {% if entry.admin_status == 'accepted' %}#155724{% elif entry.admin_status == 'rejected' %}#721c24{% else %}#856404{% endif %};">
         {% if entry.admin_status == 'accepted' %}
@@ -37,11 +37,9 @@
           <strong>Application Pending Review</strong>
         {% endif %}
       </p>
-      {% if entry.notification_message %}
       <p style="margin: 8px 0 0 0; color: {% if entry.admin_status == 'accepted' %}#155724{% elif entry.admin_status == 'rejected' %}#721c24{% else %}#856404{% endif %};">
         {{ entry.notification_message }}
       </p>
-      {% endif %}
     </div>
     {% endif %}
 

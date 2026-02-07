@@ -142,6 +142,46 @@ const notificationForm = document.getElementById("notificationForm");
 let currentScans = [];
 let currentQRId = null;
 
+function formatDateTime(value) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function normalizeStatus(value, fallback) {
+  const normalized = (value || "").toString().trim().toLowerCase();
+  return normalized || (fallback || "");
+}
+
+function getDisplayStatus(queueStatus, adminStatus) {
+  const normalizedQueue = normalizeStatus(queueStatus, 'waiting');
+  const normalizedAdmin = normalizeStatus(adminStatus, 'pending');
+
+  if (['completed', 'cancelled', 'rescheduled'].includes(normalizedQueue)) {
+    return {
+      text: normalizedQueue.charAt(0).toUpperCase() + normalizedQueue.slice(1),
+      className: `status-${normalizedQueue}`
+    };
+  }
+
+  if (normalizedAdmin === 'accepted') {
+    return { text: 'Accepted', className: 'status-accepted' };
+  }
+
+  if (normalizedAdmin === 'rejected') {
+    return { text: 'Rejected', className: 'status-rejected' };
+  }
+
+  return { text: 'Pending Review', className: 'status-pending' };
+}
+
 // Custom Confirmation Dialog
 function showConfirmation(title, message, onConfirm) {
   const modal = document.getElementById('confirmationModal');
@@ -361,22 +401,12 @@ function fetchQRList() {
       activeQRs.forEach(qr => {
         const box = document.createElement("div");
         box.className = "qr-box";
-            
         // Format date from database (YYYY-MM-DD HH:MM:SS) to readable format
         let formattedDate = 'N/A';
         if (qr.created_at && qr.created_at !== 'N/A') {
-          try {
-            const date = new Date(qr.created_at);
-            formattedDate = date.toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-          } catch (e) {
-            formattedDate = qr.created_at; // Fallback to original if parsing fails
-          }
+          const formatted = formatDateTime(qr.created_at);
+          formattedDate = formatted || qr.created_at;
+        }
         }
         
         box.innerHTML = `
@@ -693,7 +723,7 @@ function viewScans(qrId) {
             <button onclick="downloadScans(${qrId})" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">⬇ Download Scans</button>
           </div>
         </div>
-        <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, status, or admin status">
+        <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, or status">
         <div class="scan-list" id="scanList"></div>
       `;
       document.getElementById("scanSearch").addEventListener("input", filterScans);
@@ -718,20 +748,14 @@ function renderScans(scans) {
     const phone = user.phone ? ` • ${user.phone}` : "";
     const purpose = user.purpose ? ` • ${user.purpose}` : "";
     const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
-    const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
-    const statusClass = user.status === 'completed' ? 'status-completed' :
-                        user.status === 'cancelled' ? 'status-cancelled' :
-                        user.status === 'rescheduled' ? 'status-rescheduled' : 'status-waiting';
+    const queueStatus = normalizeStatus(user.status, 'waiting');
+    const adminStatus = normalizeStatus(user.admin_status, 'pending');
+    const displayStatus = getDisplayStatus(queueStatus, adminStatus);
 
-    const adminStatus = user.admin_status || 'pending';
-    const adminStatusText = adminStatus.charAt(0).toUpperCase() + adminStatus.slice(1);
-    const adminStatusClass = adminStatus === 'accepted' ? 'status-accepted' :
-                             adminStatus === 'rejected' ? 'status-rejected' : 'status-pending';
-
-    const showAdminActions = adminStatus === 'pending' && !['completed','cancelled','rescheduled'].includes(user.status);
+    const showAdminActions = adminStatus === 'pending' && !['completed','cancelled','rescheduled'].includes(queueStatus);
     const hasDocuments = user.has_documents || (user.id_doc_url || user.req_doc_url || user.signature_url);
     const hasNotification = user.notification_message && user.notification_message.trim() !== '';
-    const canMarkDone = adminStatus !== 'pending' && !['completed','cancelled','rescheduled'].includes(user.status);
+    const canMarkDone = adminStatus !== 'pending' && !['completed','cancelled','rescheduled'].includes(queueStatus);
 
     card.innerHTML = `
       <div>
@@ -740,8 +764,7 @@ function renderScans(scans) {
             <strong>${user.fullname}</strong>${phone}${purpose}${scannedAt}
           </div>
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <span class="status-badge ${statusClass}">${status}</span>
-            <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
+            <span class="status-badge ${displayStatus.className}">${displayStatus.text}</span>
             ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})">View Docs</button>` : ''}
             ${showAdminActions ? `
               <button class="accept-btn"
@@ -806,15 +829,19 @@ if (sendBtn) {
 // Filter scans by search
 function filterScans() {
   const query = document.getElementById("scanSearch").value.toLowerCase();
-  const filtered = currentScans.filter(user =>
-    (user.fullname && user.fullname.toLowerCase().includes(query)) ||
-    (user.phone && user.phone.toLowerCase().includes(query)) ||
-    (user.purpose && user.purpose.toLowerCase().includes(query)) ||
-    (user.status && user.status.toLowerCase().includes(query)) ||
-    (user.admin_status && user.admin_status.toLowerCase().includes(query))
-  );
+  const filtered = currentScans.filter(user => {
+    const queueStatus = normalizeStatus(user.status, 'waiting');
+    const adminStatus = normalizeStatus(user.admin_status, 'pending');
+    const displayStatus = getDisplayStatus(queueStatus, adminStatus);
+    return (
+      (user.fullname && user.fullname.toLowerCase().includes(query)) ||
+      (user.phone && user.phone.toLowerCase().includes(query)) ||
+      (user.purpose && user.purpose.toLowerCase().includes(query)) ||
+      (displayStatus.text && displayStatus.text.toLowerCase().includes(query))
+    );
+  });
 
-  // ✅ Render filtered scans (listeners attached automatically inside renderScans)
+  // Render filtered scans (listeners attached automatically inside renderScans)
   renderScans(filtered);
 }
 
