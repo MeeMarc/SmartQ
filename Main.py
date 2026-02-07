@@ -1296,8 +1296,9 @@ def accept_queue_entry(entry_id):
         conn = get_db_connection()
         cur = conn.cursor()
 
+        # ✅ FIXED COLUMN NAME
         cur.execute("""
-            SELECT user_name, created_at
+            SELECT fullname, created_at
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -1342,8 +1343,9 @@ def reject_queue_entry(entry_id):
         conn = get_db_connection()
         cur = conn.cursor()
 
+        # ✅ FIXED COLUMN NAME
         cur.execute("""
-            SELECT user_name, created_at
+            SELECT fullname, created_at
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -1366,7 +1368,7 @@ def reject_queue_entry(entry_id):
         conn.close()
 
         return jsonify({
-            "status": "success",   # ✅ YES, still success
+            "status": "success",
             "user_name": user_name,
             "created_at": created_at.strftime('%B %d, %Y')
         })
