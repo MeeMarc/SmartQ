@@ -102,21 +102,16 @@
 </div>
 
 
-<!-- Modal for Sending Notifications -->
+<!-- Modal for Sending Notifications (only to selected scanned entries, no "all") -->
 <div class="modal" id="notificationModal">
   <div class="modal-content" style="max-width: 600px;">
     <span class="close-modal" onclick="closeNotificationModal()">×</span>
     <h3>Send Notification</h3>
+    <p style="color: #666; font-size: 0.9rem; margin-bottom: 12px;">Select which scanned entries to notify. Only selected entries will receive the notification.</p>
     <form id="notificationForm">
       <input type="hidden" id="notificationQRId">
       
-      <label for="notificationType">Notify:</label>
-      <select id="notificationType" required onchange="toggleEntrySelection()">
-        <option value="all">All entries in this queue</option>
-        <option value="selected">Selected entries only</option>
-      </select>
-      
-      <div id="entrySelectionContainer" style="display: none; margin-top: 15px; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 6px;">
+      <div id="entrySelectionContainer" style="margin-top: 10px; max-height: 280px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 6px;">
         <p style="margin: 0 0 10px 0; font-weight: 600;">Select entries to notify:</p>
         <div id="entryCheckboxes"></div>
       </div>
@@ -504,20 +499,12 @@ function openNotificationModal(qrId) {
   notificationModal.style.display = "flex";
   document.getElementById("notificationQRId").value = qrId;
   document.getElementById("notificationMessage").value = "";
-  document.getElementById("notificationType").value = "all";
-  toggleEntrySelection();
   populateEntryCheckboxes();
 }
 
 function closeNotificationModal() {
   notificationModal.style.display = "none";
   notificationForm.reset();
-}
-
-function toggleEntrySelection() {
-  const type = document.getElementById("notificationType").value;
-  const container = document.getElementById("entrySelectionContainer");
-  container.style.display = type === "selected" ? "block" : "none";
 }
 
 function populateEntryCheckboxes() {
@@ -542,28 +529,24 @@ function populateEntryCheckboxes() {
   });
 }
 
-// Handle notification form submission
+// Handle notification form submission (only selected entries; no "notify all")
 notificationForm.addEventListener("submit", function(e) {
   e.preventDefault();
   
   const qrId = document.getElementById("notificationQRId").value;
   const message = document.getElementById("notificationMessage").value.trim();
-  const notifyType = document.getElementById("notificationType").value;
   
   if (!message) {
     showAlert("Please enter a notification message.", "error");
     return;
   }
   
-  let entryIds = [];
-  if (notifyType === "selected") {
-    const checkboxes = document.querySelectorAll("#entryCheckboxes input[type='checkbox']:checked");
-    entryIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
-    
-    if (entryIds.length === 0) {
-      showAlert("Please select at least one entry to notify.", "error");
-      return;
-    }
+  const checkboxes = document.querySelectorAll("#entryCheckboxes input[type='checkbox']:checked");
+  const entryIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+  
+  if (entryIds.length === 0) {
+    showAlert("Please select at least one entry to notify.", "error");
+    return;
   }
   
   fetch("/send_notification", {
@@ -664,7 +647,7 @@ candidateForm.addEventListener("submit", function(e) {
   });
 });
 
-// View scans for a specific QR
+// View scans for a specific QR — focus right panel on the scan list (mga nag-scan)
 function viewScans(qrId) {
   currentQRId = qrId;
   fetch(`/get_qr_scans/${qrId}`)
@@ -684,6 +667,11 @@ function viewScans(qrId) {
       `;
       document.getElementById("scanSearch").addEventListener("input", filterScans);
       renderScans(currentScans);
+      // Focus the right panel (scan list) so view is on "mga nag-scan"
+      qrDetailContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (qrDetailContainer.querySelector("#scanList")) {
+        qrDetailContainer.querySelector("#scanList").focus({ preventScroll: true });
+      }
     });
 }
 

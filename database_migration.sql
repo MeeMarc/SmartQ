@@ -36,3 +36,14 @@ FROM information_schema.columns
 WHERE table_name = 'temp_qr' 
 ORDER BY ordinal_position;
 
+-- Queue form config: admin can enable/disable fields in registration form
+ALTER TABLE qr_history ADD COLUMN IF NOT EXISTS require_supporting_doc BOOLEAN DEFAULT TRUE;
+ALTER TABLE qr_history ADD COLUMN IF NOT EXISTS require_valid_id BOOLEAN DEFAULT TRUE;
+ALTER TABLE qr_history ADD COLUMN IF NOT EXISTS require_student_id BOOLEAN DEFAULT TRUE;
+ALTER TABLE qr_history ADD COLUMN IF NOT EXISTS esign_required BOOLEAN DEFAULT TRUE;
+
+ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS require_supporting_doc BOOLEAN DEFAULT TRUE;
+ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS require_valid_id BOOLEAN DEFAULT TRUE;
+ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS require_student_id BOOLEAN DEFAULT TRUE;
+ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS esign_required BOOLEAN DEFAULT TRUE;
+

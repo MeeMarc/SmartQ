@@ -68,12 +68,31 @@
             <option value="Digital Copy">Digital Copy</option>
           </select>
 
+          <label for="studentId">Require Student / Client ID?</label>
+          <select id="studentId">
+            <option value="Yes" selected>Yes</option>
+            <option value="No">No</option>
+          </select>
+
+          <label for="validId">Require Upload Valid ID (JPG, PNG, PDF, max 5MB)?</label>
+          <select id="validId">
+            <option value="Yes" selected>Yes</option>
+            <option value="No">No</option>
+          </select>
+
+          <label for="supportingDoc">Require Supporting Document (JPG, PNG, PDF, max 5MB)?</label>
+          <select id="supportingDoc">
+            <option value="Yes" selected>Yes</option>
+            <option value="No">No</option>
+          </select>
+
           <label for="esignRequired">E-Signature Required?</label>
           <select id="esignRequired" required>
             <option value="">-- Select --</option>
             <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
+          <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">When set to No, the field is hidden in the registration form.</p>
         </div>
 
         <!-- ========== ACTION BUTTONS ========== -->
@@ -190,6 +209,9 @@
         <p><strong>Processing Time:</strong> ${item.processingDays} day(s)</p>
         <p><strong>Processing Method:</strong> ${item.processingMethod}</p>
         <p><strong>Release Type:</strong> ${item.releaseType}</p>
+        <p><strong>Student/Client ID:</strong> ${item.studentId || 'Yes'}</p>
+        <p><strong>Valid ID:</strong> ${item.validId || 'Yes'}</p>
+        <p><strong>Supporting Doc:</strong> ${item.supportingDoc || 'Yes'}</p>
         <p><strong>E-Signature Required:</strong> ${item.esignRequired}</p>
 
         <p><strong>Created:</strong> ${item.created_at}</p>
@@ -230,6 +252,9 @@
     const processingMethod = document.getElementById("processingMethod").value;
     const releaseType = document.getElementById("releaseType").value;
     const esignRequired = document.getElementById("esignRequired").value;
+    const studentId = document.getElementById("studentId").value;
+    const validId = document.getElementById("validId").value;
+    const supportingDoc = document.getElementById("supportingDoc").value;
     // Validate required fields
     if (!type || !purpose) {
       showAlert("Please fill in Queue Type and Purpose fields.", "error");
@@ -241,6 +266,10 @@
     formData.append('type', type);
     formData.append('purpose', purpose);
     if (processingDays) formData.append('processingDays', processingDays);
+    formData.append('studentId', studentId);
+    formData.append('validId', validId);
+    formData.append('supportingDoc', supportingDoc);
+    formData.append('esignRequired', esignRequired);
 
     fetch("/generate_qr_db", {
       method: "POST",
@@ -264,6 +293,9 @@
         processingMethod,
         releaseType,
         esignRequired,
+        studentId,
+        validId,
+        supportingDoc,
         link: data.queue_link,
         queueNumber: data.queue_number || 1,
         qrId: data.qr_id,

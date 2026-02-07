@@ -446,6 +446,73 @@ def ensure_queue_limit_column(conn):
         print(f"Error ensuring queue_limit column: {e}")
         # Don't raise - this is not critical
 
+def ensure_queue_form_config_columns(conn):
+    """Ensure queue form config columns exist in qr_history and temp_qr (enable/disable registration fields)."""
+    columns = [
+        "require_supporting_doc BOOLEAN DEFAULT TRUE",
+        "require_valid_id BOOLEAN DEFAULT TRUE",
+        "require_student_id BOOLEAN DEFAULT TRUE",
+        "esign_required BOOLEAN DEFAULT TRUE",
+    ]
+    try:
+        cur = conn.cursor()
+        for col in columns:
+            for table in ("qr_history", "temp_qr"):
+                try:
+                    cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col}")
+                    conn.commit()
+                except Exception as e:
+                    print(f"Note: Could not add {col} to {table}: {e}")
+                    conn.rollback()
+        cur.close()
+    except Exception as e:
+        print(f"Error ensuring queue form config columns: {e}")
+
+def get_queue_config(queue_slug, queue_number):
+    """Get registration form config for a queue (which fields are enabled). Returns dict with require_* booleans."""
+    default = {
+        "require_supporting_doc": True,
+        "require_valid_id": True,
+        "require_student_id": True,
+        "esign_required": True,
+    }
+    try:
+        base = get_public_base_url()
+        queue_link = f"{base}/queue/{queue_slug}/{queue_number}"
+    except Exception:
+        return default
+    conn = get_db_connection()
+    if conn is None:
+        return default
+    try:
+        ensure_queue_form_config_columns(conn)
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT require_supporting_doc, require_valid_id, require_student_id, esign_required
+               FROM qr_history WHERE queue_link = %s""",
+            (queue_link,),
+        )
+        row = cur.fetchone()
+        if not row:
+            cur.execute(
+                """SELECT require_supporting_doc, require_valid_id, require_student_id, esign_required
+                   FROM temp_qr WHERE queue_link = %s""",
+                (queue_link,),
+            )
+            row = cur.fetchone()
+        cur.close()
+        conn.close()
+        if row:
+            return {
+                "require_supporting_doc": bool(row[0]) if row[0] is not None else True,
+                "require_valid_id": bool(row[1]) if row[1] is not None else True,
+                "require_student_id": bool(row[2]) if row[2] is not None else True,
+                "esign_required": bool(row[3]) if row[3] is not None else True,
+            }
+    except Exception as e:
+        print(f"Error get_queue_config: {e}")
+    return default
+
 def resolve_queue_metadata(queue_slug, queue_number):
     """Resolve queue type and purpose based on slug and sequence number."""
     default_type = queue_slug.replace('-', ' ').title()
@@ -594,9 +661,10 @@ def generate_ticket_reference(queue_slug, entry_id):
     token = hashlib.sha1(token_src.encode("utf-8")).hexdigest()[:6].upper()
     return f"{base}-{token}"
 
-def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None, 
-             avg_service_time=None, morning_start=None, morning_end=None, 
-             afternoon_start=None, afternoon_end=None, staff_count=None, queue_limit=None):
+def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None,
+             avg_service_time=None, morning_start=None, morning_end=None,
+             afternoon_start=None, afternoon_end=None, staff_count=None, queue_limit=None,
+             require_supporting_doc=True, require_valid_id=True, require_student_id=True, esign_required=True):
     """Save QR to database and return the inserted ID."""
     try:
         print(f"save_qr called with: type='{queue_type}', purpose='{queue_purpose}', link='{queue_link}', created_by='{created_by}', queue_limit={queue_limit}")
@@ -604,14 +672,14 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
         if conn is None:
             print("ERROR: Database connection failed in save_qr")
             return None
-        
+
         print("Database connection successful")
-        
-        # Ensure queue_limit column exists
+
         ensure_queue_limit_column(conn)
-        
+        ensure_queue_form_config_columns(conn)
+
         cur = conn.cursor()
-        
+
         # Try with RETURNING first (PostgreSQL)
         try:
             print("Attempting INSERT with RETURNING...")
@@ -619,16 +687,17 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
                 """INSERT INTO qr_history 
                 (queue_type, queue_purpose, queue_link, created_by, 
                  avg_service_time, morning_start, morning_end, 
-                 afternoon_start, afternoon_end, staff_count, queue_limit) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                 afternoon_start, afternoon_end, staff_count, queue_limit,
+                 require_supporting_doc, require_valid_id, require_student_id, esign_required) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
                 (queue_type, queue_purpose, queue_link, created_by,
                  avg_service_time, morning_start, morning_end,
-                 afternoon_start, afternoon_end, staff_count, queue_limit)
+                 afternoon_start, afternoon_end, staff_count, queue_limit,
+                 require_supporting_doc, require_valid_id, require_student_id, esign_required)
             )
             qr_id = cur.fetchone()[0]
             print(f"INSERT successful with RETURNING, got ID: {qr_id}")
         except Exception as ret_error:
-            # If RETURNING doesn't work, try alternative approach
             print(f"RETURNING failed, trying alternative: {ret_error}")
             import traceback
             traceback.print_exc()
@@ -637,13 +706,14 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
                     """INSERT INTO qr_history 
                     (queue_type, queue_purpose, queue_link, created_by,
                      avg_service_time, morning_start, morning_end,
-                     afternoon_start, afternoon_end, staff_count, queue_limit) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                     afternoon_start, afternoon_end, staff_count, queue_limit,
+                     require_supporting_doc, require_valid_id, require_student_id, esign_required) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (queue_type, queue_purpose, queue_link, created_by,
                      avg_service_time, morning_start, morning_end,
-                     afternoon_start, afternoon_end, staff_count, queue_limit)
+                     afternoon_start, afternoon_end, staff_count, queue_limit,
+                     require_supporting_doc, require_valid_id, require_student_id, esign_required)
                 )
-                # Get the last inserted ID
                 cur.execute("SELECT LASTVAL()")
                 qr_id = cur.fetchone()[0]
                 print(f"INSERT successful with LASTVAL(), got ID: {qr_id}")
@@ -655,7 +725,7 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
                 cur.close()
                 conn.close()
                 return None
-        
+
         # Also insert into temp_qr (if table exists, ignore if it doesn't)
         try:
             print("Inserting into temp_qr...")
@@ -663,16 +733,17 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
                 """INSERT INTO temp_qr 
                 (queue_type, queue_purpose, queue_link, created_by,
                  avg_service_time, morning_start, morning_end,
-                 afternoon_start, afternoon_end, staff_count, queue_limit) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                 afternoon_start, afternoon_end, staff_count, queue_limit,
+                 require_supporting_doc, require_valid_id, require_student_id, esign_required) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (queue_type, queue_purpose, queue_link, created_by,
                  avg_service_time, morning_start, morning_end,
-                 afternoon_start, afternoon_end, staff_count, queue_limit)
+                 afternoon_start, afternoon_end, staff_count, queue_limit,
+                 require_supporting_doc, require_valid_id, require_student_id, esign_required)
             )
             print("temp_qr insert successful")
         except Exception as temp_error:
             print(f"Note: temp_qr insert failed (this is okay): {temp_error}")
-            # Continue anyway, qr_history is the important one
         
         print("Committing transaction...")
         conn.commit()
@@ -706,7 +777,17 @@ def generate_qr_db():
         afternoon_end = request.form.get('afternoonEnd', '').strip()
         staff_count = request.form.get('staffCount', '').strip()
         queue_limit = request.form.get('queueLimit', '').strip()
-        
+        # Registration form field toggles (Yes/No from form; default True if missing)
+        def form_bool(key, default=True):
+            v = request.form.get(key, '').strip().lower()
+            if v in ('yes', '1', 'true', 'on'): return True
+            if v in ('no', '0', 'false'): return False
+            return default
+        require_supporting_doc = form_bool('supportingDoc', True)
+        require_valid_id = form_bool('validId', True)
+        require_student_id = form_bool('studentId', True)
+        esign_required = form_bool('esignRequired', True)
+
         print(f"Queue Type: '{queue_type}', Purpose: '{queue_purpose}', Created By: '{created_by}'")
         print(f"Avg Service Time: {avg_service_time}, Staff Count: {staff_count}, Queue Limit: {queue_limit}")
         print(f"Morning: {morning_start} - {morning_end}, Afternoon: {afternoon_start} - {afternoon_end}")
@@ -756,7 +837,9 @@ def generate_qr_db():
         print("Saving QR to database...")
         qr_id = save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number,
                        avg_service_time, morning_start or None, morning_end or None,
-                       afternoon_start or None, afternoon_end or None, staff_count, queue_limit)
+                       afternoon_start or None, afternoon_end or None, staff_count, queue_limit,
+                       require_supporting_doc=require_supporting_doc, require_valid_id=require_valid_id,
+                       require_student_id=require_student_id, esign_required=esign_required)
         print(f"QR saved with ID: {qr_id}")
         
         # Auto-enroll pending reschedules for this queue type
@@ -2234,12 +2317,13 @@ def user_page():
 def queue_page(queue_slug, queue_number):
     """Dynamic route for auto-generated queue pages."""
     queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
-    
+    queue_config = get_queue_config(queue_slug, queue_number)
+
     # Get queue limit and current count
     queue_limit = get_queue_limit(queue_slug, queue_number)
     current_count = get_queue_entry_count(queue_slug, queue_number)
     queue_full = False
-    
+
     if queue_limit is not None and queue_limit > 0:
         queue_full = current_count >= queue_limit
 
@@ -2292,8 +2376,11 @@ def queue_page(queue_slug, queue_number):
         
         purpose = (request.form.get('purpose') or '').strip()
 
-        if not lastname or not firstname or not phone or not applicant_id or not email:
-            flash("Please provide last name, first name, ID, email, and phone number to join the queue.", "error")
+        if not lastname or not firstname or not phone or not email:
+            flash("Please provide last name, first name, email, and phone number to join the queue.", "error")
+            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+        if queue_config.get("require_student_id", True) and not applicant_id:
+            flash("Please provide Student/Client ID to join the queue.", "error")
             return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
         if not declaration:
@@ -2339,6 +2426,11 @@ def queue_page(queue_slug, queue_number):
                     sig_bytes = None
             except Exception:
                 sig_bytes = None
+        else:
+            sig_bytes = None
+        if queue_config.get("esign_required", True) and not sig_bytes:
+            flash("Please provide your e-signature before submitting.", "error")
+            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
         conn = None
         cur = None
@@ -2447,6 +2539,10 @@ def queue_page(queue_slug, queue_number):
         queue_full=queue_full,
         queue_limit=queue_limit,
         current_count=current_count,
+        queue_require_student_id=queue_config.get("require_student_id", True),
+        queue_require_valid_id=queue_config.get("require_valid_id", True),
+        queue_require_supporting_doc=queue_config.get("require_supporting_doc", True),
+        queue_esign_required=queue_config.get("esign_required", True),
     )
 
 

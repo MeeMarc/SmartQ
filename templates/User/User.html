@@ -201,30 +201,39 @@
       <textarea id="purpose" name="purpose" rows="4" placeholder="Optional"></textarea>
     </div>
 
-    <!-- Applicant identification & uploads -->
-    <div class="form-row">
+    <!-- Applicant identification & uploads (shown/hidden by queue config) -->
+    {% if queue_require_student_id|default(true) %}
+    <div class="form-row" id="row-applicant-id">
       <label for="applicant_id">Student / Client ID: <span style="color: red;">*</span></label>
       <input type="text" id="applicant_id" name="applicant_id" placeholder="e.g. 202600123" required>
     </div>
+    {% else %}
+    <input type="hidden" id="applicant_id" name="applicant_id" value="">
+    {% endif %}
 
     <div class="form-row">
       <label for="email">Email Address: <span style="color: red;">*</span></label>
       <input type="email" id="email" name="email" placeholder="you@example.com" required>
     </div>
 
-    <div class="form-row">
+    {% if queue_require_valid_id|default(true) %}
+    <div class="form-row" id="row-id-doc">
       <label for="id_doc">Upload Valid ID (JPG, PNG, PDF, max 5MB):</label>
       <input type="file" id="id_doc" name="id_doc" accept="image/*,application/pdf">
       <div id="validIdPreview" class="file-preview"></div>
     </div>
+    {% endif %}
 
-    <div class="form-row">
+    {% if queue_require_supporting_doc|default(true) %}
+    <div class="form-row" id="row-req-doc">
       <label for="req_doc">Supporting Document (JPG, PNG, PDF, max 5MB):</label>
       <input type="file" id="req_doc" name="req_doc" accept="image/*,application/pdf">
       <div id="supportingDocsPreview" class="file-preview"></div>
     </div>
+    {% endif %}
 
-    <div class="form-row signature-block">
+    {% if queue_esign_required|default(true) %}
+    <div class="form-row signature-block" id="row-signature">
       <label for="signaturePad">E-Signature: <span style="color: red;">*</span></label>
       <div class="signature-pad">
         <canvas id="signaturePad" class="signature-canvas" aria-label="Signature area"></canvas>
@@ -235,6 +244,9 @@
         <p class="signature-hint">Please sign inside the box. Signature is required.</p>
       </div>
     </div>
+    {% else %}
+    <input type="hidden" id="signature_data" name="signature_data" value="">
+    {% endif %}
 
     <div class="form-row form-row--checkbox">
       <label class="checkbox-label" for="declaration">
