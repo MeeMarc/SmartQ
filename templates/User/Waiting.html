@@ -28,24 +28,18 @@
   </header>
 
   <!-- ======= QUEUE SUMMARY ======= -->
-  <section class="queue-card {{ card_status_class }}">
+  <section class="queue-card {% if entry.status == 'completed' %}completed{% elif entry.status == 'cancelled' %}cancelled{% else %}waiting{% endif %}">
     <h3>
-      {% if display_status_key == 'completed' %}
-        Ticket Complete!
-      {% elif display_status_key == 'cancelled' %}
-        Ticket Cancelled
-      {% elif display_status_key == 'rejected' %}
-        Application Rejected
-      {% elif display_status_key == 'accepted' %}
-        Application Approved
-      {% elif display_status_key == 'pending' %}
-        Application Pending Review
+      {% if entry.status == 'completed' %}
+        ✅ Ticket Complete!
+      {% elif entry.status == 'cancelled' %}
+        ❌ Ticket Cancelled
       {% else %}
-        Ticket Confirmed!
+        🎉 Ticket Confirmed!
       {% endif %}
     </h3>
     <div class="number">Queue #{{ queue_number }}</div>
-    {% if display_status_key not in ['cancelled', 'rejected'] %}
+    {% if entry.status != 'cancelled' %}
     <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
     {% if queue_purpose %}
     <p class="queue-purpose">{{ queue_purpose }}</p>
@@ -53,10 +47,10 @@
     {% endif %}
     <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
     <p>Your ticket reference: <strong>{{ ticket_reference }}</strong></p>
-    <p class="status-display">Status: <span class="status-badge {{ display_status_class }}">{{ display_status_label }}</span></p>
+    <p class="status-display">Status: <span class="status-badge status-{{ entry.status|default('waiting') }}">{{ entry.status|default('waiting')|capitalize }}</span></p>
     
     <!-- Admin Approval Status -->
-    {% if entry.notification_message %}
+    {% if entry.admin_status %}
     <div style="margin: 15px 0; padding: 12px; border-radius: 8px; {% if entry.admin_status == 'accepted' %}background: #d4edda; border: 2px solid #28a745;{% elif entry.admin_status == 'rejected' %}background: #f8d7da; border: 2px solid #dc3545;{% else %}background: #fff3cd; border: 2px solid #ffc107;{% endif %}">
       <p style="margin: 0; font-weight: 600; color: {% if entry.admin_status == 'accepted' %}#155724{% elif entry.admin_status == 'rejected' %}#721c24{% else %}#856404{% endif %};">
         {% if entry.admin_status == 'accepted' %}
@@ -67,12 +61,14 @@
           ⏳ <strong>Application Pending Review</strong>
         {% endif %}
       </p>
+      {% if entry.notification_message %}
       <p style="margin: 8px 0 0 0; color: {% if entry.admin_status == 'accepted' %}#155724{% elif entry.admin_status == 'rejected' %}#721c24{% else %}#856404{% endif %};">
         {{ entry.notification_message }}
       </p>
+      {% endif %}
     </div>
     {% endif %}
-    {% if ticket_qr_url and display_status_key not in ['cancelled', 'rejected'] %}
+    {% if ticket_qr_url %}
     <div class="ticket-qr">
       <div class="ticket-qr-header">
         <div class="ticket-qr-title">
@@ -91,12 +87,12 @@
       <p class="ticket-qr-hint">Staff can scan to confirm your ticket instantly.</p>
     </div>
     {% endif %}
-    {% if display_status_key not in ['cancelled', 'rejected'] %}
+    {% if entry.status != 'cancelled' %}
     <p class="queue-note">Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.</p>
     {% endif %}
     
     <!-- Download Ticket Button -->
-    {% if display_status_key not in ['cancelled', 'rejected'] %}
+    {% if entry.status != 'cancelled' %}
     <div style="display: flex; justify-content: center; margin-top: 15px;">
       <a href="{{ url_for('download_ticket', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry.id) }}" 
          class="download-btn" 
@@ -105,7 +101,7 @@
     {% endif %}
     
     <!-- Action Buttons -->
-    {% if actions_allowed %}
+    {% if entry.status != 'cancelled' and entry.status != 'completed' %}
     <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
       <button class="cancel-btn" 
               data-entry-id="{{ entry.id }}"
