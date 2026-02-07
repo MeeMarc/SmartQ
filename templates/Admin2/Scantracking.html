@@ -229,14 +229,6 @@ function markAsDone(entryId, buttonElement) {
   );
 }
 
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
-
-<script>
-(function(){
-  emailjs.init("jpZBXk-dH8pr1YLy4");
-})();
 
 function acceptEntry(entryId) {
   const message = prompt(
@@ -258,14 +250,23 @@ function acceptEntry(entryId) {
       .then(data => {
         if (data.status === 'success') {
 
-          emailjs.send("service_t9g8qmw", "template_hnn5wpo", {
-            user_name: data.user_name,
-            created_at: data.created_at,
-            application_status: "✅ Your application has been ACCEPTED.",
-            status_message: message,
-            status_bg: "#f1f8f4",
-            status_color: "#28a745"
-          });
+emailjs.send(
+  "service_t9g8qmw",
+  "template_hnn5wpo",
+  {
+    user_name: data.user_name,
+    created_at: data.created_at,
+    application_status: "✅ Your application has been ACCEPTED.",
+    status_message: message
+  }
+)
+.then(response => {
+  console.log("✅ Email sent", response);
+})
+.catch(error => {
+  console.error("❌ Email failed", error);
+  alert("Email failed to send. Check console.");
+});
 
           showAlert('Entry accepted successfully!', 'success');
           if (currentQRId) viewScans(currentQRId);
