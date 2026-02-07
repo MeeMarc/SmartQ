@@ -732,7 +732,7 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
                      avg_service_time, morning_start, morning_end,
                      afternoon_start, afternoon_end, staff_count, queue_limit,
                      support_doc_enabled, valid_id_enabled, student_id_enabled, signature_enabled) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (queue_type, queue_purpose, queue_link, created_by,
                      avg_service_time, morning_start, morning_end,
                      afternoon_start, afternoon_end, staff_count, queue_limit,
