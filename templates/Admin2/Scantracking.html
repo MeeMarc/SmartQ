@@ -229,11 +229,21 @@ function markAsDone(entryId, buttonElement) {
   );
 }
 
-// Accept entry
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<script>
+(function(){
+  emailjs.init("jpZBXk-dH8pr1YLy4");
+})();
+</script>
+
+//accept entry
 function acceptEntry(entryId, buttonElement) {
-  const message = prompt('Enter notification message (optional):', 'Your application has been accepted.');
-  if (message === null) return; // User cancelled
-  
+  const message = prompt(
+    'Enter notification message (optional):',
+    'Your application has been accepted.'
+  );
+  if (message === null) return;
+
   showConfirmation(
     'Accept Entry',
     'Are you sure you want to accept this entry?',
@@ -242,17 +252,29 @@ function acceptEntry(entryId, buttonElement) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          notification_message: message || 'Your application has been accepted.'
+          notification_message: message
         })
       })
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
+
+          // ✅ SEND EMAIL (ACCEPT)
+          emailjs.send("service_t9g8qmw", "template_hnn5wp", {
+            user_name: data.user_name,
+            created_at: data.created_at,
+            application_status: "✅ Your application has been ACCEPTED.",
+            status_message: message,
+            status_bg: "#f1f8f4",
+            status_color: "#28a745"
+          });
+
           showAlert('Entry accepted successfully!', 'success');
-          // Refresh the scan list
+
           if (currentQRId) {
             viewScans(currentQRId);
           }
+
         } else {
           showAlert('Error: ' + data.message, 'error');
         }
@@ -267,9 +289,12 @@ function acceptEntry(entryId, buttonElement) {
 
 // Reject entry
 function rejectEntry(entryId, buttonElement) {
-  const message = prompt('Enter notification message (optional):', 'Your application has been rejected.');
-  if (message === null) return; // User cancelled
-  
+  const message = prompt(
+    'Enter notification message (optional):',
+    'Your application has been rejected.'
+  );
+  if (message === null) return;
+
   showConfirmation(
     'Reject Entry',
     'Are you sure you want to reject this entry?',
@@ -278,17 +303,29 @@ function rejectEntry(entryId, buttonElement) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          notification_message: message || 'Your application has been rejected.'
+          notification_message: message
         })
       })
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
+
+          // ❌ SEND EMAIL (REJECT)
+          emailjs.send("service_t9g8qmw", "template_hnn5wp", {
+            user_name: data.user_name,
+            created_at: data.created_at,
+            application_status: "❌ Your application has been REJECTED.",
+            status_message: message,
+            status_bg: "#fdecea",
+            status_color: "#dc3545"
+          });
+
           showAlert('Entry rejected successfully!', 'success');
-          // Refresh the scan list
+
           if (currentQRId) {
             viewScans(currentQRId);
           }
+
         } else {
           showAlert('Error: ' + data.message, 'error');
         }
