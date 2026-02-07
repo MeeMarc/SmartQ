@@ -229,13 +229,16 @@ function markAsDone(entryId, buttonElement) {
   );
 }
 
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
 <script>
 (function(){
   emailjs.init("jpZBXk-dH8pr1YLy4");
 })();
-</script>
 
+// accept entry
 //accept entry
 function acceptEntry(entryId, buttonElement) {
   const message = prompt(
@@ -337,6 +340,9 @@ function rejectEntry(entryId, buttonElement) {
     }
   );
 }
+
+
+
 
 // Fetch QR List - shows only ACTIVE queues (not deleted ones)
 function fetchQRList() {
@@ -738,8 +744,24 @@ function renderScans(scans) {
             <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
             ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})">View Docs</button>` : ''}
             ${showAdminActions ? `
-              <button class="accept-btn" onclick="acceptEntry(${user.id}, this)">Accept</button>
-              <button class="reject-btn" onclick="rejectEntry(${user.id}, this)">Reject</button>
+              <button class="accept-btn"
+                onclick="acceptEntry(
+                  ${user.id},
+                  '${user.fullname}',
+                  '${user.created_at}'
+                )">
+                Accept
+              </button>
+
+              <button class="reject-btn"
+                onclick="rejectEntry(
+                  ${user.id},
+                  '${user.fullname}',
+                  '${user.created_at}'
+                )">
+                Reject
+              </button>
+
             ` : ''}
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
 
