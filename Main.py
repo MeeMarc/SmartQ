@@ -1319,29 +1319,37 @@ def update_queue_status():
 
 @app.route('/accept_queue_entry/<int:entry_id>', methods=['POST'])
 def accept_queue_entry(entry_id):
+    """Accept a queue entry by setting admin_status to 'accepted'."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json() if request.is_json else {}
         notification_message = data.get(
             'notification_message',
             'Your application has been accepted.'
         )
 
         conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+
+        ensure_queue_entries_table(conn)
         cur = conn.cursor()
 
-        # ✅ FIXED COLUMN NAME
+        # ✅ FETCH REQUIRED EMAILJS DATA
         cur.execute("""
-            SELECT fullname, created_at
+            SELECT id, full_name, created_at
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
         row = cur.fetchone()
 
         if not row:
+            cur.close()
+            conn.close()
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        user_name, created_at = row
+        entry_id, user_name, created_at = row
 
+        # Update status
         cur.execute("""
             UPDATE queue_entries
             SET admin_status = 'accepted',
@@ -1349,10 +1357,17 @@ def accept_queue_entry(entry_id):
             WHERE id = %s
         """, (notification_message, entry_id))
 
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Failed to accept entry"}), 500
+
         conn.commit()
         cur.close()
         conn.close()
 
+        # ✅ RETURN DATA FOR EMAILJS
         return jsonify({
             "status": "success",
             "user_name": user_name,
@@ -1360,35 +1375,45 @@ def accept_queue_entry(entry_id):
         })
 
     except Exception as e:
+        print(f"Error accepting queue entry: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 
 @app.route('/reject_queue_entry/<int:entry_id>', methods=['POST'])
 def reject_queue_entry(entry_id):
+    """Reject a queue entry by setting admin_status to 'rejected'."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json() if request.is_json else {}
         notification_message = data.get(
             'notification_message',
             'Your application has been rejected.'
         )
 
         conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+
+        ensure_queue_entries_table(conn)
         cur = conn.cursor()
 
-        # ✅ FIXED COLUMN NAME
+        # ✅ FETCH REQUIRED EMAILJS DATA
         cur.execute("""
-            SELECT fullname, created_at
+            SELECT id, full_name, created_at
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
         row = cur.fetchone()
 
         if not row:
+            cur.close()
+            conn.close()
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        user_name, created_at = row
+        entry_id, user_name, created_at = row
 
+        # Update status
         cur.execute("""
             UPDATE queue_entries
             SET admin_status = 'rejected',
@@ -1396,10 +1421,17 @@ def reject_queue_entry(entry_id):
             WHERE id = %s
         """, (notification_message, entry_id))
 
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Failed to reject entry"}), 500
+
         conn.commit()
         cur.close()
         conn.close()
 
+        # ✅ RETURN DATA FOR EMAILJS
         return jsonify({
             "status": "success",
             "user_name": user_name,
@@ -1407,8 +1439,10 @@ def reject_queue_entry(entry_id):
         })
 
     except Exception as e:
+        print(f"Error rejecting queue entry: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 
 @app.route('/view_entry_documents/<int:entry_id>', methods=['GET'])
