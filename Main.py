@@ -397,6 +397,7 @@ def ensure_queue_entries_table(conn):
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS id_doc_path VARCHAR(500)",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS req_doc_path VARCHAR(500)",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS signature_path VARCHAR(500)",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS signature_text TEXT",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS reschedule_status VARCHAR(50)",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS rescheduled_to_queue_number INTEGER",
@@ -445,6 +446,66 @@ def ensure_queue_limit_column(conn):
     except Exception as e:
         print(f"Error ensuring queue_limit column: {e}")
         # Don't raise - this is not critical
+
+
+def get_queue_flags(queue_slug, queue_number):
+    """Return configuration flags for a queue (support_doc, valid_id, student_id, signature).
+
+    Returns a dict with boolean keys. Falls back to False for missing values.
+    """
+    flags = {
+        'support_doc_enabled': False,
+        'valid_id_enabled': False,
+        'student_id_enabled': False,
+        'signature_enabled': False
+    }
+
+    conn = get_db_connection()
+    if conn is None:
+        return flags
+
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT queue_type, support_doc_enabled, valid_id_enabled, student_id_enabled, signature_enabled FROM qr_history ORDER BY id")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        matching = [r for r in rows if create_slug(r[0]) == queue_slug]
+        if matching and 0 < queue_number <= len(matching):
+            row = matching[queue_number - 1]
+            flags['support_doc_enabled'] = bool(row[1])
+            flags['valid_id_enabled'] = bool(row[2])
+            flags['student_id_enabled'] = bool(row[3])
+            flags['signature_enabled'] = bool(row[4])
+            return flags
+
+        # Fallback: try temp_qr
+        conn = get_db_connection()
+        if conn is None:
+            return flags
+        cur = conn.cursor()
+        cur.execute("SELECT queue_type, support_doc_enabled, valid_id_enabled, student_id_enabled, signature_enabled FROM temp_qr ORDER BY id")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        matching = [r for r in rows if create_slug(r[0]) == queue_slug]
+        if matching and 0 < queue_number <= len(matching):
+            row = matching[queue_number - 1]
+            flags['support_doc_enabled'] = bool(row[1])
+            flags['valid_id_enabled'] = bool(row[2])
+            flags['student_id_enabled'] = bool(row[3])
+            flags['signature_enabled'] = bool(row[4])
+            return flags
+
+        return flags
+    except Exception as e:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        print(f"Error getting queue flags: {e}")
+        return flags
 
 def resolve_queue_metadata(queue_slug, queue_number):
     """Resolve queue type and purpose based on slug and sequence number."""
@@ -596,7 +657,8 @@ def generate_ticket_reference(queue_slug, entry_id):
 
 def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None, 
              avg_service_time=None, morning_start=None, morning_end=None, 
-             afternoon_start=None, afternoon_end=None, staff_count=None, queue_limit=None):
+             afternoon_start=None, afternoon_end=None, staff_count=None, queue_limit=None,
+             support_doc_enabled=False, valid_id_enabled=False, student_id_enabled=False, signature_enabled=False):
     """Save QR to database and return the inserted ID."""
     try:
         print(f"save_qr called with: type='{queue_type}', purpose='{queue_purpose}', link='{queue_link}', created_by='{created_by}', queue_limit={queue_limit}")
@@ -614,16 +676,19 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
         
         # Try with RETURNING first (PostgreSQL)
         try:
-            print("Attempting INSERT with RETURNING...")
+            print("Attempting INSERT with RETURNING... (with flags)")
+            # Try inserting with the new flag columns if present
             cur.execute(
                 """INSERT INTO qr_history 
                 (queue_type, queue_purpose, queue_link, created_by, 
                  avg_service_time, morning_start, morning_end, 
-                 afternoon_start, afternoon_end, staff_count, queue_limit) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                 afternoon_start, afternoon_end, staff_count, queue_limit,
+                 support_doc_enabled, valid_id_enabled, student_id_enabled, signature_enabled) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
                 (queue_type, queue_purpose, queue_link, created_by,
                  avg_service_time, morning_start, morning_end,
-                 afternoon_start, afternoon_end, staff_count, queue_limit)
+                 afternoon_start, afternoon_end, staff_count, queue_limit,
+                 support_doc_enabled, valid_id_enabled, student_id_enabled, signature_enabled)
             )
             qr_id = cur.fetchone()[0]
             print(f"INSERT successful with RETURNING, got ID: {qr_id}")
@@ -633,6 +698,7 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
             import traceback
             traceback.print_exc()
             try:
+                # Fallback: try without flags if columns do not exist
                 cur.execute(
                     """INSERT INTO qr_history 
                     (queue_type, queue_purpose, queue_link, created_by,
@@ -659,16 +725,31 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
         # Also insert into temp_qr (if table exists, ignore if it doesn't)
         try:
             print("Inserting into temp_qr...")
-            cur.execute(
-                """INSERT INTO temp_qr 
-                (queue_type, queue_purpose, queue_link, created_by,
-                 avg_service_time, morning_start, morning_end,
-                 afternoon_start, afternoon_end, staff_count, queue_limit) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                (queue_type, queue_purpose, queue_link, created_by,
-                 avg_service_time, morning_start, morning_end,
-                 afternoon_start, afternoon_end, staff_count, queue_limit)
-            )
+            try:
+                cur.execute(
+                    """INSERT INTO temp_qr 
+                    (queue_type, queue_purpose, queue_link, created_by,
+                     avg_service_time, morning_start, morning_end,
+                     afternoon_start, afternoon_end, staff_count, queue_limit,
+                     support_doc_enabled, valid_id_enabled, student_id_enabled, signature_enabled) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (queue_type, queue_purpose, queue_link, created_by,
+                     avg_service_time, morning_start, morning_end,
+                     afternoon_start, afternoon_end, staff_count, queue_limit,
+                     support_doc_enabled, valid_id_enabled, student_id_enabled, signature_enabled)
+                )
+            except Exception:
+                # Fallback if temp_qr doesn't have flags
+                cur.execute(
+                    """INSERT INTO temp_qr 
+                    (queue_type, queue_purpose, queue_link, created_by,
+                     avg_service_time, morning_start, morning_end,
+                     afternoon_start, afternoon_end, staff_count, queue_limit) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (queue_type, queue_purpose, queue_link, created_by,
+                     avg_service_time, morning_start, morning_end,
+                     afternoon_start, afternoon_end, staff_count, queue_limit)
+                )
             print("temp_qr insert successful")
         except Exception as temp_error:
             print(f"Note: temp_qr insert failed (this is okay): {temp_error}")
@@ -751,12 +832,22 @@ def generate_qr_db():
             avg_service_time = None
             staff_count = None
             queue_limit = None
+
+        # Read optional flags from form (checkboxes in Admin CreateQ UI)
+        support_doc_enabled = request.form.get('supportDocEnabled') in ('on', 'true', '1', 'yes')
+        valid_id_enabled = request.form.get('validIdEnabled') in ('on', 'true', '1', 'yes')
+        student_id_enabled = request.form.get('studentIdEnabled') in ('on', 'true', '1', 'yes')
+        signature_enabled = request.form.get('signatureEnabled') in ('on', 'true', '1', 'yes')
         
         # Save QR and get the ID
         print("Saving QR to database...")
         qr_id = save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number,
-                       avg_service_time, morning_start or None, morning_end or None,
-                       afternoon_start or None, afternoon_end or None, staff_count, queue_limit)
+                   avg_service_time, morning_start or None, morning_end or None,
+                   afternoon_start or None, afternoon_end or None, staff_count, queue_limit,
+                   support_doc_enabled=support_doc_enabled,
+                   valid_id_enabled=valid_id_enabled,
+                   student_id_enabled=student_id_enabled,
+                   signature_enabled=signature_enabled)
         print(f"QR saved with ID: {qr_id}")
         
         # Auto-enroll pending reschedules for this queue type
@@ -1057,7 +1148,7 @@ def get_qr_scans(qr_id):
         cur.execute(
             """
             SELECT id, fullname, phone, email, purpose, status, admin_status, created_at, reference_number,
-                id_doc_path, req_doc_path, signature_path, applicant_id, notification_message,
+                id_doc_path, req_doc_path, signature_path, signature_text, applicant_id, notification_message, notification_sent,
                 queue_type
             FROM queue_entries
 
@@ -1120,13 +1211,15 @@ def get_qr_scans(qr_id):
                 "admin_status": row[6] or "pending",
                 "scanned_at": row[7].strftime('%Y-%m-%d %I:%M %p') if row[7] else "",
                 "reference_number": row[8] or "",
-                "applicant_id": row[12] or "",
-                "queue_type": row[14] or "Document",
+                "applicant_id": row[13] or "",
+                "queue_type": row[16] or "Document",
                 "id_doc_url": id_doc_url,
                 "req_doc_url": req_doc_url,
                 "signature_url": signature_url,
-                "has_documents": bool(id_doc_url or req_doc_url or signature_url),
-                "notification_message": row[13] or ""
+                "signature_text": row[11] or "",
+                "has_documents": bool(id_doc_url or req_doc_url or signature_url or row[11]),
+                "notification_message": row[14] or "",
+                "notification_sent": bool(row[15])
             })
 
         cur.close()
@@ -1139,6 +1232,35 @@ def get_qr_scans(qr_id):
         import traceback
         traceback.print_exc()
         return jsonify([])
+
+
+@app.route('/notify_scan', methods=['POST'])
+def notify_scan():
+    """Mark a specific queue entry as notified and optionally save a message."""
+    data = request.get_json() if request.is_json else request.form
+    entry_id = data.get('entry_id') or data.get('id')
+    message = data.get('message', '')
+
+    if not entry_id:
+        return jsonify({"status": "error", "message": "entry_id is required"}), 400
+
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        cur = conn.cursor()
+        cur.execute("UPDATE queue_entries SET notification_sent = TRUE, notification_message = %s WHERE id = %s", (message, entry_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        # TODO: integrate actual SMS/email sending if configured
+        return jsonify({"status": "success"})
+    except Exception as e:
+        print(f"Error notifying scan: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/download_scans/<int:qr_id>', methods=['GET'])
@@ -2228,12 +2350,18 @@ def test_db():
 
 @app.route('/user')
 def user_page():
-    return render_template("User/User.html")
+    # Render a generic user page (no queue flags)
+    return render_template("User/User.html",
+                           support_doc_enabled=False,
+                           valid_id_enabled=False,
+                           student_id_enabled=False,
+                           signature_enabled=False)
 
 @app.route('/queue/<queue_slug>/<int:queue_number>', methods=['GET', 'POST'])
 def queue_page(queue_slug, queue_number):
     """Dynamic route for auto-generated queue pages."""
     queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
+    flags = get_queue_flags(queue_slug, queue_number)
     
     # Get queue limit and current count
     queue_limit = get_queue_limit(queue_slug, queue_number)
@@ -2292,22 +2420,26 @@ def queue_page(queue_slug, queue_number):
         
         purpose = (request.form.get('purpose') or '').strip()
 
-        if not lastname or not firstname or not phone or not applicant_id or not email:
-            flash("Please provide last name, first name, ID, email, and phone number to join the queue.", "error")
+        # applicant_id is required only if the queue requires student/client ID
+        if not lastname or not firstname or not phone or not email:
+            flash("Please provide last name, first name, email, and phone number to join the queue.", "error")
+            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+
+        if flags.get('student_id_enabled') and not applicant_id:
+            flash("Please provide your Student/Client ID to join this queue.", "error")
             return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
         if not declaration:
             flash("Please certify the information is true and correct before submitting.", "error")
             return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
-        # Handle uploads
-        id_doc_file = request.files.get('id_doc')
-        req_doc_file = request.files.get('req_doc')
-        signature_data = request.form.get('signature_data', '')
+        # Handle uploads (only process files if the queue enabled them)
+        id_doc_file = request.files.get('id_doc') if flags.get('valid_id_enabled') else None
+        req_doc_file = request.files.get('req_doc') if flags.get('support_doc_enabled') else None
+        signature_text = (request.form.get('signature') or '').strip() if flags.get('signature_enabled') else None
 
         id_doc_bytes = None
         req_doc_bytes = None
-        sig_bytes = None
         id_doc_ext = None
         req_doc_ext = None
 
@@ -2319,7 +2451,7 @@ def queue_page(queue_slug, queue_number):
             data = file.read()
             if len(data) > MAX_FILE_SIZE:
                 raise ValueError("File too large. Max size is 5MB.")
-            ext = secure_filename(file.filename).rsplit(".", 1)[1].lower()
+            ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
             return data, ext
 
         try:
@@ -2329,16 +2461,10 @@ def queue_page(queue_slug, queue_number):
             flash(str(ve), "error")
             return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
-        # Signature data URL -> bytes
-        if signature_data:
-            try:
-                if signature_data.startswith("data:image"):
-                    sig_b64 = signature_data.split(",")[1]
-                    sig_bytes = base64.b64decode(sig_b64)
-                else:
-                    sig_bytes = None
-            except Exception:
-                sig_bytes = None
+        # If signature is required and enabled, ensure typed signature provided
+        if flags.get('signature_enabled') and not signature_text:
+            flash("Please provide your signature (type your full name) before submitting.", "error")
+            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
         conn = None
         cur = None
@@ -2399,15 +2525,12 @@ def queue_page(queue_slug, queue_number):
                 with open(req_doc_path, "wb") as f:
                     f.write(req_doc_bytes)
 
-            if sig_bytes:
-                signature_path = os.path.join(upload_dir, f"{queue_slug}_{queue_number}_{entry_id}_sig.png")
-                with open(signature_path, "wb") as f:
-                    f.write(sig_bytes)
+            # signature_text will be stored separately (signature_text column)
 
             # Generate reference number
             reference_number = f"SQ-{datetime.now().year}-{entry_id:05d}"
 
-            # Update entry with file paths and reference number
+            # Update entry with file paths, signature text and reference number
             cur = conn.cursor()
             cur.execute(
                 """
@@ -2415,10 +2538,11 @@ def queue_page(queue_slug, queue_number):
                 SET reference_number = %s,
                     id_doc_path = %s,
                     req_doc_path = %s,
-                    signature_path = %s
+                    signature_path = %s,
+                    signature_text = %s
                 WHERE id = %s
                 """,
-                (reference_number, id_doc_path, req_doc_path, signature_path, entry_id)
+                (reference_number, id_doc_path, req_doc_path, signature_path, signature_text, entry_id)
             )
             conn.commit()
 
@@ -2447,6 +2571,10 @@ def queue_page(queue_slug, queue_number):
         queue_full=queue_full,
         queue_limit=queue_limit,
         current_count=current_count,
+        support_doc_enabled=flags.get('support_doc_enabled', False),
+        valid_id_enabled=flags.get('valid_id_enabled', False),
+        student_id_enabled=flags.get('student_id_enabled', False),
+        signature_enabled=flags.get('signature_enabled', False),
     )
 
 

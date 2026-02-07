@@ -700,6 +700,7 @@ function renderScans(scans) {
   scans.forEach(user => {
     const card = document.createElement("div");
     card.className = "scan-card";
+    card.id = `scan-${user.id}`;
 
     const phone = user.phone ? ` • ${user.phone}` : "";
     const purpose = user.purpose ? ` • ${user.purpose}` : "";
@@ -740,6 +741,10 @@ function renderScans(scans) {
 
             ` : ''}
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
+
+            <!-- View / Notify buttons -->
+            <button class="view-scan-btn" onclick="focusScan(${user.id})">View</button>
+            <button class="notify-btn" onclick="notifyEntry(${user.id}, this)" ${user.notification_sent ? 'disabled' : ''}>${user.notification_sent ? 'Notified' : 'Notify'}</button>
 
             <!-- Send Document button -->
             <button class="send-doc-btn"
@@ -792,6 +797,57 @@ function filterScans() {
 
   // ✅ Render filtered scans (listeners attached automatically inside renderScans)
   renderScans(filtered);
+}
+
+// Ensure highlight styles exist (inject once)
+(function ensureScanStyles(){
+  if(document.getElementById('scan-tracking-highlight-style')) return;
+  const s = document.createElement('style');
+  s.id = 'scan-tracking-highlight-style';
+  s.textContent = `
+    .scan-card.highlight{ animation: highlightAnim 3s ease; background: linear-gradient(90deg, rgba(255,249,230,1), rgba(255,255,255,0)); border: 2px solid #ffd54f; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    @keyframes highlightAnim{0%{background:#fff8e1}100%{background:transparent}}
+    .notify-btn[disabled]{opacity:0.6;cursor:not-allowed}
+    .view-scan-btn{background:#0069d9;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;margin-right:6px}
+    .notify-btn{background:#ffc107;color:#000;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;margin-right:6px}
+  `;
+  document.head.appendChild(s);
+})();
+
+function focusScan(entryId){
+  const el = document.getElementById('scan-' + entryId);
+  if(!el) return;
+  el.scrollIntoView({behavior: 'smooth', block: 'center'});
+  el.classList.add('highlight');
+  setTimeout(() => el.classList.remove('highlight'), 3500);
+}
+
+function notifyEntry(entryId, btn){
+  const message = prompt('Enter notification message to send:');
+  if(message === null) return; // user cancelled
+  if(btn){ btn.disabled = true; btn.textContent = 'Sending...'; }
+
+  fetch('/notify_scan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ entry_id: entryId, message: message })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if(data.status === 'success'){
+      showAlert(data.message, 'success');
+      if(btn){ btn.textContent = 'Notified'; btn.disabled = true; }
+      if(currentQRId){ viewScans(currentQRId); focusScan(entryId); }
+    } else {
+      showAlert('Error: ' + data.message, 'error');
+      if(btn){ btn.disabled = false; btn.textContent = 'Notify'; }
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    showAlert('Failed to send notification. Please try again.', 'error');
+    if(btn){ btn.disabled = false; btn.textContent = 'Notify'; }
+  });
 }
 
 </script>

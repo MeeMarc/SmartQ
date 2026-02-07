@@ -202,39 +202,49 @@
     </div>
 
     <!-- Applicant identification & uploads -->
+    {% if student_id_enabled %}
     <div class="form-row">
       <label for="applicant_id">Student / Client ID: <span style="color: red;">*</span></label>
       <input type="text" id="applicant_id" name="applicant_id" placeholder="e.g. 202600123" required>
     </div>
+    {% else %}
+    <input type="hidden" name="applicant_id" value="">
+    {% endif %}
 
     <div class="form-row">
       <label for="email">Email Address: <span style="color: red;">*</span></label>
       <input type="email" id="email" name="email" placeholder="you@example.com" required>
     </div>
 
+    {% if valid_id_enabled %}
     <div class="form-row">
       <label for="id_doc">Upload Valid ID (JPG, PNG, PDF, max 5MB):</label>
       <input type="file" id="id_doc" name="id_doc" accept="image/*,application/pdf">
       <div id="validIdPreview" class="file-preview"></div>
     </div>
+    {% else %}
+    <input type="hidden" name="id_doc" value="">
+    {% endif %}
 
+    {% if support_doc_enabled %}
     <div class="form-row">
       <label for="req_doc">Supporting Document (JPG, PNG, PDF, max 5MB):</label>
       <input type="file" id="req_doc" name="req_doc" accept="image/*,application/pdf">
       <div id="supportingDocsPreview" class="file-preview"></div>
     </div>
+    {% else %}
+    <input type="hidden" name="req_doc" value="">
+    {% endif %}
 
+    {% if signature_enabled %}
     <div class="form-row signature-block">
-      <label for="signaturePad">E-Signature: <span style="color: red;">*</span></label>
-      <div class="signature-pad">
-        <canvas id="signaturePad" class="signature-canvas" aria-label="Signature area"></canvas>
-        <div class="signature-actions">
-          <button type="button" id="clearSignature" class="signature-clear-btn">Clear Signature</button>
-        </div>
-        <input type="hidden" id="signature_data" name="signature_data">
-        <p class="signature-hint">Please sign inside the box. Signature is required.</p>
-      </div>
+      <label for="signature">E-Signature: <span style="color: red;">*</span></label>
+      <input type="text" id="signature" name="signature" placeholder="Type your full name as signature" required>
+      <p class="signature-hint">Type your full name as signature.</p>
     </div>
+    {% else %}
+    <input type="hidden" name="signature" value="">
+    {% endif %}
 
     <div class="form-row form-row--checkbox">
       <label class="checkbox-label" for="declaration">
@@ -399,111 +409,28 @@
       reqInput.addEventListener('change', () => validateFile(reqInput, reqPreview));
     }
 
-    // Signature pad
-    const canvas = document.getElementById('signaturePad');
-    const clearBtn = document.getElementById('clearSignature');
-    const sigField = document.getElementById('signature_data');
+    // Simple form submit handling: enforce declaration and typed signature if enabled
     const declaration = document.getElementById('declaration');
+    const signatureInput = document.getElementById('signature');
+    const signatureEnabled = {{ 'true' if signature_enabled else 'false' }};
 
-    if (canvas && sigField) {
-      const ctx = canvas.getContext('2d');
-      let drawing = false;
-      let hasDrawn = false;
-
-      function resizeCanvas() {
-        const ratio = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) return;
-        const snapshot = hasDrawn ? canvas.toDataURL('image/png') : null;
-        canvas.width = rect.width * ratio;
-        canvas.height = rect.height * ratio;
-        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-        if (snapshot) {
-          const img = new Image();
-          img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
-          img.src = snapshot;
+    if (registrationForm) {
+      registrationForm.addEventListener('submit', (event) => {
+        if (declaration && !declaration.checked) {
+          event.preventDefault();
+          alert('Please certify that the information is true and correct.');
+          return false;
         }
-      }
-
-      function getPoint(e) {
-        const rect = canvas.getBoundingClientRect();
-        const point = e.touches ? e.touches[0] : e;
-        return {
-          x: point.clientX - rect.left,
-          y: point.clientY - rect.top
-        };
-      }
-
-      function startDraw(e) {
-        drawing = true;
-        hasDrawn = true;
-        const { x, y } = getPoint(e);
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-      }
-
-      function draw(e) {
-        if (!drawing) return;
-        const { x, y } = getPoint(e);
-        ctx.lineTo(x, y);
-        ctx.strokeStyle = '#0b2e13';
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-      }
-
-      function endDraw() {
-        drawing = false;
-      }
-
-      canvas.addEventListener('mousedown', startDraw);
-      canvas.addEventListener('mousemove', draw);
-      canvas.addEventListener('mouseup', endDraw);
-      canvas.addEventListener('mouseleave', endDraw);
-      canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); });
-      canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
-      canvas.addEventListener('touchend', (e) => { e.preventDefault(); endDraw(); });
-
-      window.addEventListener('resize', () => {
-        resizeCanvas();
-      });
-
-      resizeCanvas();
-
-      if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          hasDrawn = false;
-          sigField.value = '';
-        });
-      }
-
-      if (registrationForm) {
-        registrationForm.addEventListener('submit', (event) => {
-          if (declaration && !declaration.checked) {
-            event.preventDefault();
-            alert('Please certify that the information is true and correct.');
-            return false;
-          }
-          if (!hasDrawn) {
-            event.preventDefault();
-            alert('Please provide your e-signature before submitting.');
-            return false;
-          }
-          sigField.value = canvas.toDataURL('image/png');
-          if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Submitting...';
-          }
-          return true;
-        });
-      }
-    } else if (registrationForm) {
-      registrationForm.addEventListener('submit', () => {
+        if (signatureEnabled && signatureInput && !signatureInput.value.trim()) {
+          event.preventDefault();
+          alert('Please provide your signature (type your full name) before submitting.');
+          return false;
+        }
         if (submitBtn) {
           submitBtn.disabled = true;
           submitBtn.textContent = 'Submitting...';
         }
+        return true;
       });
     }
   })();
