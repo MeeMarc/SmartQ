@@ -269,18 +269,8 @@ function markAsDone(entryId, buttonElement) {
   );
 }
 
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
-
-<script>
-(function(){
-  emailjs.init("jpZBXk-dH8pr1YLy4");
-})();
-
-// accept entry
-//accept entry
-function acceptEntry(entryId, buttonElement) {
+//accept
+function acceptEntry(entryId) {
   const message = prompt(
     'Enter notification message (optional):',
     'Your application has been accepted.'
@@ -294,16 +284,13 @@ function acceptEntry(entryId, buttonElement) {
       fetch(`/accept_queue_entry/${entryId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notification_message: message
-        })
+        body: JSON.stringify({ notification_message: message })
       })
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
 
-          // ✅ SEND EMAIL (ACCEPT)
-          emailjs.send("service_t9g8qmw", "template_hnn5wp", {
+          emailjs.send("SERVICE_ID", "TEMPLATE_ID", {
             user_name: data.user_name,
             created_at: data.created_at,
             application_status: "✅ Your application has been ACCEPTED.",
@@ -313,25 +300,18 @@ function acceptEntry(entryId, buttonElement) {
           });
 
           showAlert('Entry accepted successfully!', 'success');
-
-          if (currentQRId) {
-            viewScans(currentQRId);
-          }
+          if (currentQRId) viewScans(currentQRId);
 
         } else {
-          showAlert('Error: ' + data.message, 'error');
+          showAlert(data.message, 'error');
         }
-      })
-      .catch(err => {
-        console.error('Error accepting entry:', err);
-        showAlert('Failed to accept entry', 'error');
       });
     }
   );
 }
 
-// Reject entry
-function rejectEntry(entryId, buttonElement) {
+//reject
+function rejectEntry(entryId) {
   const message = prompt(
     'Enter notification message (optional):',
     'Your application has been rejected.'
@@ -345,16 +325,13 @@ function rejectEntry(entryId, buttonElement) {
       fetch(`/reject_queue_entry/${entryId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notification_message: message
-        })
+        body: JSON.stringify({ notification_message: message })
       })
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
 
-          // ❌ SEND EMAIL (REJECT)
-          emailjs.send("service_t9g8qmw", "template_hnn5wp", {
+          emailjs.send("SERVICE_ID", "TEMPLATE_ID", {
             user_name: data.user_name,
             created_at: data.created_at,
             application_status: "❌ Your application has been REJECTED.",
@@ -364,18 +341,11 @@ function rejectEntry(entryId, buttonElement) {
           });
 
           showAlert('Entry rejected successfully!', 'success');
-
-          if (currentQRId) {
-            viewScans(currentQRId);
-          }
+          if (currentQRId) viewScans(currentQRId);
 
         } else {
-          showAlert('Error: ' + data.message, 'error');
+          showAlert(data.message, 'error');
         }
-      })
-      .catch(err => {
-        console.error('Error rejecting entry:', err);
-        showAlert('Failed to reject entry', 'error');
       });
     }
   );
