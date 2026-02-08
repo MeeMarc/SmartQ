@@ -380,7 +380,7 @@ function markAsDone(entryId, buttonElement) {
 function acceptEntry(entryId) {
   requestStatusMessage(
     'Accept Entry Message',
-    'Your application has been accepted.',
+    'Your application request has been accepted.',
     (message) => {
       showConfirmation(
         'Accept Entry',
@@ -393,35 +393,38 @@ function acceptEntry(entryId) {
           })
           .then(res => res.json())
           .then(data => {
-            if (data.status === 'success') {
-              const recipientEmail = (data.email || "").trim();
-              if (!isValidEmail(recipientEmail)) {
-                showAlert('Entry accepted successfully, but status email was not sent because recipient email is missing or invalid.', 'success');
-                if (currentQRId) viewScans(currentQRId);
-                return;
-              }
-
-              const emailParams = buildStatusEmailParams(
-                data,
-                data.application_status || "Waiting",
-                message,
-                { bg: "#e8f7ee", color: "#198754" }
-              );
-
-              sendEmailJs(EMAILJS_CONFIG.TEMPLATE_STATUS_ID, emailParams)
-                .then(response => {
-                  console.log("Status email sent", response);
-                })
-                .catch(error => {
-                  console.error("Status email failed", error);
-                  showAlert("Status updated, but email sending failed. Check console.", "error");
-                });
-              showAlert('Entry accepted successfully!', 'success');
-              if (currentQRId) viewScans(currentQRId);
-
-            } else {
+            if (data.status !== 'success') {
               showAlert('Error: ' + data.message, 'error');
+              return;
             }
+
+            const recipientEmail = (data.email || "").trim();
+
+            // ⚠️ Email invalid — status still ACCEPTED
+            if (!isValidEmail(recipientEmail)) {
+              showAlert(
+                'Application accepted. Status email was not sent because the recipient email is missing or invalid.',
+                'warning'
+              );
+              if (currentQRId) viewScans(currentQRId);
+              return;
+            }
+
+            const emailParams = buildStatusEmailParams(
+              data,
+              "Accepted", // ✅ FORCE STATUS
+              message,
+              { bg: "#e8f7ee", color: "#198754" }
+            );
+
+            sendEmailJs(EMAILJS_CONFIG.TEMPLATE_STATUS_ID, emailParams)
+              .catch(err => {
+                console.error("Email failed", err);
+                showAlert("Application accepted, but email sending failed.", "warning");
+              });
+
+            showAlert('Entry accepted successfully!', 'success');
+            if (currentQRId) viewScans(currentQRId);
           })
           .catch(err => {
             console.error(err);
@@ -433,10 +436,11 @@ function acceptEntry(entryId) {
   );
 }
 
+
 function rejectEntry(entryId) {
   requestStatusMessage(
     'Reject Entry Message',
-    'Your application has been rejected.',
+    'Your application request was rejected because some required documents or information are incorrect or incomplete.',
     (message) => {
       showConfirmation(
         'Reject Entry',
@@ -449,35 +453,38 @@ function rejectEntry(entryId) {
           })
           .then(res => res.json())
           .then(data => {
-            if (data.status === 'success') {
-              const recipientEmail = (data.email || "").trim();
-              if (!isValidEmail(recipientEmail)) {
-                showAlert('Entry rejected successfully, but status email was not sent because recipient email is missing or invalid.', 'success');
-                if (currentQRId) viewScans(currentQRId);
-                return;
-              }
-
-              const emailParams = buildStatusEmailParams(
-                data,
-                data.application_status || "Waiting",
-                message,
-                { bg: "#fdecea", color: "#dc3545" }
-              );
-
-              sendEmailJs(EMAILJS_CONFIG.TEMPLATE_STATUS_ID, emailParams)
-                .then(response => {
-                  console.log("Status email sent", response);
-                })
-                .catch(error => {
-                  console.error("Status email failed", error);
-                  showAlert("Status updated, but email sending failed. Check console.", "error");
-                });
-              showAlert('Entry rejected successfully!', 'success');
-              if (currentQRId) viewScans(currentQRId);
-
-            } else {
+            if (data.status !== 'success') {
               showAlert('Error: ' + data.message, 'error');
+              return;
             }
+
+            const recipientEmail = (data.email || "").trim();
+
+            // ⚠️ Email invalid — status still REJECTED
+            if (!isValidEmail(recipientEmail)) {
+              showAlert(
+                'Application rejected. Status email was not sent because the recipient email is missing or invalid.',
+                'warning'
+              );
+              if (currentQRId) viewScans(currentQRId);
+              return;
+            }
+
+            const emailParams = buildStatusEmailParams(
+              data,
+              "Rejected", // ✅ FORCE STATUS
+              message,
+              { bg: "#fdecea", color: "#dc3545" }
+            );
+
+            sendEmailJs(EMAILJS_CONFIG.TEMPLATE_STATUS_ID, emailParams)
+              .catch(err => {
+                console.error("Email failed", err);
+                showAlert("Application rejected, but email sending failed.", "warning");
+              });
+
+            showAlert('Entry rejected successfully!', 'success');
+            if (currentQRId) viewScans(currentQRId);
           })
           .catch(err => {
             console.error(err);
@@ -488,7 +495,6 @@ function rejectEntry(entryId) {
     }
   );
 }
-
 
 
 
@@ -1181,7 +1187,7 @@ async function sendDocumentModal(e) {
     }
 
     // EmailJS payload
-    const resolvedName = extractFirstName(userName);
+    const resolvedName = userName.trim();
     const resolvedDate = new Date().toLocaleString("en-US", {
       year: "numeric",
       month: "long",
