@@ -23,6 +23,7 @@ load_dotenv()  # Load variables from .env if present (local dev)
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-insecure-secret")  # for flash messages
 app.permanent_session_lifetime = timedelta(days=30)  # 30 days for "Remember Me"
+QUEUE_ENTRIES_SCHEMA_MIGRATED = False
 
 # Make Flask respect X-Forwarded-* headers on Render so url_for(..., _external=True)
 # uses the correct scheme/host (https and your subdomain)
@@ -409,8 +410,13 @@ def get_next_queue_number(queue_type):
         traceback.print_exc()
         return 1  # Default to 1 if error
 
-def ensure_queue_entries_table(conn):
-    """Create queue_entries table if it doesn't exist."""
+def ensure_queue_entries_table(conn, include_column_migrations=True):
+    """Create queue_entries table if it doesn't exist.
+
+    `include_column_migrations=False` keeps read-heavy endpoints fast by
+    skipping ALTER TABLE checks.
+    """
+    global QUEUE_ENTRIES_SCHEMA_MIGRATED
     try:
         cur = conn.cursor()
         cur.execute(
@@ -440,6 +446,10 @@ def ensure_queue_entries_table(conn):
         )
         conn.commit()
 
+        if not include_column_migrations or QUEUE_ENTRIES_SCHEMA_MIGRATED:
+            cur.close()
+            return
+
         # Ensure required columns exist (handles older schemas)
         column_statements = [
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS queue_slug VARCHAR(255)",
@@ -465,13 +475,19 @@ def ensure_queue_entries_table(conn):
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS notification_message TEXT"
         ]
 
+        migration_failed = False
         for stmt in column_statements:
             try:
                 cur.execute(stmt)
+                conn.commit()
             except Exception as column_error:
                 # Log and continue; column may already exist with different definition
                 print(f"Warning: ensure_queue_entries_table column migration issue: {column_error}")
-        conn.commit()
+                conn.rollback()
+                migration_failed = True
+
+        if not migration_failed:
+            QUEUE_ENTRIES_SCHEMA_MIGRATED = True
         cur.close()
     except Exception as e:
         print(f"Error ensuring queue_entries table: {e}")
@@ -599,7 +615,7 @@ def get_queue_mode_hints(processing_method, release_type):
         "waiting_hint": hints["waiting_hint"],
     }
 
-def get_queue_mode(queue_slug, queue_number):
+def get_queue_mode(queue_slug, queue_number, cur=None, ensure_columns=True):
     """Get queue processing/release mode for a queue."""
     default = {"processing_method": "Online", "release_type": "Digital Copy"}
     queue_path = f"/queue/{queue_slug}/{queue_number}"
@@ -611,50 +627,76 @@ def get_queue_mode(queue_slug, queue_number):
     queue_links.append(queue_path)
     queue_suffix = f"%{queue_path}"
 
-    conn = get_db_connection()
-    if conn is None:
-        return default
+    own_connection = cur is None
+    conn = None
+    if own_connection:
+        conn = get_db_connection()
+        if conn is None:
+            return default
 
     row = None
     try:
-        ensure_queue_mode_columns(conn)
-        cur = conn.cursor()
+        if own_connection:
+            if ensure_columns:
+                ensure_queue_mode_columns(conn)
+            cur = conn.cursor()
 
         for table_name in ("qr_history", "temp_qr"):
             if row:
                 break
             for queue_link in queue_links:
-                cur.execute(
-                    f"""SELECT processing_method, release_type
-                        FROM {table_name}
-                        WHERE queue_link = %s
-                        ORDER BY created_at DESC, id DESC
-                        LIMIT 1""",
-                    (queue_link,),
-                )
-                row = cur.fetchone()
+                try:
+                    cur.execute(
+                        f"""SELECT processing_method, release_type
+                            FROM {table_name}
+                            WHERE queue_link = %s
+                            ORDER BY created_at DESC, id DESC
+                            LIMIT 1""",
+                        (queue_link,),
+                    )
+                    row = cur.fetchone()
+                except Exception as query_error:
+                    print(f"Warning get_queue_mode exact match query failed on {table_name}: {query_error}")
+                    try:
+                        cur.connection.rollback()
+                    except Exception:
+                        pass
+                    row = None
                 if row:
                     break
 
         if not row:
             for table_name in ("qr_history", "temp_qr"):
-                cur.execute(
-                    f"""SELECT processing_method, release_type
-                        FROM {table_name}
-                        WHERE queue_link LIKE %s
-                        ORDER BY created_at DESC, id DESC
-                        LIMIT 1""",
-                    (queue_suffix,),
-                )
-                row = cur.fetchone()
+                try:
+                    cur.execute(
+                        f"""SELECT processing_method, release_type
+                            FROM {table_name}
+                            WHERE queue_link LIKE %s
+                            ORDER BY created_at DESC, id DESC
+                            LIMIT 1""",
+                        (queue_suffix,),
+                    )
+                    row = cur.fetchone()
+                except Exception as query_error:
+                    print(f"Warning get_queue_mode fallback query failed on {table_name}: {query_error}")
+                    try:
+                        cur.connection.rollback()
+                    except Exception:
+                        pass
+                    row = None
                 if row:
                     break
-        cur.close()
     except Exception as e:
         print(f"Error get_queue_mode: {e}")
     finally:
         try:
-            conn.close()
+            if own_connection and cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if own_connection and conn:
+                conn.close()
         except Exception:
             pass
 
@@ -1384,6 +1426,8 @@ def resolve_queue_link_for_qr(cur, qr_id, prefer_active=True):
 @app.route('/get_qr_scans/<int:qr_id>', methods=['GET'])
 def get_qr_scans(qr_id):
     """Return a JSON list of users linked to a specific QR code."""
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
         if conn is None:
@@ -1395,26 +1439,22 @@ def get_qr_scans(qr_id):
         queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True)
 
         if not queue_link:
-            cur.close()
-            conn.close()
             return jsonify([])
 
         # Extract queue_slug and queue_number from the queue_link
         # Format: https://domain.com/queue/<slug>/<number>
         match = re.search(r'/queue/([^/]+)/(\d+)', queue_link)
         if not match:
-            cur.close()
-            conn.close()
             return jsonify([])
         
         queue_slug = match.group(1)
         queue_number = int(match.group(2))
-        queue_mode = get_queue_mode(queue_slug, queue_number)
+        queue_mode = get_queue_mode(queue_slug, queue_number, cur=cur, ensure_columns=False)
         queue_processing_method = queue_mode.get("processing_method", "Online")
         queue_release_type = queue_mode.get("release_type", "Digital Copy")
 
         # Ensure queue_entries table exists
-        ensure_queue_entries_table(conn)
+        ensure_queue_entries_table(conn, include_column_migrations=False)
 
         # Fetch queue entries (users who filled the form / scanned the QR)
         # Order by status (waiting first) then by created_at
@@ -1495,9 +1535,6 @@ def get_qr_scans(qr_id):
                 "notification_message": row[13] or ""
             })
 
-        cur.close()
-        conn.close()
-
         return jsonify(scans)
 
     except Exception as e:
@@ -1505,11 +1542,24 @@ def get_qr_scans(qr_id):
         import traceback
         traceback.print_exc()
         return jsonify([])
+    finally:
+        if cur:
+            try:
+                cur.close()
+            except Exception:
+                pass
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 @app.route('/download_scans/<int:qr_id>', methods=['GET'])
 def download_scans(qr_id):
     """Download all scans for a specific QR as a CSV file (physical proof of who scanned)."""
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
         if conn is None:
@@ -1521,21 +1571,17 @@ def download_scans(qr_id):
         queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True)
 
         if not queue_link:
-            cur.close()
-            conn.close()
             return "QR not found", 404
 
         # Extract queue_slug and queue_number from the queue_link
         match = re.search(r'/queue/([^/]+)/(\d+)', queue_link)
         if not match:
-            cur.close()
-            conn.close()
             return "Invalid queue link format", 400
 
         queue_slug = match.group(1)
         queue_number = int(match.group(2))
 
-        ensure_queue_entries_table(conn)
+        ensure_queue_entries_table(conn, include_column_migrations=False)
 
         # Fetch entries for this queue
         cur.execute(
@@ -1548,8 +1594,6 @@ def download_scans(qr_id):
             (queue_slug, queue_number)
         )
         rows = cur.fetchall()
-        cur.close()
-        conn.close()
 
         # Build CSV content
         import csv
@@ -1600,6 +1644,17 @@ def download_scans(qr_id):
         import traceback
         traceback.print_exc()
         return "Error generating CSV", 500
+    finally:
+        if cur:
+            try:
+                cur.close()
+            except Exception:
+                pass
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 @app.route('/update_queue_status', methods=['POST'])
 def update_queue_status():
