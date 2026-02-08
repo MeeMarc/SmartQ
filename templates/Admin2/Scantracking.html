@@ -251,7 +251,7 @@ emailjs.send(
   {
     user_name: data.user_name,
     created_at: data.created_at,
-    application_status: "✅ Your application has been ACCEPTED. The requested document will be sent to your registered email address. Please ensure that your email is active and check your inbox (including the spam or junk folder) for updates. We appreciate your patience and thank you for using SmartQ."
+    application_status: "✅ Your application has been ACCEPTED.",
     status_message: message
   }
 )
@@ -301,7 +301,7 @@ function rejectEntry(entryId) {
           emailjs.send("service_t9g8qmw", "template_hnn5wpo", {
             user_name: data.user_name,
             created_at: data.created_at,
-            application_status: "❌ Your application has been REJECTED due to issues found in your application form. Please review the information you submitted, make the necessary corrections, and resubmit your application for evaluation. Thank you for using SmartQ."
+            application_status: "❌ Your application has been REJECTED.",
             status_message: message,
             status_bg: "#fdecea",
             status_color: "#dc3545"
@@ -550,13 +550,11 @@ notificationForm.addEventListener("submit", function(e) {
     return;
   }
 
-  const checkboxes = document.querySelectorAll("#entryCheckboxes input[type='checkbox']:checked");
-  const entryIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
-  
-  if (entryIds.length === 0) {
-    showAlert("Please select at least one entry to notify.", "error");
-    return;
-
+            // Focus the right panel (scan list) so view is on "mga nag-scan"
+      qrDetailContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (qrDetailContainer.querySelector("#scanList")) {
+        qrDetailContainer.querySelector("#scanList").focus({ preventScroll: true });
+      }
   }
   
   fetch("/send_notification", {
