@@ -131,8 +131,55 @@
   </div>
 </div>
 
+<div id="signupAlertModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:12000; align-items:center; justify-content:center;">
+  <div style="background:#fff; width:min(420px,92vw); border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,0.25); padding:24px; text-align:center;">
+    <div id="signupAlertIcon" style="width:62px; height:62px; border-radius:999px; margin:0 auto 14px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:1.9rem; font-weight:700; background:linear-gradient(135deg,#28a745,#20c997);">✓</div>
+    <p id="signupAlertText" style="margin:0 0 18px; color:#1a1a1a; font-size:1.02rem; line-height:1.45;">Message</p>
+    <button type="button" id="signupAlertOk" style="border:none; border-radius:10px; padding:10px 24px; font-weight:600; cursor:pointer; color:#fff; background:linear-gradient(135deg,#003366,#0055aa);">OK</button>
+  </div>
+</div>
+
   <!-- JS for toggle password -->
   <script>
+    function showSignupAlert(message, type = "success") {
+      const modal = document.getElementById("signupAlertModal");
+      const icon = document.getElementById("signupAlertIcon");
+      const text = document.getElementById("signupAlertText");
+      if (!modal || !icon || !text) return;
+
+      text.textContent = message;
+      if (type === "error") {
+        icon.textContent = "!";
+        icon.style.background = "linear-gradient(135deg,#dc3545,#c82333)";
+      } else {
+        icon.textContent = "✓";
+        icon.style.background = "linear-gradient(135deg,#28a745,#20c997)";
+      }
+      modal.style.display = "flex";
+    }
+
+    function closeSignupAlert() {
+      const modal = document.getElementById("signupAlertModal");
+      if (modal) {
+        modal.style.display = "none";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+      const okBtn = document.getElementById("signupAlertOk");
+      const modal = document.getElementById("signupAlertModal");
+      if (okBtn) {
+        okBtn.addEventListener("click", closeSignupAlert);
+      }
+      if (modal) {
+        modal.addEventListener("click", function(event) {
+          if (event.target === modal) {
+            closeSignupAlert();
+          }
+        });
+      }
+    });
+
     function togglePassword(id, el) {
       const input = document.getElementById(id);
       if(input.type === "password") {
@@ -157,7 +204,7 @@
     document.getElementById("teacher_id_upload").addEventListener("change", function(event) {
       if (event.target.files.length > 0) {
         let fileName = event.target.files[0].name;
-        alert("Teacher ID uploaded: " + fileName);
+        showSignupAlert("Teacher ID uploaded: " + fileName, "success");
       }
     });
 

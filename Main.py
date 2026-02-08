@@ -3,6 +3,7 @@ import re
 import random
 import smtplib
 import hashlib
+import glob
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response, send_from_directory
@@ -28,6 +29,15 @@ QUEUE_ENTRIES_SCHEMA_MIGRATED = False
 # Make Flask respect X-Forwarded-* headers on Render so url_for(..., _external=True)
 # uses the correct scheme/host (https and your subdomain)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(
+        os.path.join(app.root_path, 'static', 'images'),
+        'logo.png',
+        mimetype='image/png'
+    )
 
 def get_public_base_url():
     """Return a public base URL suitable for QR links in production.
@@ -1318,29 +1328,60 @@ def temp_qr_data():
 
 @app.route('/qr_history_data', methods=['GET'])
 def qr_history_data():
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
         if conn is None:
             print("ERROR: Database connection failed")
             return jsonify({"error": "Database connection failed"}), 500
-        ensure_queue_mode_columns(conn)
+
         cur = conn.cursor()
-        
-        # Simple query - get ALL columns from qr_history
-        # Don't join with users yet to avoid issues
-        cur.execute("""
+
+        # Detect available columns first so history still loads on older schemas.
+        cur.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'qr_history'
+            """
+        )
+        available_columns = {row[0] for row in cur.fetchall()}
+        if not available_columns:
+            return jsonify([])
+
+        required_columns = ("id", "queue_type", "queue_purpose", "queue_link", "created_by", "created_at")
+        missing_required = [col for col in required_columns if col not in available_columns]
+        if missing_required:
+            return jsonify({
+                "error": f"qr_history missing required columns: {', '.join(missing_required)}"
+            }), 500
+
+        optional_columns = (
+            "avg_service_time",
+            "morning_start",
+            "morning_end",
+            "afternoon_start",
+            "afternoon_end",
+            "staff_count",
+            "processing_method",
+            "release_type",
+        )
+        optional_select_parts = [
+            col if col in available_columns else f"NULL AS {col}"
+            for col in optional_columns
+        ]
+        optional_select_sql = ",\n                   ".join(optional_select_parts)
+
+        cur.execute(f"""
             SELECT id, queue_type, queue_purpose, queue_link, created_by, created_at,
-                   avg_service_time, morning_start, morning_end, 
-                   afternoon_start, afternoon_end, staff_count,
-                   processing_method, release_type
+                   {optional_select_sql}
             FROM qr_history
             ORDER BY created_at DESC
         """)
-        
+
         rows = cur.fetchall()
         print(f"Found {len(rows)} QR codes in history")
-        cur.close()
-        conn.close()
 
         history = []
         for row in rows:
@@ -1376,6 +1417,17 @@ def qr_history_data():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+    finally:
+        if cur:
+            try:
+                cur.close()
+            except Exception:
+                pass
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 
@@ -1418,6 +1470,51 @@ def resolve_queue_link_for_qr(cur, qr_id, prefer_active=True):
             return row[0]
 
     return None
+
+
+def convert_doc_path_to_url(path_value):
+    """Convert stored document path to a public URL."""
+    if not path_value:
+        return None
+
+    path = str(path_value).replace('\\', '/')
+    if path.startswith('/static/') or path.startswith('/uploads/'):
+        return path
+    if path.startswith('static/'):
+        return f"/{path}"
+    if path.startswith('uploads/'):
+        return f"/{path}"
+    return f"/static/uploads/{os.path.basename(path)}"
+
+
+def resolve_entry_document_urls(entry_id, id_doc_path=None, req_doc_path=None, signature_path=None):
+    """Resolve document URLs from DB paths, with filesystem fallback for legacy rows."""
+    id_doc_url = convert_doc_path_to_url(id_doc_path)
+    req_doc_url = convert_doc_path_to_url(req_doc_path)
+    signature_url = convert_doc_path_to_url(signature_path)
+
+    uploads_dir = os.path.join("static", "uploads")
+
+    def find_legacy_file(pattern):
+        if not os.path.isdir(uploads_dir):
+            return None
+        matches = sorted(glob.glob(os.path.join(uploads_dir, pattern)))
+        if not matches:
+            return None
+        return f"/static/uploads/{os.path.basename(matches[0])}"
+
+    if not id_doc_url:
+        id_doc_url = find_legacy_file(f"{entry_id}_id.*")
+    if not req_doc_url:
+        req_doc_url = find_legacy_file(f"{entry_id}_req.*")
+    if not signature_url:
+        signature_url = find_legacy_file(f"{entry_id}_sig.*")
+
+    return {
+        "id_doc": id_doc_url,
+        "req_doc": req_doc_url,
+        "signature": signature_url,
+    }
     
 # ==============================================================  
 # GET SCANS FOR A SPECIFIC QR
@@ -1480,39 +1577,15 @@ def get_qr_scans(qr_id):
 
         scans = []
         for row in rows:
-            # Convert file paths to URLs if they exist
-            id_doc_url = None
-            req_doc_url = None
-            signature_url = None
-            
-            if row[9]:  # id_doc_path
-                # Paths are stored as "static/uploads/filename.ext"
-                # Flask serves static files from /static/ URL
-                path = row[9].replace('\\', '/')  # Normalize path separators
-                if path.startswith('static/'):
-                    id_doc_url = f"/{path}"
-                elif path.startswith('/static/'):
-                    id_doc_url = path
-                else:
-                    id_doc_url = f"/static/uploads/{os.path.basename(path)}"
-            
-            if row[10]:  # req_doc_path
-                path = row[10].replace('\\', '/')
-                if path.startswith('static/'):
-                    req_doc_url = f"/{path}"
-                elif path.startswith('/static/'):
-                    req_doc_url = path
-                else:
-                    req_doc_url = f"/static/uploads/{os.path.basename(path)}"
-            
-            if row[11]:  # signature_path
-                path = row[11].replace('\\', '/')
-                if path.startswith('static/'):
-                    signature_url = f"/{path}"
-                elif path.startswith('/static/'):
-                    signature_url = path
-                else:
-                    signature_url = f"/static/uploads/{os.path.basename(path)}"
+            doc_urls = resolve_entry_document_urls(
+                row[0],
+                id_doc_path=row[9],
+                req_doc_path=row[10],
+                signature_path=row[11],
+            )
+            id_doc_url = doc_urls["id_doc"]
+            req_doc_url = doc_urls["req_doc"]
+            signature_url = doc_urls["signature"]
             
             scans.append({
                 "id": row[0],
@@ -1827,37 +1900,14 @@ def view_entry_documents(entry_id):
             return jsonify({"status": "error", "message": "Entry not found"}), 404
         
         id_doc_path, req_doc_path, signature_path, fullname, applicant_id = row
-        
-        # Convert paths to URLs
-        documents = {}
-        
-        if id_doc_path:
-            # Normalize path separators and ensure correct URL format
-            path = id_doc_path.replace('\\', '/')
-            if path.startswith('static/'):
-                documents['id_doc'] = f"/{path}"
-            elif path.startswith('/static/'):
-                documents['id_doc'] = path
-            else:
-                documents['id_doc'] = f"/static/uploads/{os.path.basename(path)}"
-        
-        if req_doc_path:
-            path = req_doc_path.replace('\\', '/')
-            if path.startswith('static/'):
-                documents['req_doc'] = f"/{path}"
-            elif path.startswith('/static/'):
-                documents['req_doc'] = path
-            else:
-                documents['req_doc'] = f"/static/uploads/{os.path.basename(path)}"
-        
-        if signature_path:
-            path = signature_path.replace('\\', '/')
-            if path.startswith('static/'):
-                documents['signature'] = f"/{path}"
-            elif path.startswith('/static/'):
-                documents['signature'] = path
-            else:
-                documents['signature'] = f"/static/uploads/{os.path.basename(path)}"
+
+        doc_urls = resolve_entry_document_urls(
+            entry_id,
+            id_doc_path=id_doc_path,
+            req_doc_path=req_doc_path,
+            signature_path=signature_path,
+        )
+        documents = {k: v for k, v in doc_urls.items() if v}
         
         cur.close()
         conn.close()
@@ -2935,18 +2985,37 @@ def queue_page(queue_slug, queue_number):
 
             upload_dir = os.path.join("static", "uploads")
             os.makedirs(upload_dir, exist_ok=True)
+            id_doc_path = None
+            req_doc_path = None
+            signature_path = None
 
             if id_doc_bytes:
-                with open(os.path.join(upload_dir, f"{entry_id}_id.{id_doc_ext}"), "wb") as f:
+                id_doc_name = f"{entry_id}_id.{id_doc_ext}"
+                with open(os.path.join(upload_dir, id_doc_name), "wb") as f:
                     f.write(id_doc_bytes)
+                id_doc_path = f"static/uploads/{id_doc_name}"
 
             if req_doc_bytes:
-                with open(os.path.join(upload_dir, f"{entry_id}_req.{req_doc_ext}"), "wb") as f:
+                req_doc_name = f"{entry_id}_req.{req_doc_ext}"
+                with open(os.path.join(upload_dir, req_doc_name), "wb") as f:
                     f.write(req_doc_bytes)
+                req_doc_path = f"static/uploads/{req_doc_name}"
 
             if sig_bytes:
-                with open(os.path.join(upload_dir, f"{entry_id}_sig.png"), "wb") as f:
+                sig_name = f"{entry_id}_sig.png"
+                with open(os.path.join(upload_dir, sig_name), "wb") as f:
                     f.write(sig_bytes)
+                signature_path = f"static/uploads/{sig_name}"
+
+            cur.execute(
+                """
+                UPDATE queue_entries
+                SET id_doc_path = %s, req_doc_path = %s, signature_path = %s
+                WHERE id = %s
+                """,
+                (id_doc_path, req_doc_path, signature_path, entry_id),
+            )
+            conn.commit()
 
         except Exception as e:
             if conn:

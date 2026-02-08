@@ -41,6 +41,14 @@
   {% endif %}
 {% endwith %}
 
+<div id="customAlertModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:12000; align-items:center; justify-content:center;">
+  <div style="background:#fff; width:min(420px,92vw); border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,0.25); padding:24px; text-align:center;">
+    <div id="customAlertIcon" style="width:62px; height:62px; border-radius:999px; margin:0 auto 14px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:1.9rem; font-weight:700; background:linear-gradient(135deg,#dc3545,#c82333);">!</div>
+    <p id="customAlertText" style="margin:0 0 18px; color:#1a1a1a; font-size:1.02rem; line-height:1.45;">Message</p>
+    <button type="button" id="customAlertOk" style="border:none; border-radius:10px; padding:10px 24px; font-weight:600; cursor:pointer; color:#fff; background:linear-gradient(135deg,#003366,#0055aa);">OK</button>
+  </div>
+</div>
+
 
 <section class="queue-hero">
   <div class="hero-content">
@@ -374,7 +382,43 @@
     const reqPreview = document.getElementById('supportingDocsPreview');
     const registrationForm = document.getElementById('registrationForm');
     const submitBtn = document.getElementById('submitBtn');
+    const customAlertModal = document.getElementById('customAlertModal');
+    const customAlertIcon = document.getElementById('customAlertIcon');
+    const customAlertText = document.getElementById('customAlertText');
+    const customAlertOk = document.getElementById('customAlertOk');
     const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+    function showCustomAlert(message, type = 'error') {
+      if (!customAlertModal || !customAlertText || !customAlertOk || !customAlertIcon) {
+        return;
+      }
+      customAlertText.textContent = message;
+      if (type === 'success') {
+        customAlertIcon.textContent = '✓';
+        customAlertIcon.style.background = 'linear-gradient(135deg,#28a745,#20c997)';
+      } else {
+        customAlertIcon.textContent = '!';
+        customAlertIcon.style.background = 'linear-gradient(135deg,#dc3545,#c82333)';
+      }
+      customAlertModal.style.display = 'flex';
+    }
+
+    function closeCustomAlert() {
+      if (customAlertModal) {
+        customAlertModal.style.display = 'none';
+      }
+    }
+
+    if (customAlertOk) {
+      customAlertOk.addEventListener('click', closeCustomAlert);
+    }
+    if (customAlertModal) {
+      customAlertModal.addEventListener('click', (event) => {
+        if (event.target === customAlertModal) {
+          closeCustomAlert();
+        }
+      });
+    }
 
     function renderPreview(file, container) {
       if (!file || !container) return;
@@ -399,13 +443,13 @@
       }
       const extOk = /(\.jpg|\.jpeg|\.png|\.pdf)$/i.test(file.name);
       if (!extOk) {
-        alert('Invalid file type. Allowed: JPG, PNG, PDF.');
+        showCustomAlert('Invalid file type. Allowed: JPG, PNG, PDF.');
         input.value = '';
         if (previewEl) previewEl.innerHTML = '';
         return false;
       }
       if (file.size > MAX_FILE_SIZE) {
-        alert('File too large. Max size is 5MB.');
+        showCustomAlert('File too large. Max size is 5MB.');
         input.value = '';
         if (previewEl) previewEl.innerHTML = '';
         return false;
@@ -504,12 +548,12 @@
         registrationForm.addEventListener('submit', (event) => {
           if (declaration && !declaration.checked) {
             event.preventDefault();
-            alert('Please certify that the information is true and correct.');
+            showCustomAlert('Please certify that the information is true and correct.');
             return false;
           }
           if (!hasDrawn) {
             event.preventDefault();
-            alert('Please provide your e-signature before submitting.');
+            showCustomAlert('Please provide your e-signature before submitting.');
             return false;
           }
           sigField.value = canvas.toDataURL('image/png');

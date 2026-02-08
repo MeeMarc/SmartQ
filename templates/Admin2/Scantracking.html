@@ -16,8 +16,15 @@
         <li><a href="{{ url_for('homepage') }}">Home</a></li>
         <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
         <li><a href="{{ url_for('scantracking') }}" class="active">Scan Tracking</a></li>
-        <li><a href="{{ url_for('admin_settings') }}">Account</a></li>
-        <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
+        <li class="settings-dropdown">
+          <details class="settings-details">
+            <summary class="settings-trigger">Settings</summary>
+            <div class="settings-menu">
+              <a href="{{ url_for('admin_settings') }}">Account</a>
+              <a href="{{ url_for('logout') }}" class="logout-link">Log out</a>
+            </div>
+          </details>
+        </li>
       </ul>
     </nav>
   </header>
@@ -127,6 +134,20 @@
   </div>
 </div>
 
+<!-- Modal for Accept/Reject Notification Message -->
+<div class="modal" id="statusMessageModal">
+  <div class="modal-content" style="max-width: 520px;">
+    <span class="close-modal" id="statusMessageClose">Ã—</span>
+    <h3 id="statusMessageTitle">Enter Notification Message</h3>
+    <label for="statusMessageInput">Message (optional):</label>
+    <textarea id="statusMessageInput" rows="4" style="width: 100%; padding: 10px; border: 1px solid #ccd6e0; border-radius: 8px; font-size: 0.95rem; resize: vertical;"></textarea>
+    <div style="display: flex; gap: 10px; margin-top: 15px;">
+      <button type="button" id="statusMessageSave">Continue</button>
+      <button type="button" id="statusMessageCancel" style="background: #6c757d;">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const qrListContainer = document.getElementById("qrListContainer");
 const qrDetailContainer = document.getElementById("qrDetailContainer");
@@ -136,6 +157,10 @@ const modalQRLink = document.getElementById("modalQRLink");
 const documentsModal = document.getElementById("documentsModal");
 const notificationModal = document.getElementById("notificationModal");
 const notificationForm = document.getElementById("notificationForm");
+const statusMessageModal = document.getElementById("statusMessageModal");
+const statusMessageTitle = document.getElementById("statusMessageTitle");
+const statusMessageInput = document.getElementById("statusMessageInput");
+const statusMessageClose = document.getElementById("statusMessageClose");
 
 let currentScans = [];
 let currentQRId = null;
@@ -286,6 +311,37 @@ function showAlert(message, type = 'success') {
   };
 }
 
+function closeStatusMessageModal() {
+  statusMessageModal.style.display = "none";
+}
+
+function requestStatusMessage(title, defaultMessage, onContinue) {
+  statusMessageTitle.textContent = title;
+  statusMessageInput.value = defaultMessage || "";
+  statusMessageModal.style.display = "flex";
+  statusMessageModal.style.alignItems = "center";
+  statusMessageModal.style.justifyContent = "center";
+  statusMessageInput.focus();
+  statusMessageInput.setSelectionRange(statusMessageInput.value.length, statusMessageInput.value.length);
+
+  const saveBtn = document.getElementById("statusMessageSave");
+  const cancelBtn = document.getElementById("statusMessageCancel");
+
+  const newSaveBtn = saveBtn.cloneNode(true);
+  const newCancelBtn = cancelBtn.cloneNode(true);
+  saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+  cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+  newSaveBtn.onclick = () => {
+    const message = (statusMessageInput.value || "").trim();
+    closeStatusMessageModal();
+    onContinue(message);
+  };
+
+  newCancelBtn.onclick = closeStatusMessageModal;
+  statusMessageClose.onclick = closeStatusMessageModal;
+}
+
 // Mark entry as done
 function markAsDone(entryId, buttonElement) {
   showConfirmation(
@@ -322,113 +378,113 @@ function markAsDone(entryId, buttonElement) {
 
 
 function acceptEntry(entryId) {
-  const message = prompt(
-    'Enter notification message (optional):',
-    'Your application has been accepted.'
-  );
-  if (message === null) return;
+  requestStatusMessage(
+    'Accept Entry Message',
+    'Your application has been accepted.',
+    (message) => {
+      showConfirmation(
+        'Accept Entry',
+        'Are you sure you want to accept this entry?',
+        () => {
+          fetch(`/accept_queue_entry/${entryId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notification_message: message })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.status === 'success') {
+              const recipientEmail = (data.email || "").trim();
+              if (!isValidEmail(recipientEmail)) {
+                showAlert('Entry accepted successfully, but status email was not sent because recipient email is missing or invalid.', 'success');
+                if (currentQRId) viewScans(currentQRId);
+                return;
+              }
 
-  showConfirmation(
-    'Accept Entry',
-    'Are you sure you want to accept this entry?',
-    () => {
-      fetch(`/accept_queue_entry/${entryId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notification_message: message })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'success') {
-          const recipientEmail = (data.email || "").trim();
-          if (!isValidEmail(recipientEmail)) {
-            showAlert('Entry accepted successfully, but status email was not sent because recipient email is missing or invalid.', 'success');
-            if (currentQRId) viewScans(currentQRId);
-            return;
-          }
+              const emailParams = buildStatusEmailParams(
+                data,
+                data.application_status || "Waiting",
+                message,
+                { bg: "#e8f7ee", color: "#198754" }
+              );
 
-          const emailParams = buildStatusEmailParams(
-            data,
-            data.application_status || "Waiting",
-            message,
-            { bg: "#e8f7ee", color: "#198754" }
-          );
+              sendEmailJs(EMAILJS_CONFIG.TEMPLATE_STATUS_ID, emailParams)
+                .then(response => {
+                  console.log("Status email sent", response);
+                })
+                .catch(error => {
+                  console.error("Status email failed", error);
+                  showAlert("Status updated, but email sending failed. Check console.", "error");
+                });
+              showAlert('Entry accepted successfully!', 'success');
+              if (currentQRId) viewScans(currentQRId);
 
-          sendEmailJs(EMAILJS_CONFIG.TEMPLATE_STATUS_ID, emailParams)
-            .then(response => {
-              console.log("Status email sent", response);
-            })
-            .catch(error => {
-              console.error("Status email failed", error);
-              alert("Status updated, but email sending failed. Check console.");
-            });
-          showAlert('Entry accepted successfully!', 'success');
-          if (currentQRId) viewScans(currentQRId);
-
-        } else {
-          showAlert('Error: ' + data.message, 'error');
+            } else {
+              showAlert('Error: ' + data.message, 'error');
+            }
+          })
+          .catch(err => {
+            console.error(err);
+            showAlert('Failed to accept entry', 'error');
+          });
         }
-      })
-      .catch(err => {
-        console.error(err);
-        showAlert('Failed to accept entry', 'error');
-      });
+      );
     }
   );
 }
 
 function rejectEntry(entryId) {
-  const message = prompt(
-    'Enter notification message (optional):',
-    'Your application has been rejected.'
-  );
-  if (message === null) return;
+  requestStatusMessage(
+    'Reject Entry Message',
+    'Your application has been rejected.',
+    (message) => {
+      showConfirmation(
+        'Reject Entry',
+        'Are you sure you want to reject this entry?',
+        () => {
+          fetch(`/reject_queue_entry/${entryId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notification_message: message })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.status === 'success') {
+              const recipientEmail = (data.email || "").trim();
+              if (!isValidEmail(recipientEmail)) {
+                showAlert('Entry rejected successfully, but status email was not sent because recipient email is missing or invalid.', 'success');
+                if (currentQRId) viewScans(currentQRId);
+                return;
+              }
 
-  showConfirmation(
-    'Reject Entry',
-    'Are you sure you want to reject this entry?',
-    () => {
-      fetch(`/reject_queue_entry/${entryId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notification_message: message })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'success') {
-          const recipientEmail = (data.email || "").trim();
-          if (!isValidEmail(recipientEmail)) {
-            showAlert('Entry rejected successfully, but status email was not sent because recipient email is missing or invalid.', 'success');
-            if (currentQRId) viewScans(currentQRId);
-            return;
-          }
+              const emailParams = buildStatusEmailParams(
+                data,
+                data.application_status || "Waiting",
+                message,
+                { bg: "#fdecea", color: "#dc3545" }
+              );
 
-          const emailParams = buildStatusEmailParams(
-            data,
-            data.application_status || "Waiting",
-            message,
-            { bg: "#fdecea", color: "#dc3545" }
-          );
+              sendEmailJs(EMAILJS_CONFIG.TEMPLATE_STATUS_ID, emailParams)
+                .then(response => {
+                  console.log("Status email sent", response);
+                })
+                .catch(error => {
+                  console.error("Status email failed", error);
+                  showAlert("Status updated, but email sending failed. Check console.", "error");
+                });
+              showAlert('Entry rejected successfully!', 'success');
+              if (currentQRId) viewScans(currentQRId);
 
-          sendEmailJs(EMAILJS_CONFIG.TEMPLATE_STATUS_ID, emailParams)
-            .then(response => {
-              console.log("Status email sent", response);
-            })
-            .catch(error => {
-              console.error("Status email failed", error);
-              alert("Status updated, but email sending failed. Check console.");
-            });
-          showAlert('Entry rejected successfully!', 'success');
-          if (currentQRId) viewScans(currentQRId);
-
-        } else {
-          showAlert('Error: ' + data.message, 'error');
+            } else {
+              showAlert('Error: ' + data.message, 'error');
+            }
+          })
+          .catch(err => {
+            console.error(err);
+            showAlert('Failed to reject entry', 'error');
+          });
         }
-      })
-      .catch(err => {
-        console.error(err);
-        showAlert('Failed to reject entry', 'error');
-      });
+      );
     }
   );
 }
@@ -610,6 +666,8 @@ documentsModal.addEventListener('click', function(e) {
 // Notification Modal Functions
 function openNotificationModal(qrId) {
   notificationModal.style.display = "flex";
+  notificationModal.style.alignItems = "center";
+  notificationModal.style.justifyContent = "center";
   document.getElementById("notificationQRId").value = qrId;
   document.getElementById("notificationMessage").value = "";
   populateEntryCheckboxes();
@@ -697,6 +755,12 @@ notificationForm.addEventListener("submit", function(e) {
 notificationModal.addEventListener('click', function(e) {
   if (e.target === notificationModal) {
     closeNotificationModal();
+  }
+});
+
+statusMessageModal.addEventListener('click', function(e) {
+  if (e.target === statusMessageModal) {
+    closeStatusMessageModal();
   }
 });
 

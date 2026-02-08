@@ -17,8 +17,15 @@
         <li><a href="{{ url_for('homepage') }}">Home</a></li>
         <li><a href="{{ url_for('createq') }}" class="active">Create Queue</a></li>
         <li><a href="{{ url_for('scantracking') }}">Scan Tracking</a></li>
-        <li><a href="{{ url_for('admin_settings') }}">Account</a></li>
-        <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
+        <li class="settings-dropdown">
+          <details class="settings-details">
+            <summary class="settings-trigger">Settings</summary>
+            <div class="settings-menu">
+              <a href="{{ url_for('admin_settings') }}">Account</a>
+              <a href="{{ url_for('logout') }}" class="logout-link">Log out</a>
+            </div>
+          </details>
+        </li>
       </ul>
     </nav>
   </header>
@@ -145,8 +152,15 @@
 <script>
   const form = document.getElementById("qrForm");
   const container = document.getElementById("qrContainer");
+  const qrContainerTitle = document.getElementById("qrContainerTitle");
+  const viewHistoryBtn = document.getElementById("viewHistoryBtn");
+  const loadPreviousBtn = document.getElementById("loadPreviousBtn");
 
+  const GENERATED_TITLE = "Generated Queues";
+  const HISTORY_TITLE = "QR History";
   let qrList = JSON.parse(localStorage.getItem("queues")) || [];
+  let qrHistoryList = [];
+  let isHistoryView = false;
 
   function getMissingConfigFields() {
     const configFields = [
@@ -214,6 +228,188 @@
     okBtn.onclick = () => modal.style.display = 'none';
   }
 
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function formatCreatedAt(value) {
+    if (!value || value === "N/A") {
+      return "N/A";
+    }
+    try {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (_) {
+      return value;
+    }
+  }
+
+  function extractQueueNumberFromLink(link) {
+    const match = String(link || "").match(/\/queue\/[^/]+\/(\d+)/);
+    return match ? match[1] : "N/A";
+  }
+
+  function showGeneratedQueueView() {
+    isHistoryView = false;
+    qrContainerTitle.textContent = GENERATED_TITLE;
+    if (viewHistoryBtn) {
+      viewHistoryBtn.textContent = "View QR History";
+    }
+    if (loadPreviousBtn) {
+      loadPreviousBtn.style.display = "none";
+    }
+    renderQRs();
+  }
+
+  function renderQRHistory(historyRows) {
+    container.innerHTML = "";
+
+    if (!Array.isArray(historyRows) || historyRows.length === 0) {
+      container.innerHTML = "<p style=\"color:#666; text-align:center; width:100%;\">No QR history found.</p>";
+      return;
+    }
+
+    historyRows.forEach((item, index) => {
+      const queueType = item.queue_type || "Unknown";
+      const queuePurpose = item.queue_purpose || "N/A";
+      const queueLink = (item.queue_link || "").trim() || "#";
+      const queueNumber = extractQueueNumberFromLink(queueLink);
+      const createdAt = formatCreatedAt(item.created_at);
+      const processingMethod = item.processing_method || "Online";
+      const releaseType = item.release_type || "Digital Copy";
+
+      const box = document.createElement("div");
+      box.className = "qr-box";
+
+      box.innerHTML = `
+        <div class="queue-type-slot">
+          <h4 class="queue-type-title" title="${escapeHtml(queueType)}">${escapeHtml(queueType)}</h4>
+        </div>
+        <p class="queue-purpose">${escapeHtml(queuePurpose)}</p>
+        <p><strong>Queue #:</strong> ${escapeHtml(queueNumber)}</p>
+        <p><strong>Service Channel:</strong> ${escapeHtml(processingMethod)}</p>
+        <p><strong>Release Format:</strong> ${escapeHtml(releaseType)}</p>
+        <p><strong>Created:</strong> ${escapeHtml(createdAt)}</p>
+        <div id="historyQr${index}"></div>
+        <div class="qr-url-container">
+          <p><small><strong>URL:</strong></small></p>
+          <a target="_blank" rel="noopener noreferrer" class="qr-url-link history-link"></a>
+        </div>
+      `;
+
+      const linkEl = box.querySelector(".history-link");
+      linkEl.href = queueLink;
+      linkEl.textContent = queueLink;
+
+      container.appendChild(box);
+
+      if (queueLink && queueLink !== "#") {
+        new QRCode(document.getElementById(`historyQr${index}`), {
+          text: queueLink,
+          width: 128,
+          height: 128
+        });
+      }
+    });
+  }
+
+  async function checkDatabaseConnection() {
+    try {
+      const res = await fetch("/test_db");
+      const data = await res.json();
+      if (!res.ok || data.status !== "success") {
+        const diagnosticError = String(data.error || `DB diagnostic failed (${res.status}).`);
+        const normalized = diagnosticError.toLowerCase();
+        const connectionErrorMarkers = [
+          "database connection failed",
+          "could not connect",
+          "connection refused",
+          "timeout",
+          "server closed the connection",
+          "could not translate host name",
+          "network is unreachable",
+          "name or service not known"
+        ];
+        const isConnectionError = connectionErrorMarkers.some(marker => normalized.includes(marker));
+
+        if (!isConnectionError) {
+          return {
+            status: "success",
+            message: `Database reachable (schema diagnostic warning: ${diagnosticError})`
+          };
+        }
+
+        return {
+          status: "error",
+          message: diagnosticError
+        };
+      }
+      return { status: "success", message: "Database connection successful." };
+    } catch (err) {
+      return {
+        status: "error",
+        message: err.message || "Unable to run database diagnostic."
+      };
+    }
+  }
+
+  async function fetchQRHistory() {
+    if (viewHistoryBtn) {
+      viewHistoryBtn.disabled = true;
+    }
+
+    try {
+      const response = await fetch("/qr_history_data");
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (_) {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const serverError = payload && payload.error ? payload.error : `Request failed (${response.status})`;
+        const dbDiagnostic = await checkDatabaseConnection();
+        const dbHint = dbDiagnostic.status === "error"
+          ? ` Database diagnostic: ${dbDiagnostic.message}`
+          : "";
+        throw new Error(`${serverError}.${dbHint}`);
+      }
+
+      qrHistoryList = Array.isArray(payload) ? payload : [];
+      isHistoryView = true;
+      qrContainerTitle.textContent = HISTORY_TITLE;
+      if (viewHistoryBtn) {
+        viewHistoryBtn.textContent = "Back to Generated";
+      }
+      if (loadPreviousBtn) {
+        loadPreviousBtn.style.display = "none";
+      }
+      renderQRHistory(qrHistoryList);
+    } catch (err) {
+      console.error("Error loading QR history:", err);
+      showAlert(`Failed to load QR history: ${err.message}`, "error");
+    } finally {
+      if (viewHistoryBtn) {
+        viewHistoryBtn.disabled = false;
+      }
+    }
+  }
+
   /* ================= RENDER QRS ================= */
   function renderQRs() {
     container.innerHTML = "";
@@ -262,7 +458,17 @@
     });
   }
 
-  renderQRs();
+  showGeneratedQueueView();
+
+  if (viewHistoryBtn) {
+    viewHistoryBtn.addEventListener("click", async () => {
+      if (isHistoryView) {
+        showGeneratedQueueView();
+        return;
+      }
+      await fetchQRHistory();
+    });
+  }
 
   /* ================= CREATE QUEUE ================= */
   form.addEventListener("submit", (e) => {
@@ -337,7 +543,7 @@
       qrList.push(newQR);
       localStorage.setItem("queues", JSON.stringify(qrList));
 
-      renderQRs();
+      showGeneratedQueueView();
       form.reset();
       showAlert("Queue created successfully!", "success");
     })
@@ -368,7 +574,7 @@
           // Remove from local storage / UI list
           qrList.splice(index, 1);
           localStorage.setItem("queues", JSON.stringify(qrList));
-          renderQRs();
+          showGeneratedQueueView();
           showAlert("Queue removed from active list.", "success");
         } catch (err) {
           console.error(err);

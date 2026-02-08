@@ -16,8 +16,15 @@
         <li><a href="{{ url_for('homepage') }}">Home</a></li>
         <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
         <li><a href="{{ url_for('scantracking') }}">Scan Tracking</a></li>
-        <li><a href="{{ url_for('admin_settings') }}" class="active">Account</a></li>
-        <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
+        <li class="settings-dropdown">
+          <details class="settings-details" open>
+            <summary class="settings-trigger active">Settings</summary>
+            <div class="settings-menu">
+              <a href="{{ url_for('admin_settings') }}" class="active">Account</a>
+              <a href="{{ url_for('logout') }}" class="logout-link">Log out</a>
+            </div>
+          </details>
+        </li>
       </ul>
     </nav>
   </header>
