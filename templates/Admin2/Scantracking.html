@@ -137,6 +137,68 @@ const notificationForm = document.getElementById("notificationForm");
 let currentScans = [];
 let currentQRId = null;
 
+// EmailJS configuration.
+// Update these values and variable keys to match your EmailJS templates.
+const EMAILJS_CONFIG = {
+  PUBLIC_KEY: "jpZBXk-dH8pr1YLy4",
+  SERVICE_ID: "service_t9g8qmw",
+  TEMPLATE_STATUS_ID: "template_hnn5wpo",
+  TEMPLATE_DOCUMENT_ID: "template_smlzhta"
+};
+
+const EMAILJS_VARS = {
+  STATUS: {
+    USER_NAME: "user_name",
+    CREATED_AT: "created_at",
+    APPLICATION_STATUS: "application_status",
+    STATUS_MESSAGE: "status_message",
+    STATUS_BG: "status_bg",
+    STATUS_COLOR: "status_color",
+    APP_NAME: "app_name"
+  },
+  DOCUMENT: {
+    EMAIL: "email",
+    APPLICANT_ID: "applicant_id",
+    USER_NAME: "user_name",
+    USER_MESSAGE: "user_message",
+    QUEUE_TYPE: "queue_type",
+    DOWNLOAD_LINK: "download_link"
+  }
+};
+
+function buildStatusEmailParams(payload, applicationStatus, statusMessage, palette = {}) {
+  const resolvedName = payload.user_name || payload.fullname || payload.name || "Applicant";
+  const resolvedDate = payload.created_at || new Date().toLocaleString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  return {
+    [EMAILJS_VARS.STATUS.USER_NAME]: resolvedName,
+    [EMAILJS_VARS.STATUS.APPLICATION_STATUS]: applicationStatus,
+    [EMAILJS_VARS.STATUS.STATUS_MESSAGE]: statusMessage || "",
+    [EMAILJS_VARS.STATUS.CREATED_AT]: resolvedDate,
+    [EMAILJS_VARS.STATUS.STATUS_BG]: palette.bg || "#e7f3ff",
+    [EMAILJS_VARS.STATUS.STATUS_COLOR]: palette.color || "#0b5ed7",
+    [EMAILJS_VARS.STATUS.APP_NAME]: "SmartQ",
+    // Alias variables so templates still work if names differ.
+    name: resolvedName,
+    fullname: resolvedName,
+    date: resolvedDate,
+    submitted_at: resolvedDate
+  };
+}
+
+function sendEmailJs(templateId, params) {
+  if (typeof emailjs === "undefined") {
+    return Promise.reject(new Error("EmailJS library is not loaded."));
+  }
+  return emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, params);
+}
+
 // Custom Confirmation Dialog
 function showConfirmation(title, message, onConfirm) {
   const modal = document.getElementById('confirmationModal');
@@ -244,25 +306,21 @@ function acceptEntry(entryId) {
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
+          const emailParams = buildStatusEmailParams(
+            data,
+            "Accepted",
+            message,
+            { bg: "#e8f7ee", color: "#198754" }
+          );
 
-emailjs.send(
-  "service_t9g8qmw",
-  "template_hnn5wpo",
-  {
-    user_name: data.user_name,
-    created_at: data.created_at,
-    application_status: "✅ Your application has been ACCEPTED.",
-    status_message: message
-  }
-)
-.then(response => {
-  console.log("✅ Email sent", response);
-})
-.catch(error => {
-  console.error("❌ Email failed", error);
-  alert("Email failed to send. Check console.");
-});
-
+          sendEmailJs(EMAILJS_CONFIG.TEMPLATE_STATUS_ID, emailParams)
+            .then(response => {
+              console.log("Status email sent", response);
+            })
+            .catch(error => {
+              console.error("Status email failed", error);
+              alert("Status updated, but email sending failed. Check console.");
+            });
           showAlert('Entry accepted successfully!', 'success');
           if (currentQRId) viewScans(currentQRId);
 
@@ -297,16 +355,21 @@ function rejectEntry(entryId) {
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
+          const emailParams = buildStatusEmailParams(
+            data,
+            "Rejected",
+            message,
+            { bg: "#fdecea", color: "#dc3545" }
+          );
 
-          emailjs.send("service_t9g8qmw", "template_hnn5wpo", {
-            user_name: data.user_name,
-            created_at: data.created_at,
-            application_status: "❌ Your application has been REJECTED.",
-            status_message: message,
-            status_bg: "#fdecea",
-            status_color: "#dc3545"
-          });
-
+          sendEmailJs(EMAILJS_CONFIG.TEMPLATE_STATUS_ID, emailParams)
+            .then(response => {
+              console.log("Status email sent", response);
+            })
+            .catch(error => {
+              console.error("Status email failed", error);
+              alert("Status updated, but email sending failed. Check console.");
+            });
           showAlert('Entry rejected successfully!', 'success');
           if (currentQRId) viewScans(currentQRId);
 
@@ -842,7 +905,7 @@ function filterScans() {
 <script>
   // Initialize EmailJS
   (function() {
-    emailjs.init("jpZBXk-dH8pr1YLy4");
+    emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
   })();
 
 // Open modal and set template variables
@@ -898,17 +961,31 @@ async function sendDocumentModal(e) {
     const data = await uploadResponse.json();
 
     // EmailJS payload
+    const resolvedName = userName || "Applicant";
+    const resolvedDate = new Date().toLocaleString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
     const emailParams = {
-      email: email,        // ✅ email
-      applicant_id: applicantId,
-      user_name: userName,
-      user_message: message,
-      queue_type: documenttype,  // ✅ changed here
-      download_link: data.download_url
+      [EMAILJS_VARS.DOCUMENT.EMAIL]: email,
+      [EMAILJS_VARS.DOCUMENT.APPLICANT_ID]: applicantId,
+      [EMAILJS_VARS.DOCUMENT.USER_NAME]: resolvedName,
+      [EMAILJS_VARS.DOCUMENT.USER_MESSAGE]: message,
+      [EMAILJS_VARS.DOCUMENT.QUEUE_TYPE]: documenttype,
+      [EMAILJS_VARS.DOCUMENT.DOWNLOAD_LINK]: data.download_url,
+      // Alias variables for template flexibility.
+      name: resolvedName,
+      fullname: resolvedName,
+      created_at: resolvedDate,
+      date: resolvedDate,
+      document_name: documenttype
     };
 
-
-    await emailjs.send("service_t9g8qmw", "template_smlzhta", emailParams);
+    await sendEmailJs(EMAILJS_CONFIG.TEMPLATE_DOCUMENT_ID, emailParams);
 
     alert("Document sent successfully!");
     closeSendDocumentModal();
