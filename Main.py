@@ -58,6 +58,11 @@ def extract_first_name(fullname):
     return name.split()[0]
 
 
+def is_valid_email(value):
+    """Return True when value looks like a valid email address."""
+    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", (value or "").strip()))
+
+
 def get_db_connection():
     try:
         # Get the DATABASE_URL and remove any hidden newline or space
@@ -311,10 +316,44 @@ def upload_document():
     if not allowed_file(file.filename):
         return jsonify({"error": "File type not allowed"}), 400
 
-    # ✅ Use applicant_id instead of id_number
-    applicant_id = request.form.get('applicant_id')
+    applicant_id = (request.form.get('applicant_id') or '').strip()
     if not applicant_id:
         return jsonify({"error": "Missing applicant_id"}), 400
+
+    conn = None
+    cur = None
+    recipient_email = ""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"error": "Database connection failed"}), 500
+
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT email
+            FROM queue_entries
+            WHERE applicant_id = %s
+            ORDER BY created_at DESC NULLS LAST, id DESC
+            LIMIT 1
+            """,
+            (applicant_id,)
+        )
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "No queue entry found for the provided applicant_id"}), 404
+
+        recipient_email = (row[0] or "").strip()
+        if not is_valid_email(recipient_email):
+            return jsonify({"error": "Cannot send document: recipient email is missing or invalid for this applicant"}), 400
+    except Exception as e:
+        return jsonify({"error": f"Failed to validate applicant record: {str(e)}"}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
     # Create a safe, unique filename
     timestamp = int(time.time())
@@ -324,7 +363,11 @@ def upload_document():
 
     # Return download URL
     download_url = request.host_url.rstrip('/') + f'/uploads/{filename}'
-    return jsonify({"download_url": download_url, "applicant_id": applicant_id})
+    return jsonify({
+        "download_url": download_url,
+        "applicant_id": applicant_id,
+        "email": recipient_email
+    })
 
 # Serve uploaded files
 @app.route('/uploads/<filename>')

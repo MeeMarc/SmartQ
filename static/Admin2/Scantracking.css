@@ -410,6 +410,22 @@ header {
   transform: translateY(0);
 }
 
+.send-doc-btn.disabled,
+.send-doc-btn:disabled {
+  background: #97a9bf;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  opacity: 0.8;
+}
+
+.send-doc-btn.disabled:hover,
+.send-doc-btn:disabled:hover {
+  background: #97a9bf;
+  transform: none;
+  box-shadow: none;
+}
+
 /* Done button */
 .done-btn {
   background-color: #28a745;

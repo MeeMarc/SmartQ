@@ -187,6 +187,10 @@ function extractFirstName(fullName) {
   return raw.split(/\s+/)[0];
 }
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || "").trim());
+}
+
 function buildStatusEmailParams(payload, applicationStatus, statusMessage, palette = {}) {
   const resolvedName = extractFirstName(payload.user_name || payload.fullname || payload.name || "");
   const resolvedDate = payload.created_at || new Date().toLocaleString("en-US", {
@@ -336,6 +340,13 @@ function acceptEntry(entryId) {
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
+          const recipientEmail = (data.email || "").trim();
+          if (!isValidEmail(recipientEmail)) {
+            showAlert('Entry accepted successfully, but status email was not sent because recipient email is missing or invalid.', 'success');
+            if (currentQRId) viewScans(currentQRId);
+            return;
+          }
+
           const emailParams = buildStatusEmailParams(
             data,
             data.application_status || "Waiting",
@@ -385,6 +396,13 @@ function rejectEntry(entryId) {
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
+          const recipientEmail = (data.email || "").trim();
+          if (!isValidEmail(recipientEmail)) {
+            showAlert('Entry rejected successfully, but status email was not sent because recipient email is missing or invalid.', 'success');
+            if (currentQRId) viewScans(currentQRId);
+            return;
+          }
+
           const emailParams = buildStatusEmailParams(
             data,
             data.application_status || "Waiting",
@@ -856,8 +874,21 @@ function renderScans(scans) {
     const hasDocuments = user.has_documents || (user.id_doc_url || user.req_doc_url || user.signature_url);
     const hasNotification = user.notification_message && user.notification_message.trim() !== '';
     const canMarkDone = adminStatus !== 'pending' && !['completed','cancelled','rescheduled'].includes(user.status);
+    const applicantId = ((user.applicant_id || "") + "").trim();
+    const recipientEmail = (user.email || "").trim();
     const releaseType = (user.queue_release_type || '').toLowerCase();
-    const canSendDocument = releaseType ? releaseType.includes('digital') : true;
+    const releaseAllowsDigital = releaseType ? releaseType.includes('digital') : true;
+    const hasApplicantId = applicantId.length > 0;
+    const hasRecipientEmail = isValidEmail(recipientEmail);
+    const canSendDocument = releaseAllowsDigital && hasApplicantId && hasRecipientEmail;
+    let sendDocUnavailableReason = '';
+    if (releaseAllowsDigital) {
+      if (!hasApplicantId) {
+        sendDocUnavailableReason = 'Missing Applicant ID';
+      } else if (!hasRecipientEmail) {
+        sendDocUnavailableReason = 'Missing or invalid recipient email';
+      }
+    }
 
     card.innerHTML = `
       <div>
@@ -882,14 +913,20 @@ function renderScans(scans) {
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
 
             <!-- Send Document button -->
-            ${canSendDocument ? `
-            <button class="send-doc-btn"
-                    data-applicant-id="${user.applicant_id || ''}"
-                    data-fullname="${user.fullname || ''}"
-                    data-queue-type="${user.queue_type || 'Document'}"
-                    data-email="${user.email || ''}">
-              Send Document
-            </button>
+            ${releaseAllowsDigital ? `
+              ${canSendDocument ? `
+              <button class="send-doc-btn"
+                      data-applicant-id="${applicantId}"
+                      data-fullname="${user.fullname || ''}"
+                      data-queue-type="${user.queue_type || 'Document'}"
+                      data-email="${recipientEmail}">
+                Send Document
+              </button>
+              ` : `
+              <button class="send-doc-btn disabled" type="button" title="${sendDocUnavailableReason}" disabled>
+                Send Document
+              </button>
+              `}
             ` : ''}
           </div>
         </div>
@@ -907,7 +944,7 @@ function renderScans(scans) {
 
 // Attach Send Document listener immediately
 const sendBtn = card.querySelector(".send-doc-btn");
-if (sendBtn) {
+if (sendBtn && !sendBtn.disabled) {
   sendBtn.addEventListener("click", function() {
     openSendDocumentModal(
       this.dataset.applicantId,
@@ -995,12 +1032,23 @@ function filterScans() {
 
 // Open modal and set template variables
 function openSendDocumentModal(applicantId, userName, documenttype, email) {
+  const resolvedApplicantId = (applicantId || "").trim();
+  const resolvedEmail = (email || "").trim();
+  if (!resolvedApplicantId) {
+    showAlert("Cannot send document: missing Applicant ID for this entry.", "error");
+    return;
+  }
+  if (!isValidEmail(resolvedEmail)) {
+    showAlert("Cannot send document: recipient email is missing or invalid.", "error");
+    return;
+  }
+
   const modal = document.getElementById("sendDocumentModal");
 
-  document.getElementById("sendDocApplicantId").value = applicantId;
+  document.getElementById("sendDocApplicantId").value = resolvedApplicantId;
   document.getElementById("sendDocUserName").value = userName;
   document.getElementById("sendDocDocumenttype").value = documenttype || "Document"; // fallback
-  document.getElementById("sendDocEmail").value = email || "";
+  document.getElementById("sendDocEmail").value = resolvedEmail;
 
   document.getElementById("sendDocFile").value = "";
   document.getElementById("sendDocMessage").value = "";
@@ -1018,15 +1066,25 @@ function closeSendDocumentModal() {
 async function sendDocumentModal(e) {
   e.preventDefault();
 
-  const applicantId = document.getElementById("sendDocApplicantId").value;
+  const applicantId = document.getElementById("sendDocApplicantId").value.trim();
   const userName = document.getElementById("sendDocUserName").value;
   const documenttype = document.getElementById("sendDocDocumenttype").value;
-  const email = document.getElementById("sendDocEmail").value;
-  const message = document.getElementById("sendDocMessage").value;
+  const email = document.getElementById("sendDocEmail").value.trim();
+  const message = document.getElementById("sendDocMessage").value.trim();
   const fileInput = document.getElementById("sendDocFile");
 
+  if (!applicantId) {
+    showAlert("Cannot send document: missing Applicant ID for this entry.", "error");
+    return;
+  }
+
+  if (!isValidEmail(email)) {
+    showAlert("Cannot send document: recipient email is missing or invalid.", "error");
+    return;
+  }
+
   if (!fileInput.files.length) {
-    alert("Please attach a document.");
+    showAlert("Please attach a document.", "error");
     return;
   }
 
@@ -1041,9 +1099,22 @@ async function sendDocumentModal(e) {
       body: formData
     });
 
-    if (!uploadResponse.ok) throw new Error("Upload failed");
+    if (!uploadResponse.ok) {
+      let uploadError = "Upload failed.";
+      try {
+        const errData = await uploadResponse.json();
+        uploadError = errData.error || errData.message || uploadError;
+      } catch (_) {
+        // Ignore JSON parsing errors; keep default message.
+      }
+      throw new Error(uploadError);
+    }
 
     const data = await uploadResponse.json();
+    const recipientEmail = (data.email || email).trim();
+    if (!isValidEmail(recipientEmail)) {
+      throw new Error("Cannot send document: recipient email is missing or invalid.");
+    }
 
     // EmailJS payload
     const resolvedName = extractFirstName(userName);
@@ -1056,7 +1127,7 @@ async function sendDocumentModal(e) {
     });
 
     const emailParams = {
-      [EMAILJS_VARS.DOCUMENT.EMAIL]: email,
+      [EMAILJS_VARS.DOCUMENT.EMAIL]: recipientEmail,
       [EMAILJS_VARS.DOCUMENT.APPLICANT_ID]: applicantId,
       [EMAILJS_VARS.DOCUMENT.USER_NAME]: resolvedName,
       [EMAILJS_VARS.DOCUMENT.USER_MESSAGE]: message,
@@ -1072,13 +1143,13 @@ async function sendDocumentModal(e) {
 
     await sendEmailJs(EMAILJS_CONFIG.TEMPLATE_DOCUMENT_ID, emailParams);
 
-    alert("Document sent successfully!");
+    showAlert("Document sent successfully!", "success");
     closeSendDocumentModal();
     document.getElementById("sendDocumentForm").reset();
 
   } catch (err) {
     console.error(err);
-    alert("Failed to send document.");
+    showAlert(err.message || "Failed to send document.", "error");
   }
 }
 
