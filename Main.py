@@ -1373,7 +1373,7 @@ def accept_queue_entry(entry_id):
         data = request.get_json() or {}
         notification_message = data.get(
             'notification_message',
-            'Your application has been accepted.'
+            'Your application has been ACCEPTED. The requested document will be sent to your registered email address. Please ensure that your email is active and check your inbox (including the spam or junk folder) for updates. We appreciate your patience and thank you for using SmartQ.'
         )
 
         conn = get_db_connection()
@@ -1419,7 +1419,7 @@ def reject_queue_entry(entry_id):
         data = request.get_json() or {}
         notification_message = data.get(
             'notification_message',
-            'Your application has been rejected.'
+            'Your application has been REJECTED due to issues found in your application form. Please review the information you submitted, make the necessary corrections, and resubmit your application for evaluation. Thank you for using SmartQ.'
         )
 
         conn = get_db_connection()
