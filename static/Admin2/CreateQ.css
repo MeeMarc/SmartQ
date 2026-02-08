@@ -378,6 +378,21 @@ header {
 .qr-box p { font-size: 1rem; margin-bottom: 8px; color: #000; }
 .qr-box small { color: #888; }
 
+/* Force generated QR (canvas/img from QRCode.js) to stay centered */
+.qr-box div[id^="qr"] {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.qr-box div[id^="qr"] canvas,
+.qr-box div[id^="qr"] img {
+  display: block;
+  margin: 0 auto;
+}
+
 /* URL Container */
 .qr-url-container { margin: 10px 0; word-wrap: break-word; }
 .qr-url-link {
