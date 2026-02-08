@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SmartQ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="{{ url_for('static', filename='User.css') }}">
 </head>
 <body id="top"
@@ -55,9 +57,9 @@
         <strong class="status-label">Queue Status:</strong>
         <span class="status-info">
           {% if queue_full %}
-            <span class="status-full">🚫 FULL - {{ current_count }}/{{ queue_limit }} slots taken</span>
+            <span class="status-full">FULL - {{ current_count }}/{{ queue_limit }} slots taken</span>
           {% else %}
-            <span class="status-available">✅ {{ queue_limit - current_count }} slots available ({{ current_count }}/{{ queue_limit }})</span>
+            <span class="status-available">OPEN - {{ queue_limit - current_count }} slots available ({{ current_count }}/{{ queue_limit }})</span>
           {% endif %}
         </span>
       </div>
@@ -65,7 +67,7 @@
       {% if queue_full %}
       <div class="queue-full-notice">
         <p>
-          ⚠️ <strong>Queue Full:</strong> This queue has reached maximum capacity. However, if you've already registered, you can retrieve your ticket by entering your phone number below.
+          <strong>Queue Full:</strong> This queue has reached maximum capacity. If you've already registered, you can retrieve your ticket by entering your phone number below.
         </p>
       </div>
       {% endif %}
@@ -92,37 +94,38 @@
 <!-- Section 1: How It Works -->
 <section class="how-it-works-slider">
   <h3>How It Works</h3>
+  <p class="how-it-works-subtitle">Four quick steps from submission to queue confirmation.</p>
 
   <div class="slider" id="carousel">
     <div class="card active">
       <img src="{{ url_for('static', filename='images/step-1.png') }}" alt="step 1">
-      <p><strong>STEP 1</strong></p>
-      <p2>Scan the QR code.</p2>
+      <p class="step-title"><strong>Step 1</strong></p>
+      <p class="step-copy">Scan the QR code or open your queue link.</p>
     </div>
 
     <div class="card">
       <img src="{{ url_for('static', filename='images/step2.png') }}" alt="step 2">
-      <p><strong>STEP 2</strong></p>
-      <p2>Fill out the registration form.</p2>
+      <p class="step-title"><strong>Step 2</strong></p>
+      <p class="step-copy">Fill out the registration form with your details.</p>
     </div>
 
     <div class="card">
       <img src="{{ url_for('static', filename='images/step3.png') }}" alt="step 3">
-      <p><strong>STEP 3</strong></p>
-      <p2>Receive a ticket.</p2>
+      <p class="step-title"><strong>Step 3</strong></p>
+      <p class="step-copy">Receive your queue ticket and reference number.</p>
     </div>
 
     <div class="card">
       <img src="{{ url_for('static', filename='images/step4.png') }}" alt="step 4">
-      <p><strong>STEP 4</strong></p>
-      <p2>Proceed to the queue.</p2>
+      <p class="step-title"><strong>Step 4</strong></p>
+      <p class="step-copy">Proceed to service when your queue is called.</p>
     </div>
   </div>
 
-  <!-- ✅ Navigation Buttons -->
+  <!-- Navigation Buttons -->
   <div class="slider-controls">
-    <button id="prevBtn">❮ Prev</button>
-    <button id="nextBtn">Next ❯</button>
+    <button id="prevBtn">&lt; Prev</button>
+    <button id="nextBtn">Next &gt;</button>
   </div>
 </section>
 
@@ -140,9 +143,9 @@
       <strong class="status-label">Queue Status:</strong>
       <span class="status-info">
         {% if queue_full %}
-          <span class="status-full">🚫 FULL - {{ current_count }}/{{ queue_limit }} slots taken</span>
+          <span class="status-full">FULL - {{ current_count }}/{{ queue_limit }} slots taken</span>
         {% else %}
-          <span class="status-available">✅ {{ queue_limit - current_count }} slots available ({{ current_count }}/{{ queue_limit }})</span>
+          <span class="status-available">OPEN - {{ queue_limit - current_count }} slots available ({{ current_count }}/{{ queue_limit }})</span>
         {% endif %}
       </span>
     </div>
@@ -150,7 +153,7 @@
     
     <p class="form-description">
       {% if queue_full %}
-        <strong style="color: #d32f2f;">⚠️ Queue is Full:</strong> If you've already registered, enter your phone number to retrieve your ticket. New registrations are currently not accepted.
+        <strong style="color: #d32f2f;">Queue is Full:</strong> If you've already registered, enter your phone number to retrieve your ticket. New registrations are currently not accepted.
       {% else %}
         Kindly provide accurate information so we can assist you with <strong>{{ queue_type|default('your requested documents', true) }}</strong>.
         {% if queue_flow_hint %}
@@ -159,7 +162,7 @@
       {% endif %}
     </p>
 
-    <!-- ✅ New read-only textarea for scanned QR -->
+    <!-- Read-only display for scanned QR metadata -->
     <div class="form-row">
       <label for="qrData">Documents</label>
       <div id="qrDisplay" class="qr-display-box {% if (queue_type is defined and queue_type) or (queue_purpose is defined and queue_purpose) %}filled{% endif %}">
@@ -172,10 +175,10 @@
     <input type="hidden" name="queue_number" value="{{ queue_number|default('', true) }}">
     <input type="hidden" name="queue_slug" value="{{ queue_slug|default('', true) }}">
 
-    <!-- ✅ Phone Number (Always Required) -->
+    <!-- Phone Number (Always Required) -->
     <div class="form-row">
       <label for="phone">Phone Number: <span style="color: red;">*</span></label>
-      <textarea id="phone" name="phone" rows="1" placeholder="09*********" required></textarea>
+      <input type="tel" id="phone" name="phone" inputmode="numeric" maxlength="15" placeholder="09XXXXXXXXX" required>
       {% if queue_full %}
       <p style="font-size: 0.85rem; color: #666; margin-top: 5px; font-style: italic;">
         Enter your phone number to retrieve your existing ticket.
@@ -184,7 +187,7 @@
     </div>
 
     {% if not queue_full %}
-    <!-- ✅ Name Fields - Separated -->
+    <!-- Name Fields - Separated -->
     <div class="form-row">
       <label for="lastname">Last Name: <span style="color: red;">*</span></label>
       <input type="text" id="lastname" name="lastname" placeholder="Dela Cruz" required>
@@ -205,7 +208,7 @@
       <input type="text" id="suffix" name="suffix" placeholder="Jr., Sr., III (optional)" maxlength="10">
     </div>
 
-    <!-- ✅ Purpose -->
+    <!-- Purpose -->
     <div class="form-row" id="purposeRow">
       <label for="purpose">Purpose:</label>
       <textarea id="purpose" name="purpose" rows="4" placeholder="Optional"></textarea>
@@ -266,7 +269,7 @@
     </div>
     {% endif %}
 
-    <!-- ✅ Submit Button -->
+    <!-- Submit Button -->
     <div class="form-row">
       <button type="submit" id="submitBtn">{% if queue_full %}Retrieve My Ticket{% else %}Submit{% endif %}</button>
     </div>
@@ -534,3 +537,4 @@
 
 </body>
 </html>
+

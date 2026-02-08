@@ -386,6 +386,30 @@ header {
   transform: translateY(0);
 }
 
+/* Send Document button */
+.send-doc-btn {
+  background: linear-gradient(135deg, #003366, #0055aa);
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.send-doc-btn:hover {
+  background: linear-gradient(135deg, #004a99, #0070d9);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 85, 170, 0.35);
+}
+
+.send-doc-btn:active {
+  transform: translateY(0);
+}
+
 /* Done button */
 .done-btn {
   background-color: #28a745;
@@ -687,7 +711,42 @@ header {
 /* =========================================================
    SEND DOCUMENT MODAL FIXES
 ========================================================= */
-.modal-content textarea {
+#sendDocumentModal .modal-backdrop {
+  display: none;
+}
+
+#sendDocumentModal .send-document-modal-content {
+  width: min(560px, 92vw);
+  padding: 28px 28px 24px;
+  border: 1px solid #d4e2f3;
+  border-radius: 18px;
+  box-shadow: 0 18px 44px rgba(0, 51, 102, 0.25);
+}
+
+#sendDocumentModal .close-modal {
+  top: 8px;
+  right: 14px;
+  font-size: 1.7rem;
+}
+
+#sendDocumentModal h3 {
+  margin-bottom: 16px;
+}
+
+#sendDocumentForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#sendDocumentForm .readonly-field {
+  background: #eef4ff;
+  border: 1px solid #bfd3ee;
+  color: #0e3f79;
+  font-weight: 600;
+}
+
+#sendDocumentForm textarea {
   width: 100%;
   padding: 10px;
   border: 1px solid #ccd6e0;
@@ -695,17 +754,48 @@ header {
   font-size: 0.95rem;
   outline: none;
   resize: vertical;
+  min-height: 115px;
 }
 
-.modal-content textarea:focus {
+#sendDocumentForm textarea:focus {
   border-color: #66b2ff;
   box-shadow: 0 0 5px rgba(102, 178, 255, 0.3);
 }
 
-.modal-content input[type="file"] {
-  padding: 8px;
+#sendDocumentForm input[type="file"] {
+  padding: 10px 12px;
+  border: 1px dashed #9fb8d9;
+  border-radius: 10px;
   background: #f8faff;
   cursor: pointer;
+}
+
+#sendDocumentForm input[type="file"]:hover {
+  background: #eef5ff;
+}
+
+#sendDocumentForm .send-btn {
+  margin-top: 6px;
+  width: 100%;
+  background: linear-gradient(135deg, #003366, #0055aa);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#sendDocumentForm .send-btn:hover {
+  background: linear-gradient(135deg, #004080, #0062c2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 86, 179, 0.35);
+}
+
+#sendDocumentForm .send-btn:active {
+  transform: translateY(0);
 }
 
 
@@ -776,6 +866,12 @@ header {
   .confirm-btn-yes,
   .confirm-btn-no {
     width: 100%;
+  }
+
+  #sendDocumentModal .send-document-modal-content {
+    width: 94vw;
+    padding: 22px 16px 18px;
+    border-radius: 14px;
   }
 }
 

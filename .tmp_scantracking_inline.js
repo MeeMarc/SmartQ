@@ -1,133 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scan History | SmartQ</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/Scantracking.css') }}">
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
-</head>
-<body>
+﻿
+// script block 0
 
-  <header>
-    <nav class="HomeNavbar">
-      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>SmartQ</strong></a>
-      <ul class="HomeNavMenu">
-        <li><a href="{{ url_for('homepage') }}">Home</a></li>
-        <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
-        <li><a href="{{ url_for('scantracking') }}" class="active">Scan Tracking</a></li>
-        <li><a href="{{ url_for('admin_settings') }}">Account</a></li>
-        <li><a href="{{ url_for('logout') }}" id="logout">Logout</a></li>
-      </ul>
-    </nav>
-  </header>
-
-<main class="HomeMainContent">
-  <h2>QR Scanner Dashboard</h2>
-
-  <div class="container-flex">
-    <!-- LEFT: QR List -->
-    <aside class="qr-list" id="qrListContainer">
-      <h3>Generated Queues</h3>
-      <!-- QR list injected dynamically -->
-    </aside>
-
-    <!-- RIGHT: Scan Details -->
-    <section class="qr-detail" id="qrDetailContainer">
-      <h3>Select a QR to see scans</h3>
-      <!-- Scanned users will appear here -->
-    </section>
-  </div>
-</main>
-
-<!-- Confirmation Modal -->
-<div class="confirmation-overlay" id="confirmationModal" style="display: none;">
-  <div class="confirmation-modal">
-    <div class="confirmation-icon">⚠️</div>
-    <h3 id="confirmationTitle">Confirm Action</h3>
-    <p id="confirmationMessage">Are you sure you want to proceed?</p>
-    <div class="confirmation-buttons">
-      <button class="confirm-btn-yes" id="confirmYes">Yes, Proceed</button>
-      <button class="confirm-btn-no" id="confirmNo">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- Success/Error Modal -->
-<div class="alert-overlay" id="alertModal" style="display: none;">
-  <div class="alert-modal">
-    <div class="alert-icon" id="alertIcon">✓</div>
-    <p id="alertMessage">Success!</p>
-    <button class="alert-btn" id="alertOk">OK</button>
-  </div>
-</div>
-
-<!-- Modal for Add Candidate -->
-<div class="modal" id="candidateModal">
-  <div class="modal-content">
-    <span class="close-modal" onclick="closeModal()">×</span>
-    <h3>Add Candidate</h3>
-    <form id="candidateForm">
-      <input type="hidden" id="modalQRLink">
-      
-      <label for="lastname">Last Name: <span style="color: red;">*</span></label>
-      <input type="text" id="lastname" placeholder="Dela Cruz" required>
-      
-      <label for="firstname">First Name: <span style="color: red;">*</span></label>
-      <input type="text" id="firstname" placeholder="Juan" required>
-      
-      <label for="middleinitial">Middle Initial:</label>
-      <input type="text" id="middleinitial" placeholder="(optional)" maxlength="2">
-      
-      <label for="suffix">Suffix (if applicable):</label>
-      <input type="text" id="suffix" placeholder="Jr., Sr., III (optional)" maxlength="10">
-      
-      <label for="phone">Phone: <span style="color: red;">*</span></label>
-      <input type="text" id="phone" placeholder="09*********" required>
-
-      <label for="candidateEmail">Email: <span style="color: red;">*</span></label>
-      <input type="email" id="candidateEmail" placeholder="you@example.com" required>
-      
-      <button type="submit">Submit</button>
-    </form>
-  </div>
-</div>
-
-<!-- Modal for Viewing Documents -->
-<div class="modal" id="documentsModal">
-  <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
-    <span class="close-modal" onclick="closeDocumentsModal()">×</span>
-    <h3 id="documentsModalTitle">View Documents</h3>
-    <div id="documentsContent">
-      <p>Loading documents...</p>
-    </div>
-  </div>
-</div>
-
-
-<!-- Modal for Sending Notifications (only to selected scanned entries, no "all") -->
-<div class="modal" id="notificationModal">
-  <div class="modal-content" style="max-width: 600px;">
-    <span class="close-modal" onclick="closeNotificationModal()">×</span>
-    <h3>Send Notification</h3>
-    <p style="color: #666; font-size: 0.9rem; margin-bottom: 12px;">Select which scanned entries to notify. Only selected entries will receive the notification.</p>
-    <form id="notificationForm">
-      <input type="hidden" id="notificationQRId">
-      
-     <div id="entrySelectionContainer" style="margin-top: 10px; max-height: 280px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 6px;">
-        <p style="margin: 0 0 10px 0; font-weight: 600;">Select entries to notify:</p>
-        <div id="entryCheckboxes"></div>
-      </div>
-      
-      <label for="notificationMessage" style="margin-top: 15px;">Message: <span style="color: red;">*</span></label>
-      <textarea id="notificationMessage" rows="4" placeholder="Enter notification message..." required></textarea>
-      
-      <button type="submit" style="margin-top: 15px;">Send Notification</button>
-    </form>
-  </div>
-</div>
-
-<script>
 const qrListContainer = document.getElementById("qrListContainer");
 const qrDetailContainer = document.getElementById("qrDetailContainer");
 const modal = document.getElementById("candidateModal");
@@ -151,12 +24,9 @@ const EMAILJS_CONFIG = {
 
 const EMAILJS_VARS = {
   STATUS: {
-    EMAIL: "email",
     USER_NAME: "user_name",
     CREATED_AT: "created_at",
     APPLICATION_STATUS: "application_status",
-    TICKET_STATUS: "ticket_status",
-    ADMIN_STATUS: "admin_status",
     STATUS_MESSAGE: "status_message",
     STATUS_BG: "status_bg",
     STATUS_COLOR: "status_color",
@@ -172,23 +42,8 @@ const EMAILJS_VARS = {
   }
 };
 
-function extractFirstName(fullName) {
-  const raw = (fullName || "").trim();
-  if (!raw) return "Applicant";
-
-  if (raw.includes(",")) {
-    const parts = raw.split(",", 2);
-    const given = (parts[1] || "").trim();
-    if (given) {
-      return given.split(/\s+/)[0];
-    }
-  }
-
-  return raw.split(/\s+/)[0];
-}
-
 function buildStatusEmailParams(payload, applicationStatus, statusMessage, palette = {}) {
-  const resolvedName = extractFirstName(payload.user_name || payload.fullname || payload.name || "");
+  const resolvedName = payload.user_name || payload.fullname || payload.name || "Applicant";
   const resolvedDate = payload.created_at || new Date().toLocaleString("en-US", {
     year: "numeric",
     month: "long",
@@ -196,29 +51,20 @@ function buildStatusEmailParams(payload, applicationStatus, statusMessage, palet
     hour: "2-digit",
     minute: "2-digit"
   });
-  const resolvedStatus = applicationStatus || payload.application_status || payload.ticket_status || payload.status || "Waiting";
-  const resolvedAdminStatus = payload.admin_status || "";
-  const resolvedEmail = payload.email || "";
 
   return {
-    [EMAILJS_VARS.STATUS.EMAIL]: resolvedEmail,
     [EMAILJS_VARS.STATUS.USER_NAME]: resolvedName,
-    [EMAILJS_VARS.STATUS.APPLICATION_STATUS]: resolvedStatus,
-    [EMAILJS_VARS.STATUS.TICKET_STATUS]: resolvedStatus,
-    [EMAILJS_VARS.STATUS.ADMIN_STATUS]: resolvedAdminStatus,
+    [EMAILJS_VARS.STATUS.APPLICATION_STATUS]: applicationStatus,
     [EMAILJS_VARS.STATUS.STATUS_MESSAGE]: statusMessage || "",
     [EMAILJS_VARS.STATUS.CREATED_AT]: resolvedDate,
     [EMAILJS_VARS.STATUS.STATUS_BG]: palette.bg || "#e7f3ff",
     [EMAILJS_VARS.STATUS.STATUS_COLOR]: palette.color || "#0b5ed7",
     [EMAILJS_VARS.STATUS.APP_NAME]: "SmartQ",
     // Alias variables so templates still work if names differ.
-    email: resolvedEmail,
     name: resolvedName,
     fullname: resolvedName,
     date: resolvedDate,
-    submitted_at: resolvedDate,
-    ticket_status: resolvedStatus,
-    admin_status: resolvedAdminStatus
+    submitted_at: resolvedDate
   };
 }
 
@@ -268,10 +114,10 @@ function showAlert(message, type = 'success') {
   
   // Set icon based on type
   if (type === 'success') {
-    iconEl.textContent = '✓';
+    iconEl.textContent = 'âœ“';
     iconEl.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
   } else {
-    iconEl.textContent = '✕';
+    iconEl.textContent = 'âœ•';
     iconEl.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
   }
   
@@ -338,7 +184,7 @@ function acceptEntry(entryId) {
         if (data.status === 'success') {
           const emailParams = buildStatusEmailParams(
             data,
-            data.application_status || "Waiting",
+            "Accepted",
             message,
             { bg: "#e8f7ee", color: "#198754" }
           );
@@ -387,7 +233,7 @@ function rejectEntry(entryId) {
         if (data.status === 'success') {
           const emailParams = buildStatusEmailParams(
             data,
-            data.application_status || "Waiting",
+            "Rejected",
             message,
             { bg: "#fdecea", color: "#dc3545" }
           );
@@ -524,10 +370,10 @@ function openDocumentsModal(entryId) {
         const isPdf = documents.id_doc.toLowerCase().endsWith('.pdf');
         content += `
           <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
-            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">📄 ID Document</h4>
+            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">ðŸ“„ ID Document</h4>
             ${isPdf ? 
               `<iframe src="${documents.id_doc}" style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px;"></iframe>
-               <a href="${documents.id_doc}" target="_blank" style="display: inline-block; padding: 8px 15px; background: #003366; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">📥 Open PDF in new tab</a>` :
+               <a href="${documents.id_doc}" target="_blank" style="display: inline-block; padding: 8px 15px; background: #003366; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">ðŸ“¥ Open PDF in new tab</a>` :
               `<div style="text-align: center;">
                 <img src="${documents.id_doc}" alt="ID Document" style="max-width: 100%; max-height: 500px; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; margin-bottom: 10px;" onclick="window.open('${documents.id_doc}', '_blank')">
                 <p style="color: #666; font-size: 0.85rem; margin-top: 5px;">Click image to view full size</p>
@@ -541,10 +387,10 @@ function openDocumentsModal(entryId) {
         const isPdf = documents.req_doc.toLowerCase().endsWith('.pdf');
         content += `
           <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
-            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">📋 Required Document</h4>
+            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">ðŸ“‹ Required Document</h4>
             ${isPdf ? 
               `<iframe src="${documents.req_doc}" style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px;"></iframe>
-               <a href="${documents.req_doc}" target="_blank" style="display: inline-block; padding: 8px 15px; background: #003366; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">📥 Open PDF in new tab</a>` :
+               <a href="${documents.req_doc}" target="_blank" style="display: inline-block; padding: 8px 15px; background: #003366; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">ðŸ“¥ Open PDF in new tab</a>` :
               `<div style="text-align: center;">
                 <img src="${documents.req_doc}" alt="Required Document" style="max-width: 100%; max-height: 500px; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; margin-bottom: 10px;" onclick="window.open('${documents.req_doc}', '_blank')">
                 <p style="color: #666; font-size: 0.85rem; margin-top: 5px;">Click image to view full size</p>
@@ -557,7 +403,7 @@ function openDocumentsModal(entryId) {
       if (documents.signature) {
         content += `
           <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
-            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">✍️ Signature</h4>
+            <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">âœï¸ Signature</h4>
             <div style="text-align: center;">
               <img src="${documents.signature}" alt="Signature" style="max-width: 100%; max-height: 300px; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; margin-bottom: 10px;" onclick="window.open('${documents.signature}', '_blank')">
               <p style="color: #666; font-size: 0.85rem; margin-top: 5px;">Click image to view full size</p>
@@ -692,17 +538,10 @@ candidateForm.addEventListener("submit", function(e) {
   const middleinitial = document.getElementById("middleinitial").value.trim();
   const suffix = document.getElementById("suffix").value.trim();
   const phone = document.getElementById("phone").value.trim();
-  const email = document.getElementById("candidateEmail").value.trim();
   
   // Validate required fields
-  if (!lastname || !firstname || !phone || !email) {
-    showAlert("Please provide Last Name, First Name, Phone Number, and Email.", "error");
-    return;
-  }
-
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailPattern.test(email)) {
-    showAlert("Please enter a valid email address.", "error");
+  if (!lastname || !firstname || !phone) {
+    showAlert("Please provide Last Name, First Name, and Phone Number.", "error");
     return;
   }
   
@@ -724,7 +563,6 @@ candidateForm.addEventListener("submit", function(e) {
   const data = {
     fullname: fullname,
     phone: phone,
-    email: email,
     link: modalQRLink.value
   };
 
@@ -739,8 +577,9 @@ candidateForm.addEventListener("submit", function(e) {
       showAlert("Candidate added successfully!", "success");
       closeModal();
       // Refresh scans if currently viewing the QR
-      if (currentQRId) {
-        viewScans(currentQRId);
+      const displayedQR = document.querySelector(`#qrDetailContainer h3`);
+      if(displayedQR && displayedQR.textContent.includes(data.link)) {
+        viewScans(resp.qr_id);
       }
     } else {
       showAlert("Error: " + resp.message, "error");
@@ -752,7 +591,7 @@ candidateForm.addEventListener("submit", function(e) {
   });
 });
 
-// View scans for a specific QR — focus right panel on the scan list (mga nag-scan)
+// View scans for a specific QR â€” focus right panel on the scan list (mga nag-scan)
 function viewScans(qrId) {
   const normalizedQrId = Number(qrId);
   if (!Number.isInteger(normalizedQrId) || normalizedQrId <= 0) {
@@ -761,6 +600,7 @@ function viewScans(qrId) {
   }
 
   currentQRId = normalizedQrId;
+
   fetch(`/get_qr_scans/${normalizedQrId}`)
     .then(res => {
       if (!res.ok) {
@@ -771,9 +611,11 @@ function viewScans(qrId) {
     .then(data => {
       const scans = Array.isArray(data) ? data : [];
       currentScans = scans;
+
       const queueModeLabel = scans.length
         ? `${scans[0].queue_processing_method || 'Online'} / ${scans[0].queue_release_type || 'Digital Copy'}`
         : '';
+
       qrDetailContainer.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
           <h3 style="margin: 0;">Scans for QR #${normalizedQrId}${queueModeLabel ? ` <span style="font-size: 0.9rem; color: #666; font-weight: 500;">(${queueModeLabel})</span>` : ''}</h3>
@@ -790,12 +632,13 @@ function viewScans(qrId) {
       if (scanSearch) {
         scanSearch.addEventListener("input", filterScans);
       }
+
       renderScans(currentScans);
-      
-            // Focus the right panel (scan list) so view is on "mga nag-scan"
+
       qrDetailContainer.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (qrDetailContainer.querySelector("#scanList")) {
-        qrDetailContainer.querySelector("#scanList").focus({ preventScroll: true });
+      const scanListEl = qrDetailContainer.querySelector("#scanList");
+      if (scanListEl) {
+        scanListEl.focus({ preventScroll: true });
       }
     })
     .catch(err => {
@@ -839,9 +682,9 @@ function renderScans(scans) {
     const card = document.createElement("div");
     card.className = "scan-card";
 
-    const phone = user.phone ? ` • ${user.phone}` : "";
-    const purpose = user.purpose ? ` • ${user.purpose}` : "";
-    const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
+    const phone = user.phone ? ` â€¢ ${user.phone}` : "";
+    const purpose = user.purpose ? ` â€¢ ${user.purpose}` : "";
+    const scannedAt = user.scanned_at ? ` â€¢ ${user.scanned_at}` : "";
     const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
     const statusClass = user.status === 'completed' ? 'status-completed' :
                         user.status === 'cancelled' ? 'status-cancelled' :
@@ -896,7 +739,7 @@ function renderScans(scans) {
 
         ${hasNotification ? `
           <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
-            <strong style="color: #003366;">📢 Notification:</strong>
+            <strong style="color: #003366;">ðŸ“¢ Notification:</strong>
             <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
           </div>
         ` : ''}
@@ -932,62 +775,14 @@ function filterScans() {
     (user.admin_status && user.admin_status.toLowerCase().includes(query))
   );
 
-  // ✅ Render filtered scans (listeners attached automatically inside renderScans)
+  // âœ… Render filtered scans (listeners attached automatically inside renderScans)
   renderScans(filtered);
 }
 
-</script>
 
 
+// script block 1
 
-<div id="sendDocumentModal" class="modal">
-  <div class="modal-backdrop"></div>
-
-  <div class="modal-content send-document-modal-content">
-    <span class="close-modal" onclick="closeSendDocumentModal()">×</span>
-
-    <h3>Send Document</h3>
-
-    <form id="sendDocumentForm" onsubmit="sendDocumentModal(event)">
-
-      <!-- ✅ Hidden fields -->
-      <input type="hidden" id="sendDocApplicantId">
-      <input type="hidden" id="sendDocUserName">
-      <input type="hidden" id="sendDocEmail">
-
-      <!-- Document Name -->
-      <label>Document Name:</label>
-      <input
-        type="text"
-        id="sendDocDocumenttype"
-        name="queue_type"
-        class="readonly-field"
-        readonly
-      >
-
-
-      <label>Message (optional):</label>
-      <textarea
-        id="sendDocMessage"
-        rows="4"
-        placeholder="Your document is ready for release...">
-      </textarea>
-      
-
-      <!-- File Upload -->
-      <label>Attach Document:</label>
-      <input type="file" id="sendDocFile" required>
-
-      <button type="submit" class="send-btn">Send Document</button>
-    </form>
-  </div>
-</div>
-
-
-
-
-<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
-<script>
   // Initialize EmailJS
   (function() {
     emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
@@ -1033,7 +828,7 @@ async function sendDocumentModal(e) {
   try {
     // Upload file
     const formData = new FormData();
-    formData.append("applicant_id", applicantId); // ✅ backend expects applicant_id
+    formData.append("applicant_id", applicantId); // âœ… backend expects applicant_id
     formData.append("document", fileInput.files[0]);
 
     const uploadResponse = await fetch("/upload_document", {
@@ -1046,7 +841,7 @@ async function sendDocumentModal(e) {
     const data = await uploadResponse.json();
 
     // EmailJS payload
-    const resolvedName = extractFirstName(userName);
+    const resolvedName = userName || "Applicant";
     const resolvedDate = new Date().toLocaleString("en-US", {
       year: "numeric",
       month: "long",
@@ -1082,11 +877,5 @@ async function sendDocumentModal(e) {
   }
 }
 
-</script>
 
 
-
-
-
-</body>
-</html>

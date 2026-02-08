@@ -42,6 +42,22 @@ def get_public_base_url():
     # Fallback to current request host
     return request.host_url.rstrip('/')
 
+
+def extract_first_name(fullname):
+    """Extract a best-effort first name from stored fullname formats."""
+    name = (fullname or "").strip()
+    if not name:
+        return "Applicant"
+
+    # Stored format is commonly "Lastname, Firstname M.I. Suffix".
+    if "," in name:
+        given_part = name.split(",", 1)[1].strip()
+        if given_part:
+            return given_part.split()[0]
+
+    return name.split()[0]
+
+
 def get_db_connection():
     try:
         # Get the DATABASE_URL and remove any hidden newline or space
@@ -1290,6 +1306,33 @@ def clear_temp_qr():
         return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
+
+
+def resolve_queue_link_for_qr(cur, qr_id, prefer_active=True):
+    """Resolve queue_link from QR tables.
+
+    `prefer_active=True` checks `temp_qr` first because Scan Tracking buttons
+    are rendered from active queue IDs.
+    """
+    lookup_order = ("temp_qr", "qr_history") if prefer_active else ("qr_history", "temp_qr")
+
+    for table in lookup_order:
+        try:
+            cur.execute(f"SELECT queue_link FROM {table} WHERE id = %s", (qr_id,))
+            row = cur.fetchone()
+        except Exception:
+            # Table may be missing in older deployments; try next source.
+            try:
+                # Reset transaction state so fallback queries can still run.
+                cur.connection.rollback()
+            except Exception:
+                pass
+            row = None
+
+        if row and row[0]:
+            return row[0]
+
+    return None
     
 # ==============================================================  
 # GET SCANS FOR A SPECIFIC QR
@@ -1305,17 +1348,8 @@ def get_qr_scans(qr_id):
 
         cur = conn.cursor()
 
-        # Resolve the queue link using qr_history first, then fallback to temp_qr
-        queue_link = None
-        cur.execute("SELECT queue_link FROM qr_history WHERE id = %s", (qr_id,))
-        row = cur.fetchone()
-        if row:
-            queue_link = row[0]
-        else:
-            cur.execute("SELECT queue_link FROM temp_qr WHERE id = %s", (qr_id,))
-            row = cur.fetchone()
-            if row:
-                queue_link = row[0]
+        # Prefer active queue IDs from temp_qr to avoid ID collisions with history.
+        queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True)
 
         if not queue_link:
             cur.close()
@@ -1440,17 +1474,8 @@ def download_scans(qr_id):
 
         cur = conn.cursor()
 
-        # Resolve queue link using qr_history first, then fallback to temp_qr
-        queue_link = None
-        cur.execute("SELECT queue_link FROM qr_history WHERE id = %s", (qr_id,))
-        row = cur.fetchone()
-        if row:
-            queue_link = row[0]
-        else:
-            cur.execute("SELECT queue_link FROM temp_qr WHERE id = %s", (qr_id,))
-            row = cur.fetchone()
-            if row:
-                queue_link = row[0]
+        # Prefer active queue IDs from temp_qr to avoid ID collisions with history.
+        queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True)
 
         if not queue_link:
             cur.close()
@@ -1586,7 +1611,7 @@ def accept_queue_entry(entry_id):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT fullname, created_at
+            SELECT fullname, email, created_at, status
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -1595,7 +1620,9 @@ def accept_queue_entry(entry_id):
         if not row:
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        user_name, created_at = row
+        full_name, email, created_at, ticket_status = row
+        user_name = extract_first_name(full_name)
+        application_status = (ticket_status or "waiting").capitalize()
 
         cur.execute("""
             UPDATE queue_entries
@@ -1611,7 +1638,11 @@ def accept_queue_entry(entry_id):
         return jsonify({
             "status": "success",
             "user_name": user_name,
-            "created_at": created_at.strftime('%B %d, %Y')
+            "email": email or "",
+            "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
+            "application_status": application_status,
+            "ticket_status": application_status,
+            "admin_status": "Accepted"
         })
 
     except Exception as e:
@@ -1632,7 +1663,7 @@ def reject_queue_entry(entry_id):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT fullname, created_at
+            SELECT fullname, email, created_at, status
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -1641,7 +1672,9 @@ def reject_queue_entry(entry_id):
         if not row:
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        user_name, created_at = row
+        full_name, email, created_at, ticket_status = row
+        user_name = extract_first_name(full_name)
+        application_status = (ticket_status or "waiting").capitalize()
 
         cur.execute("""
             UPDATE queue_entries
@@ -1657,7 +1690,11 @@ def reject_queue_entry(entry_id):
         return jsonify({
             "status": "success",
             "user_name": user_name,
-            "created_at": created_at.strftime('%B %d, %Y')
+            "email": email or "",
+            "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
+            "application_status": application_status,
+            "ticket_status": application_status,
+            "admin_status": "Rejected"
         })
 
     except Exception as e:
@@ -1761,19 +1798,14 @@ def send_notification():
         ensure_queue_entries_table(conn)
         cur = conn.cursor()
         
-        # Get queue link to find queue_slug and queue_number
-        cur.execute("SELECT queue_link FROM qr_history WHERE id = %s", (qr_id,))
-        row = cur.fetchone()
-        if not row:
-            cur.execute("SELECT queue_link FROM temp_qr WHERE id = %s", (qr_id,))
-            row = cur.fetchone()
-        
-        if not row:
+        # Get queue link to find queue_slug and queue_number.
+        queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True)
+
+        if not queue_link:
             cur.close()
             conn.close()
             return jsonify({"status": "error", "message": "QR not found"}), 404
-        
-        queue_link = row[0]
+
         # Extract queue_slug and queue_number from queue_link
         match = re.search(r'/queue/([^/]+)/(\d+)', queue_link)
         if not match:
@@ -2324,13 +2356,17 @@ def reschedule_queue_entry(entry_id):
 @app.route('/add_candidate_modal', methods=['POST'])
 def add_candidate_modal():
     """Add a candidate directly to queue_entries from the admin modal."""
-    data = request.get_json()
+    data = request.get_json() or {}
     fullname = data.get('fullname', '').strip()
     phone = data.get('phone', '').strip()
+    email = data.get('email', '').strip().lower()
     qr_link = data.get('link', '').strip()
 
-    if not fullname or not phone or not qr_link:
-        return jsonify({"status": "error", "message": "Full name, phone, and queue link are required"}), 400
+    if not fullname or not phone or not email or not qr_link:
+        return jsonify({"status": "error", "message": "Full name, phone, email, and queue link are required"}), 400
+
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({"status": "error", "message": "Please provide a valid email address."}), 400
 
     try:
         # Parse queue_link to get queue_slug and queue_number
@@ -2373,9 +2409,9 @@ def add_candidate_modal():
             """
             INSERT INTO queue_entries (
                 queue_slug, queue_number, queue_type, queue_purpose,
-                fullname, phone, purpose, status, admin_status
+                fullname, phone, email, purpose, status, admin_status
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
             RETURNING id
             """,
             (
@@ -2385,6 +2421,7 @@ def add_candidate_modal():
                 queue_purpose,
                 fullname,
                 phone,
+                email,
                 "Added via Admin Panel",  # Purpose field
             )
         )
