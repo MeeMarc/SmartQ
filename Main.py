@@ -2553,180 +2553,103 @@ def queue_page_default(queue_slug):
     return queue_page(queue_slug, 1)
 
 
-@app.route('/queue/<queue_slug>/<int:queue_number>', methods=['GET', 'POST'])
-def queue_page(queue_slug, queue_number):
-    import os  # ✅ FIX 1: REQUIRED
-    from werkzeug.utils import secure_filename
-    import base64
-    from datetime import datetime
-
+@app.route('/queue/<queue_slug>/<int:queue_number>/waiting/<int:entry_id>')
+def queue_waiting(queue_slug, queue_number, entry_id):
     queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
-    queue_config = get_queue_config(queue_slug, queue_number)
 
-    queue_limit = get_queue_limit(queue_slug, queue_number)
-    current_count = get_queue_entry_count(queue_slug, queue_number)
-    queue_full = queue_limit is not None and queue_limit > 0 and current_count >= queue_limit
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            raise RuntimeError("Database connection failed")
 
-    if request.method == 'POST':
-        ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "pdf"}
-        MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, queue_slug, queue_number, queue_type, queue_purpose,
+                   fullname, phone, purpose, status, created_at,
+                   reference_number, email, applicant_id, admin_status, notification_message
+            FROM queue_entries
+            WHERE id = %s AND queue_slug = %s AND queue_number = %s
+            """,
+            (entry_id, queue_slug, queue_number)
+        )
+        row = cur.fetchone()
 
-        def allowed_file(filename):
-            return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
-        phone = (request.form.get('phone') or '').strip()
-        if not phone:
-            flash("Please enter your phone number.", "error")
+        if not row:
+            flash("We couldn't find your queue registration. Please submit the form again.", "error")
             return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
-        # ✅ FIX 2: ALWAYS allow ticket retrieval FIRST
-        existing_entry_id = check_existing_entry(queue_slug, queue_number, phone)
-        if existing_entry_id:
-            flash("Welcome back! Here's your existing queue ticket.", "success")
-            return redirect(url_for(
-                'queue_waiting',
-                queue_slug=queue_slug,
-                queue_number=queue_number,
-                entry_id=existing_entry_id
-            ))
+        entry = {
+            "id": row[0],
+            "queue_slug": row[1],
+            "queue_number": row[2],
+            "queue_type": row[3] or queue_type,
+            "queue_purpose": row[4] or queue_purpose,
+            "fullname": row[5],
+            "phone": row[6],
+            "purpose": row[7],
+            "status": row[8] or "waiting",
+            "created_at": row[9],
+            "reference_number": row[10],
+            "email": row[11],
+            "applicant_id": row[12],
+            "admin_status": row[13] or "pending",
+            "notification_message": row[14] or ""
+        }
 
-        # ✅ Only block NEW registrations
-        if queue_full:
-            flash("Sorry, this queue is currently full.", "error")
-            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+        queue_type = entry["queue_type"] or queue_type
+        queue_purpose = entry["queue_purpose"] or queue_purpose
+        ticket_reference = entry["reference_number"] or generate_ticket_reference(queue_slug, entry["id"])
+        ticket_qr_url = url_for('ticket_qr', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
+        ticket_proof_url = url_for('ticket_proof', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
 
-        lastname = (request.form.get('lastname') or '').strip()
-        firstname = (request.form.get('firstname') or '').strip()
-        middleinitial = (request.form.get('middleinitial') or '').strip()
-        suffix = (request.form.get('suffix') or '').strip()
-        applicant_id = (request.form.get('applicant_id') or '').strip()
-        email = (request.form.get('email') or '').strip()
-        purpose = (request.form.get('purpose') or '').strip()
-        declaration = request.form.get('declaration') == 'on'
+        cur.execute(
+            """
+            SELECT id, fullname, purpose, status, created_at
+            FROM queue_entries
+            WHERE queue_slug = %s AND queue_number = %s
+            ORDER BY created_at DESC, id DESC
+            LIMIT 10
+            """,
+            (queue_slug, queue_number)
+        )
+        history_rows = cur.fetchall()
+        recent_entries = [
+            {
+                "id": r[0],
+                "fullname": r[1],
+                "purpose": r[2],
+                "status": r[3] or "waiting",
+                "created_at": r[4],
+            }
+            for r in history_rows
+        ]
 
-        if not all([lastname, firstname, email]):
-            flash("Please complete all required fields.", "error")
-            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
-
-        if queue_config.get("require_student_id", True) and not applicant_id:
-            flash("Student / Client ID is required.", "error")
-            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
-
-        if not declaration:
-            flash("Please certify the information before submitting.", "error")
-            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
-
-        # ✅ FIX 3: Safe fullname construction
-        fullname = f"{lastname}, {firstname}"
-        if middleinitial:
-            fullname += f" {middleinitial}"
-        if suffix:
-            fullname += f" {suffix}"
-
-        id_doc_file = request.files.get('id_doc')
-        req_doc_file = request.files.get('req_doc')
-        signature_data = request.form.get('signature_data', '')
-
-        def validate_file(file):
-            if not file or file.filename == '':
-                return None, None
-            if not allowed_file(file.filename):
-                raise ValueError("Invalid file type.")
-            data = file.read()
-            if len(data) > MAX_FILE_SIZE:
-                raise ValueError("File too large.")
-            ext = secure_filename(file.filename).rsplit(".", 1)[1].lower()
-            return data, ext
-
-        try:
-            id_doc_bytes, id_doc_ext = validate_file(id_doc_file)
-            req_doc_bytes, req_doc_ext = validate_file(req_doc_file)
-        except ValueError as e:
-            flash(str(e), "error")
-            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
-
-        # ✅ FIX 4: Signature validation
-        sig_bytes = None
-        if signature_data.startswith("data:image"):
-            try:
-                sig_bytes = base64.b64decode(signature_data.split(",")[1])
-                if len(sig_bytes) > 2 * 1024 * 1024:
-                    raise ValueError
-            except Exception:
-                sig_bytes = None
-
-        if queue_config.get("esign_required", True) and not sig_bytes:
-            flash("E-signature is required.", "error")
-            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
-
-        conn = None
-        cur = None
-        try:
-            conn = get_db_connection()
-            ensure_queue_entries_table(conn)
-            cur = conn.cursor()
-
-            cur.execute("""
-                INSERT INTO queue_entries (
-                    queue_slug, queue_number, queue_type, queue_purpose,
-                    fullname, phone, purpose, applicant_id, email, status, admin_status
-                )
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'waiting','pending')
-                RETURNING id
-            """, (
-                queue_slug, queue_number, queue_type, queue_purpose,
-                fullname, phone, purpose or None, applicant_id, email
-            ))
-
-            entry_id = cur.fetchone()[0]
-            conn.commit()
-
-            upload_dir = os.path.join("static", "uploads")
-            os.makedirs(upload_dir, exist_ok=True)
-
-            if id_doc_bytes:
-                with open(os.path.join(upload_dir, f"{entry_id}_id.{id_doc_ext}"), "wb") as f:
-                    f.write(id_doc_bytes)
-
-            if req_doc_bytes:
-                with open(os.path.join(upload_dir, f"{entry_id}_req.{req_doc_ext}"), "wb") as f:
-                    f.write(req_doc_bytes)
-
-            if sig_bytes:
-                with open(os.path.join(upload_dir, f"{entry_id}_sig.png"), "wb") as f:
-                    f.write(sig_bytes)
-
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            print(e)
-            flash("Failed to save registration.", "error")
-            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
-        finally:
-            if cur: cur.close()
-            if conn: conn.close()
-
-        return redirect(url_for(
-            'queue_waiting',
-            queue_slug=queue_slug,
+        return render_template(
+            "User/Waiting.html",
+            queue_type=queue_type,
+            queue_purpose=queue_purpose,
             queue_number=queue_number,
-            entry_id=entry_id
-        ))
+            queue_slug=queue_slug,
+            entry=entry,
+            ticket_reference=ticket_reference,
+            ticket_qr_url=ticket_qr_url,
+            ticket_proof_url=ticket_proof_url,
+            recent_entries=recent_entries,
+        )
+    except Exception as e:
+        print(f"Error loading waiting page: {e}")
+        flash("Unable to load your queue status. Please try again.", "error")
+        return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
-    return render_template(
-        "User/User.html",
-        queue_type=queue_type,
-        queue_purpose=queue_purpose,
-        queue_number=queue_number,
-        queue_slug=queue_slug,
-        queue_full=queue_full,
-        queue_limit=queue_limit,
-        current_count=current_count,
-        queue_require_student_id=queue_config.get("require_student_id", True),
-        queue_require_valid_id=queue_config.get("require_valid_id", True),
-        queue_require_supporting_doc=queue_config.get("require_supporting_doc", True),
-        queue_esign_required=queue_config.get("esign_required", True),
-    )
 
 @app.route('/ticket/<queue_slug>/<int:queue_number>/<int:entry_id>')
 def ticket_proof(queue_slug, queue_number, entry_id):
