@@ -228,7 +228,7 @@ function markAsDone(entryId, buttonElement) {
 function acceptEntry(entryId) {
   const message = prompt(
     'Enter notification message (optional):',
-    'Your application has been accepted.'
+    'Your application has been ACCEPTED. The requested document will be sent to your registered email address. Please ensure that your email is active and check your inbox (including the spam or junk folder) for updates. We appreciate your patience and thank you for using SmartQ.'
   );
   if (message === null) return;
 
@@ -281,7 +281,7 @@ emailjs.send(
 function rejectEntry(entryId) {
   const message = prompt(
     'Enter notification message (optional):',
-    'Your application has been rejected.'
+    ' Your application has been REJECTED due to issues found in your application form. Please review the information you submitted, make the necessary corrections, and resubmit your application for evaluation. Thank you for using SmartQ.'
   );
   if (message === null) return;
 
