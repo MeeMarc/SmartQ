@@ -6,7 +6,12 @@
   <title>SmartQ</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='User.css') }}">
 </head>
-<body id="top" data-queue-type="{{ queue_type|default('', true) }}" data-queue-purpose="{{ queue_purpose|default('', true) }}" data-queue-slug="{{ queue_slug|default('', true) }}">
+<body id="top"
+      data-queue-type="{{ queue_type|default('', true) }}"
+      data-queue-purpose="{{ queue_purpose|default('', true) }}"
+      data-queue-slug="{{ queue_slug|default('', true) }}"
+      data-queue-processing-method="{{ queue_processing_method|default('', true) }}"
+      data-queue-release-type="{{ queue_release_type|default('', true) }}">
 
 <header>
   <nav class="navbar">
@@ -74,6 +79,8 @@
   </div>
   {% endif %}
 
+  <div class="hero-chip">Service Channel: {{ queue_processing_method|default('Online', true) }}</div>
+  <div class="hero-chip">Release Format: {{ queue_release_type|default('Digital Copy', true) }}</div>
   <div class="hero-chip">Secure &amp; prioritized processing</div>
 </div>
 
@@ -146,6 +153,9 @@
         <strong style="color: #d32f2f;">⚠️ Queue is Full:</strong> If you've already registered, enter your phone number to retrieve your ticket. New registrations are currently not accepted.
       {% else %}
         Kindly provide accurate information so we can assist you with <strong>{{ queue_type|default('your requested documents', true) }}</strong>.
+        {% if queue_flow_hint %}
+        <br><span style="display: inline-block; margin-top: 6px;"><strong>Flow:</strong> {{ queue_flow_hint }}</span>
+        {% endif %}
       {% endif %}
     </p>
 
@@ -218,16 +228,16 @@
 
     {% if queue_require_valid_id|default(true) %}
     <div class="form-row" id="row-id-doc">
-      <label for="id_doc">Upload Valid ID (JPG, PNG, PDF, max 5MB):</label>
-      <input type="file" id="id_doc" name="id_doc" accept="image/*,application/pdf">
+      <label for="id_doc">Upload Valid ID (JPG, PNG, PDF, max 5MB): <span style="color: red;">*</span></label>
+      <input type="file" id="id_doc" name="id_doc" accept="image/*,application/pdf" required>
       <div id="validIdPreview" class="file-preview"></div>
     </div>
     {% endif %}
 
     {% if queue_require_supporting_doc|default(true) %}
     <div class="form-row" id="row-req-doc">
-      <label for="req_doc">Supporting Document (JPG, PNG, PDF, max 5MB):</label>
-      <input type="file" id="req_doc" name="req_doc" accept="image/*,application/pdf">
+      <label for="req_doc">Supporting Document (JPG, PNG, PDF, max 5MB): <span style="color: red;">*</span></label>
+      <input type="file" id="req_doc" name="req_doc" accept="image/*,application/pdf" required>
       <div id="supportingDocsPreview" class="file-preview"></div>
     </div>
     {% endif %}

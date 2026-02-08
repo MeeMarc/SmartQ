@@ -47,3 +47,10 @@ ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS require_valid_id BOOLEAN DEFAULT TR
 ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS require_student_id BOOLEAN DEFAULT TRUE;
 ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS esign_required BOOLEAN DEFAULT TRUE;
 
+-- Queue mode: workflow routing (Online/Walk-in and Digital/Physical release)
+ALTER TABLE qr_history ADD COLUMN IF NOT EXISTS processing_method VARCHAR(100);
+ALTER TABLE qr_history ADD COLUMN IF NOT EXISTS release_type VARCHAR(100);
+
+ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS processing_method VARCHAR(100);
+ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS release_type VARCHAR(100);
+

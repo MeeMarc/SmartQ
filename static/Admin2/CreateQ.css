@@ -386,8 +386,28 @@ header {
   box-shadow: 0 6px 12px rgba(0, 51, 102, 0.2);
 }
 
-.qr-box h4 { color: #003366; margin-bottom: 6px; }
+.qr-box .queue-type-slot {
+  min-height: 3.9em; /* Reserve ~3 lines so card details align */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.qr-box .queue-type-title {
+  color: #003366;
+  margin: 0;
+  line-height: 1.3;
+  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
 .qr-box p { font-size: 1rem; margin-bottom: 8px; color: #000; }
+.qr-box .queue-purpose { margin-bottom: 10px; }
 .qr-box small { color: #888; }
 
 /* Force generated QR (canvas/img from QRCode.js) to stay centered */

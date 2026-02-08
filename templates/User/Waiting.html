@@ -44,6 +44,7 @@
     {% if queue_purpose %}
     <p class="queue-purpose">{{ queue_purpose }}</p>
     {% endif %}
+    <p class="queue-purpose"><strong>Mode:</strong> {{ queue_processing_method|default('Online', true) }} / {{ queue_release_type|default('Digital Copy', true) }}</p>
     {% endif %}
     <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
     <p>Your ticket reference: <strong>{{ ticket_reference }}</strong></p>
@@ -88,7 +89,13 @@
     </div>
     {% endif %}
     {% if entry.status != 'cancelled' %}
-    <p class="queue-note">Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.</p>
+    <p class="queue-note">
+      {% if queue_flow_hint %}
+      {{ queue_flow_hint }}
+      {% else %}
+      Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.
+      {% endif %}
+    </p>
     {% endif %}
     
     <!-- Download Ticket Button -->

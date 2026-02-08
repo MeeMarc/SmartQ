@@ -21,6 +21,7 @@
     {% if queue_purpose %}
     <p class="queue-purpose">{{ queue_purpose }}</p>
     {% endif %}
+    <p class="queue-purpose"><strong>Mode:</strong> {{ queue_processing_method|default('Online', true) }} / {{ queue_release_type|default('Digital Copy', true) }}</p>
     <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
     <p>Ticket Reference: <strong>{{ ticket_reference }}</strong></p>
     <p class="status-display">Status: <span class="status-badge status-{{ entry.status|default('waiting') }}">{{ entry.status|default('waiting')|capitalize }}</span></p>
@@ -45,7 +46,13 @@
     </div>
     {% endif %}
 
-    <p class="queue-note">This page confirms the registration was submitted in SmartQ.</p>
+    <p class="queue-note">
+      {% if queue_flow_hint %}
+      {{ queue_flow_hint }}
+      {% else %}
+      This page confirms the registration was submitted in SmartQ.
+      {% endif %}
+    </p>
   </section>
 
 </body>

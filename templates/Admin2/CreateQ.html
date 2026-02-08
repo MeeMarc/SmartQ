@@ -54,48 +54,48 @@
         <div class="form-section">
           <h3>⚙️ Queue Configuration</h3>
 
-          <label for="processingMethod">Processing Method:</label>
+          <label for="processingMethod">Service Channel:</label>
           <select id="processingMethod" required>
             <option value="">-- Select --</option>
-            <option value="Walk-in">Walk-in</option>
+            <option value="Walk-in">Walk-in (In-Person)</option>
             <option value="Online">Online</option>
           </select>
 
-          <label for="releaseType">Release Type:</label>
+          <label for="releaseType">Release Format:</label>
           <select id="releaseType" required>
             <option value="">-- Select --</option>
-            <option value="Physical Claim">Physical Claim</option>
-            <option value="Digital Copy">Digital Copy</option>
+            <option value="Physical Claim">Physical Claim (Onsite Pickup)</option>
+            <option value="Digital Copy">Digital Copy (Online Release)</option>
           </select>
 
-          <label for="studentId">Require Student / Client ID?</label>
+          <label for="studentId">Require Applicant ID (Student/Client Number)?</label>
           <select id="studentId" required>
             <option value="">-- Select --</option>
             <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
 
-          <label for="validId">Require Upload Valid ID (JPG, PNG, PDF, max 5MB)?</label>
+          <label for="validId">Require Valid ID Uploads (JPG, PNG, PDF, max 5MB each)?</label>
           <select id="validId" required>
             <option value="">-- Select --</option>
             <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
 
-          <label for="supportingDoc">Require Supporting Document (JPG, PNG, PDF, max 5MB)?</label>
+          <label for="supportingDoc">Require Supporting Document Uploads (JPG, PNG, PDF, max 5MB each)?</label>
           <select id="supportingDoc" required>
             <option value="">-- Select --</option>
             <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
 
-          <label for="esignRequired">E-Signature Required?</label>
+          <label for="esignRequired">Require E-Signature?</label>
           <select id="esignRequired" required>
             <option value="">-- Select --</option>
             <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
-          <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">When set to No, the field is hidden in the registration form.</p>
+          <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">Set to "No" to hide that field from the registration form.</p>
         </div>
 
         <!-- ========== ACTION BUTTONS ========== -->
@@ -150,12 +150,12 @@
 
   function getMissingConfigFields() {
     const configFields = [
-      { id: "processingMethod", label: "Processing Method" },
-      { id: "releaseType", label: "Release Type" },
-      { id: "studentId", label: "Require Student / Client ID" },
-      { id: "validId", label: "Require Upload Valid ID" },
-      { id: "supportingDoc", label: "Require Supporting Document" },
-      { id: "esignRequired", label: "E-Signature Required" }
+      { id: "processingMethod", label: "Service Channel" },
+      { id: "releaseType", label: "Release Format" },
+      { id: "studentId", label: "Applicant ID Requirement" },
+      { id: "validId", label: "Valid ID Upload Requirement" },
+      { id: "supportingDoc", label: "Supporting Document Upload Requirement" },
+      { id: "esignRequired", label: "E-Signature Requirement" }
     ];
 
     return configFields
@@ -223,13 +223,15 @@
       box.className = "qr-box";
 
       box.innerHTML = `
-        <h4>${item.type}</h4>
-        <p>${item.purpose}</p>
+        <div class="queue-type-slot">
+          <h4 class="queue-type-title" title="${item.type}">${item.type}</h4>
+        </div>
+        <p class="queue-purpose">${item.purpose}</p>
 
         <p><strong>Queue #:</strong> ${item.queueNumber}</p>
         <p><strong>Processing Time:</strong> ${item.processingDays} day(s)</p>
-        <p><strong>Processing Method:</strong> ${item.processingMethod}</p>
-        <p><strong>Release Type:</strong> ${item.releaseType}</p>
+        <p><strong>Service Channel:</strong> ${item.processingMethod || 'N/A'}</p>
+        <p><strong>Release Format:</strong> ${item.releaseType || 'N/A'}</p>
         <p><strong>Student/Client ID:</strong> ${item.studentId || 'Yes'}</p>
         <p><strong>Valid ID:</strong> ${item.validId || 'Yes'}</p>
         <p><strong>Supporting Doc:</strong> ${item.supportingDoc || 'Yes'}</p>
@@ -294,6 +296,8 @@
     formData.append('type', type);
     formData.append('purpose', purpose);
     if (processingDays) formData.append('processingDays', processingDays);
+    formData.append('processingMethod', processingMethod);
+    formData.append('releaseType', releaseType);
     formData.append('studentId', studentId);
     formData.append('validId', validId);
     formData.append('supportingDoc', supportingDoc);

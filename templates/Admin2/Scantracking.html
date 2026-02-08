@@ -426,6 +426,8 @@ function fetchQRList() {
         box.innerHTML = `
           <h4>${qr.queue_type}</h4>
           <p>${qr.queue_purpose}</p>
+          <p><strong>Service Channel:</strong> ${qr.processing_method || 'Online'}</p>
+          <p><strong>Release Format:</strong> ${qr.release_type || 'Digital Copy'}</p>
           <p><strong>Created:</strong> ${formattedDate}</p>
           <div id="qr${qr.id}"></div>
           <p><small><a href="${qr.queue_link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${qr.queue_link}</a></small></p>
@@ -720,9 +722,12 @@ function viewScans(qrId) {
     .then(res => res.json())
     .then(data => {
       currentScans = data;
+      const queueModeLabel = data.length
+        ? `${data[0].queue_processing_method || 'Online'} / ${data[0].queue_release_type || 'Digital Copy'}`
+        : '';
       qrDetailContainer.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-          <h3 style="margin: 0;">Scans for QR #${qrId}</h3>
+          <h3 style="margin: 0;">Scans for QR #${qrId}${queueModeLabel ? ` <span style="font-size: 0.9rem; color: #666; font-weight: 500;">(${queueModeLabel})</span>` : ''}</h3>
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button onclick="openNotificationModal(${qrId})" style="background: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">📢 Send Notification</button>
             <button onclick="downloadScans(${qrId})" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">⬇ Download Scans</button>
@@ -773,6 +778,8 @@ function renderScans(scans) {
     const hasDocuments = user.has_documents || (user.id_doc_url || user.req_doc_url || user.signature_url);
     const hasNotification = user.notification_message && user.notification_message.trim() !== '';
     const canMarkDone = adminStatus !== 'pending' && !['completed','cancelled','rescheduled'].includes(user.status);
+    const releaseType = (user.queue_release_type || '').toLowerCase();
+    const canSendDocument = releaseType ? releaseType.includes('digital') : true;
 
     card.innerHTML = `
       <div>
@@ -797,6 +804,7 @@ function renderScans(scans) {
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
 
             <!-- Send Document button -->
+            ${canSendDocument ? `
             <button class="send-doc-btn"
                     data-applicant-id="${user.applicant_id || ''}"
                     data-fullname="${user.fullname || ''}"
@@ -804,6 +812,7 @@ function renderScans(scans) {
                     data-email="${user.email || ''}">
               Send Document
             </button>
+            ` : ''}
           </div>
         </div>
 

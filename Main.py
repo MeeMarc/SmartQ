@@ -468,6 +468,143 @@ def ensure_queue_form_config_columns(conn):
     except Exception as e:
         print(f"Error ensuring queue form config columns: {e}")
 
+def ensure_queue_mode_columns(conn):
+    """Ensure queue mode columns exist in qr_history and temp_qr."""
+    columns = [
+        "processing_method VARCHAR(100)",
+        "release_type VARCHAR(100)",
+    ]
+    try:
+        cur = conn.cursor()
+        for col in columns:
+            for table in ("qr_history", "temp_qr"):
+                try:
+                    cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col}")
+                    conn.commit()
+                except Exception as e:
+                    print(f"Note: Could not add {col} to {table}: {e}")
+                    conn.rollback()
+        cur.close()
+    except Exception as e:
+        print(f"Error ensuring queue mode columns: {e}")
+
+def normalize_processing_method(value):
+    raw = (value or "").strip()
+    v = raw.lower()
+    if v in ("walk-in", "walk in", "walkin", "in-person", "in person", "onsite", "on-site"):
+        return "Walk-in"
+    if v in ("online", "digital", "remote"):
+        return "Online"
+    return raw
+
+def normalize_release_type(value):
+    raw = (value or "").strip()
+    v = raw.lower()
+    if v in ("physical claim", "physical", "physical release", "pickup", "claim"):
+        return "Physical Claim"
+    if v in ("digital copy", "digital", "digital release", "online copy", "email"):
+        return "Digital Copy"
+    return raw
+
+def get_queue_mode_hints(processing_method, release_type):
+    """Return normalized mode values and user-facing flow hints."""
+    mode = normalize_processing_method(processing_method) or "Online"
+    release = normalize_release_type(release_type) or "Digital Copy"
+
+    matrix = {
+        ("Online", "Digital Copy"): {
+            "registration_hint": "Complete registration online. Approved documents are released digitally.",
+            "waiting_hint": "Monitor your email for approval updates and digital document release."
+        },
+        ("Online", "Physical Claim"): {
+            "registration_hint": "Submit online, then wait for a pickup notice before claiming the document onsite.",
+            "waiting_hint": "Wait for approval, then present your ticket at the office for physical claiming."
+        },
+        ("Walk-in", "Digital Copy"): {
+            "registration_hint": "Queue may be processed onsite, but approved documents are sent digitally.",
+            "waiting_hint": "After review, your document will be sent digitally to your provided contact."
+        },
+        ("Walk-in", "Physical Claim"): {
+            "registration_hint": "This queue is handled onsite, and document release is through physical claiming.",
+            "waiting_hint": "Bring your ticket and required documents when called for onsite physical claiming."
+        },
+    }
+    hints = matrix.get((mode, release), {
+        "registration_hint": "Follow queue instructions and complete the required steps for this queue.",
+        "waiting_hint": "Wait for status updates and follow the release instructions provided by the office."
+    })
+    return {
+        "processing_method": mode,
+        "release_type": release,
+        "registration_hint": hints["registration_hint"],
+        "waiting_hint": hints["waiting_hint"],
+    }
+
+def get_queue_mode(queue_slug, queue_number):
+    """Get queue processing/release mode for a queue."""
+    default = {"processing_method": "Online", "release_type": "Digital Copy"}
+    queue_path = f"/queue/{queue_slug}/{queue_number}"
+    queue_links = []
+    try:
+        queue_links.append(f"{get_public_base_url()}{queue_path}")
+    except Exception:
+        pass
+    queue_links.append(queue_path)
+    queue_suffix = f"%{queue_path}"
+
+    conn = get_db_connection()
+    if conn is None:
+        return default
+
+    row = None
+    try:
+        ensure_queue_mode_columns(conn)
+        cur = conn.cursor()
+
+        for table_name in ("qr_history", "temp_qr"):
+            if row:
+                break
+            for queue_link in queue_links:
+                cur.execute(
+                    f"""SELECT processing_method, release_type
+                        FROM {table_name}
+                        WHERE queue_link = %s
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT 1""",
+                    (queue_link,),
+                )
+                row = cur.fetchone()
+                if row:
+                    break
+
+        if not row:
+            for table_name in ("qr_history", "temp_qr"):
+                cur.execute(
+                    f"""SELECT processing_method, release_type
+                        FROM {table_name}
+                        WHERE queue_link LIKE %s
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT 1""",
+                    (queue_suffix,),
+                )
+                row = cur.fetchone()
+                if row:
+                    break
+        cur.close()
+    except Exception as e:
+        print(f"Error get_queue_mode: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    if row:
+        mode = normalize_processing_method(row[0]) or default["processing_method"]
+        release = normalize_release_type(row[1]) or default["release_type"]
+        return {"processing_method": mode, "release_type": release}
+    return default
+
 def get_queue_config(queue_slug, queue_number):
     """Get registration form config for a queue (which fields are enabled). Returns dict with require_* booleans."""
     default = {
@@ -476,41 +613,71 @@ def get_queue_config(queue_slug, queue_number):
         "require_student_id": True,
         "esign_required": True,
     }
+    queue_path = f"/queue/{queue_slug}/{queue_number}"
+    queue_links = []
     try:
-        base = get_public_base_url()
-        queue_link = f"{base}/queue/{queue_slug}/{queue_number}"
+        queue_links.append(f"{get_public_base_url()}{queue_path}")
     except Exception:
-        return default
+        pass
+    # Keep a relative fallback in case queue links were saved without host.
+    queue_links.append(queue_path)
+    queue_suffix = f"%{queue_path}"
+
     conn = get_db_connection()
     if conn is None:
         return default
+    row = None
     try:
         ensure_queue_form_config_columns(conn)
         cur = conn.cursor()
-        cur.execute(
-            """SELECT require_supporting_doc, require_valid_id, require_student_id, esign_required
-               FROM qr_history WHERE queue_link = %s""",
-            (queue_link,),
-        )
-        row = cur.fetchone()
+
+        for table_name in ("qr_history", "temp_qr"):
+            if row:
+                break
+            for queue_link in queue_links:
+                cur.execute(
+                    f"""SELECT require_supporting_doc, require_valid_id, require_student_id, esign_required
+                        FROM {table_name}
+                        WHERE queue_link = %s
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT 1""",
+                    (queue_link,),
+                )
+                row = cur.fetchone()
+                if row:
+                    break
+
+        # Fallback: match by queue path suffix so config still resolves across base URL changes.
         if not row:
-            cur.execute(
-                """SELECT require_supporting_doc, require_valid_id, require_student_id, esign_required
-                   FROM temp_qr WHERE queue_link = %s""",
-                (queue_link,),
-            )
-            row = cur.fetchone()
+            for table_name in ("qr_history", "temp_qr"):
+                cur.execute(
+                    f"""SELECT require_supporting_doc, require_valid_id, require_student_id, esign_required
+                        FROM {table_name}
+                        WHERE queue_link LIKE %s
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT 1""",
+                    (queue_suffix,),
+                )
+                row = cur.fetchone()
+                if row:
+                    break
+
         cur.close()
-        conn.close()
-        if row:
-            return {
-                "require_supporting_doc": bool(row[0]) if row[0] is not None else True,
-                "require_valid_id": bool(row[1]) if row[1] is not None else True,
-                "require_student_id": bool(row[2]) if row[2] is not None else True,
-                "esign_required": bool(row[3]) if row[3] is not None else True,
-            }
     except Exception as e:
         print(f"Error get_queue_config: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    if row:
+        return {
+            "require_supporting_doc": bool(row[0]) if row[0] is not None else True,
+            "require_valid_id": bool(row[1]) if row[1] is not None else True,
+            "require_student_id": bool(row[2]) if row[2] is not None else True,
+            "esign_required": bool(row[3]) if row[3] is not None else True,
+        }
     return default
 
 def resolve_queue_metadata(queue_slug, queue_number):
@@ -664,7 +831,8 @@ def generate_ticket_reference(queue_slug, entry_id):
 def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None,
              avg_service_time=None, morning_start=None, morning_end=None,
              afternoon_start=None, afternoon_end=None, staff_count=None, queue_limit=None,
-             require_supporting_doc=True, require_valid_id=True, require_student_id=True, esign_required=True):
+             require_supporting_doc=True, require_valid_id=True, require_student_id=True, esign_required=True,
+             processing_method=None, release_type=None):
     """Save QR to database and return the inserted ID."""
     try:
         print(f"save_qr called with: type='{queue_type}', purpose='{queue_purpose}', link='{queue_link}', created_by='{created_by}', queue_limit={queue_limit}")
@@ -677,6 +845,10 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
 
         ensure_queue_limit_column(conn)
         ensure_queue_form_config_columns(conn)
+        ensure_queue_mode_columns(conn)
+
+        processing_method = normalize_processing_method(processing_method) or "Online"
+        release_type = normalize_release_type(release_type) or "Digital Copy"
 
         cur = conn.cursor()
 
@@ -688,12 +860,14 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
                 (queue_type, queue_purpose, queue_link, created_by, 
                  avg_service_time, morning_start, morning_end, 
                  afternoon_start, afternoon_end, staff_count, queue_limit,
-                 require_supporting_doc, require_valid_id, require_student_id, esign_required) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                 require_supporting_doc, require_valid_id, require_student_id, esign_required,
+                 processing_method, release_type) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
                 (queue_type, queue_purpose, queue_link, created_by,
                  avg_service_time, morning_start, morning_end,
                  afternoon_start, afternoon_end, staff_count, queue_limit,
-                 require_supporting_doc, require_valid_id, require_student_id, esign_required)
+                 require_supporting_doc, require_valid_id, require_student_id, esign_required,
+                 processing_method, release_type)
             )
             qr_id = cur.fetchone()[0]
             print(f"INSERT successful with RETURNING, got ID: {qr_id}")
@@ -707,12 +881,14 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
                     (queue_type, queue_purpose, queue_link, created_by,
                      avg_service_time, morning_start, morning_end,
                      afternoon_start, afternoon_end, staff_count, queue_limit,
-                     require_supporting_doc, require_valid_id, require_student_id, esign_required) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                     require_supporting_doc, require_valid_id, require_student_id, esign_required,
+                     processing_method, release_type) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (queue_type, queue_purpose, queue_link, created_by,
                      avg_service_time, morning_start, morning_end,
                      afternoon_start, afternoon_end, staff_count, queue_limit,
-                     require_supporting_doc, require_valid_id, require_student_id, esign_required)
+                     require_supporting_doc, require_valid_id, require_student_id, esign_required,
+                     processing_method, release_type)
                 )
                 cur.execute("SELECT LASTVAL()")
                 qr_id = cur.fetchone()[0]
@@ -734,12 +910,14 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
                 (queue_type, queue_purpose, queue_link, created_by,
                  avg_service_time, morning_start, morning_end,
                  afternoon_start, afternoon_end, staff_count, queue_limit,
-                 require_supporting_doc, require_valid_id, require_student_id, esign_required) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                 require_supporting_doc, require_valid_id, require_student_id, esign_required,
+                 processing_method, release_type) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (queue_type, queue_purpose, queue_link, created_by,
                  avg_service_time, morning_start, morning_end,
                  afternoon_start, afternoon_end, staff_count, queue_limit,
-                 require_supporting_doc, require_valid_id, require_student_id, esign_required)
+                 require_supporting_doc, require_valid_id, require_student_id, esign_required,
+                 processing_method, release_type)
             )
             print("temp_qr insert successful")
         except Exception as temp_error:
@@ -777,6 +955,8 @@ def generate_qr_db():
         afternoon_end = request.form.get('afternoonEnd', '').strip()
         staff_count = request.form.get('staffCount', '').strip()
         queue_limit = request.form.get('queueLimit', '').strip()
+        processing_method = normalize_processing_method(request.form.get('processingMethod', '').strip())
+        release_type = normalize_release_type(request.form.get('releaseType', '').strip())
         # Registration form field toggles (Yes/No from form; default True if missing)
         def form_bool(key, default=True):
             v = request.form.get(key, '').strip().lower()
@@ -791,9 +971,18 @@ def generate_qr_db():
         print(f"Queue Type: '{queue_type}', Purpose: '{queue_purpose}', Created By: '{created_by}'")
         print(f"Avg Service Time: {avg_service_time}, Staff Count: {staff_count}, Queue Limit: {queue_limit}")
         print(f"Morning: {morning_start} - {morning_end}, Afternoon: {afternoon_start} - {afternoon_end}")
+        print(f"Processing Method: '{processing_method}', Release Type: '{release_type}'")
         
         if not queue_type or not queue_purpose:
             error_msg = "Queue Type and Purpose are required"
+            print(f"Validation failed: {error_msg}")
+            return jsonify({
+                "error": error_msg,
+                "qr_image": None
+            }), 400
+
+        if not processing_method or not release_type:
+            error_msg = "Processing method and release type are required."
             print(f"Validation failed: {error_msg}")
             return jsonify({
                 "error": error_msg,
@@ -839,7 +1028,8 @@ def generate_qr_db():
                        avg_service_time, morning_start or None, morning_end or None,
                        afternoon_start or None, afternoon_end or None, staff_count, queue_limit,
                        require_supporting_doc=require_supporting_doc, require_valid_id=require_valid_id,
-                       require_student_id=require_student_id, esign_required=esign_required)
+                       require_student_id=require_student_id, esign_required=esign_required,
+                       processing_method=processing_method, release_type=release_type)
         print(f"QR saved with ID: {qr_id}")
         
         # Auto-enroll pending reschedules for this queue type
@@ -867,7 +1057,9 @@ def generate_qr_db():
             "qr_image": qr_base64,
             "queue_link": queue_link,
             "queue_number": queue_number,
-            "qr_id": qr_id
+            "qr_id": qr_id,
+            "processing_method": processing_method,
+            "release_type": release_type
         })
     except Exception as e:
         print(f"ERROR in generate_qr_db: {e}")
@@ -975,6 +1167,9 @@ def temp_qr_data():
     """Get all active QRs from temp_qr table."""
     try:
         conn = get_db_connection()
+        if conn is None:
+            return jsonify([])
+        ensure_queue_mode_columns(conn)
         cur = conn.cursor()
         
         # Check if temp_qr table exists
@@ -992,7 +1187,8 @@ def temp_qr_data():
             return jsonify([])
         
         cur.execute("""
-            SELECT id, queue_type, queue_purpose, queue_link, created_by, created_at
+            SELECT id, queue_type, queue_purpose, queue_link, created_by, created_at,
+                   processing_method, release_type
             FROM temp_qr
             ORDER BY created_at DESC
         """)
@@ -1008,7 +1204,9 @@ def temp_qr_data():
                 "queue_purpose": row[2],
                 "queue_link": row[3],
                 "created_by": row[4],
-                "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S") if row[5] else "N/A"
+                "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S") if row[5] else "N/A",
+                "processing_method": normalize_processing_method(row[6]) or "Online",
+                "release_type": normalize_release_type(row[7]) or "Digital Copy"
             })
         return jsonify(active_qrs)
     except Exception as e:
@@ -1024,7 +1222,7 @@ def qr_history_data():
         if conn is None:
             print("ERROR: Database connection failed")
             return jsonify({"error": "Database connection failed"}), 500
-            
+        ensure_queue_mode_columns(conn)
         cur = conn.cursor()
         
         # Simple query - get ALL columns from qr_history
@@ -1032,7 +1230,8 @@ def qr_history_data():
         cur.execute("""
             SELECT id, queue_type, queue_purpose, queue_link, created_by, created_at,
                    avg_service_time, morning_start, morning_end, 
-                   afternoon_start, afternoon_end, staff_count
+                   afternoon_start, afternoon_end, staff_count,
+                   processing_method, release_type
             FROM qr_history
             ORDER BY created_at DESC
         """)
@@ -1058,6 +1257,8 @@ def qr_history_data():
                     "afternoon_start": str(row[9]) if row[9] else None,
                     "afternoon_end": str(row[10]) if row[10] else None,
                     "staff_count": row[11],
+                    "processing_method": normalize_processing_method(row[12]) or "Online",
+                    "release_type": normalize_release_type(row[13]) or "Digital Copy",
                     "queue_limit": None  # Will be added later if column exists
                 }
                 history.append(history_item)
@@ -1131,6 +1332,9 @@ def get_qr_scans(qr_id):
         
         queue_slug = match.group(1)
         queue_number = int(match.group(2))
+        queue_mode = get_queue_mode(queue_slug, queue_number)
+        queue_processing_method = queue_mode.get("processing_method", "Online")
+        queue_release_type = queue_mode.get("release_type", "Digital Copy")
 
         # Ensure queue_entries table exists
         ensure_queue_entries_table(conn)
@@ -1205,6 +1409,8 @@ def get_qr_scans(qr_id):
                 "reference_number": row[8] or "",
                 "applicant_id": row[12] or "",
                 "queue_type": row[14] or "Document",
+                "queue_processing_method": queue_processing_method,
+                "queue_release_type": queue_release_type,
                 "id_doc_url": id_doc_url,
                 "req_doc_url": req_doc_url,
                 "signature_url": signature_url,
@@ -2217,6 +2423,10 @@ def migrate_db():
         
         # Ensure queue_limit column exists
         ensure_queue_limit_column(conn)
+
+        # Ensure queue form config + queue mode columns exist
+        ensure_queue_form_config_columns(conn)
+        ensure_queue_mode_columns(conn)
         
         # Ensure queue_entries table exists
         ensure_queue_entries_table(conn)
@@ -2225,7 +2435,7 @@ def migrate_db():
         
         return jsonify({
             "status": "success",
-            "message": "Database migration completed successfully. queue_limit column added to qr_history and temp_qr tables."
+            "message": "Database migration completed successfully. Queue limit, queue form config, and queue mode columns are ready."
         })
     except Exception as e:
         import traceback
@@ -2324,6 +2534,11 @@ def queue_page_default(queue_slug):
 @app.route('/queue/<queue_slug>/<int:queue_number>/waiting/<int:entry_id>')
 def queue_waiting(queue_slug, queue_number, entry_id):
     queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
+    queue_mode = get_queue_mode(queue_slug, queue_number)
+    queue_mode_hints = get_queue_mode_hints(
+        queue_mode.get("processing_method"),
+        queue_mode.get("release_type")
+    )
 
     conn = None
     cur = None
@@ -2371,8 +2586,20 @@ def queue_waiting(queue_slug, queue_number, entry_id):
         queue_type = entry["queue_type"] or queue_type
         queue_purpose = entry["queue_purpose"] or queue_purpose
         ticket_reference = entry["reference_number"] or generate_ticket_reference(queue_slug, entry["id"])
-        ticket_qr_url = url_for('ticket_qr', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
-        ticket_proof_url = url_for('ticket_proof', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
+        ticket_qr_url = None
+        ticket_proof_url = None
+        try:
+            ticket_proof_url = url_for('ticket_proof', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
+        except Exception as url_error:
+            print(f"Warning: ticket_proof URL unavailable: {url_error}")
+
+        # Only render QR section when ticket_proof endpoint is available.
+        if ticket_proof_url:
+            try:
+                ticket_qr_url = url_for('ticket_qr', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
+            except Exception as url_error:
+                print(f"Warning: ticket_qr URL unavailable: {url_error}")
+                ticket_qr_url = None
 
         cur.execute(
             """
@@ -2402,6 +2629,9 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             queue_purpose=queue_purpose,
             queue_number=queue_number,
             queue_slug=queue_slug,
+            queue_processing_method=queue_mode_hints["processing_method"],
+            queue_release_type=queue_mode_hints["release_type"],
+            queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
             ticket_reference=ticket_reference,
             ticket_qr_url=ticket_qr_url,
@@ -2410,6 +2640,8 @@ def queue_waiting(queue_slug, queue_number, entry_id):
         )
     except Exception as e:
         print(f"Error loading waiting page: {e}")
+        import traceback
+        traceback.print_exc()
         flash("Unable to load your queue status. Please try again.", "error")
         return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
     finally:
@@ -2428,6 +2660,11 @@ def queue_page(queue_slug, queue_number):
 
     queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
     queue_config = get_queue_config(queue_slug, queue_number)
+    queue_mode = get_queue_mode(queue_slug, queue_number)
+    queue_mode_hints = get_queue_mode_hints(
+        queue_mode.get("processing_method"),
+        queue_mode.get("release_type")
+    )
 
     queue_limit = get_queue_limit(queue_slug, queue_number)
     current_count = get_queue_entry_count(queue_slug, queue_number)
@@ -2512,6 +2749,20 @@ def queue_page(queue_slug, queue_number):
             return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
         # ✅ FIX 4: Signature validation
+        if queue_config.get("require_valid_id", True):
+            if not id_doc_bytes:
+                flash("Valid ID upload is required.", "error")
+                return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+        else:
+            id_doc_bytes, id_doc_ext = None, None
+
+        if queue_config.get("require_supporting_doc", True):
+            if not req_doc_bytes:
+                flash("Supporting document is required.", "error")
+                return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+        else:
+            req_doc_bytes, req_doc_ext = None, None
+
         sig_bytes = None
         if signature_data.startswith("data:image"):
             try:
@@ -2585,6 +2836,9 @@ def queue_page(queue_slug, queue_number):
         queue_purpose=queue_purpose,
         queue_number=queue_number,
         queue_slug=queue_slug,
+        queue_processing_method=queue_mode_hints["processing_method"],
+        queue_release_type=queue_mode_hints["release_type"],
+        queue_flow_hint=queue_mode_hints["registration_hint"],
         queue_full=queue_full,
         queue_limit=queue_limit,
         current_count=current_count,
@@ -2630,6 +2884,71 @@ def ticket_qr(queue_slug, queue_number, entry_id):
     except Exception as e:
         print(f"Error generating ticket QR: {e}")
         return "Error generating QR", 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route('/ticket_proof/<queue_slug>/<int:queue_number>/<int:entry_id>')
+def ticket_proof(queue_slug, queue_number, entry_id):
+    """Public ticket proof page for a submitted queue entry."""
+    queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
+    queue_mode = get_queue_mode(queue_slug, queue_number)
+    queue_mode_hints = get_queue_mode_hints(
+        queue_mode.get("processing_method"),
+        queue_mode.get("release_type")
+    )
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            raise RuntimeError("Database connection failed")
+
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, queue_type, queue_purpose, fullname, status, created_at,
+                   reference_number, admin_status, notification_message
+            FROM queue_entries
+            WHERE id = %s AND queue_slug = %s AND queue_number = %s
+            """,
+            (entry_id, queue_slug, queue_number),
+        )
+        row = cur.fetchone()
+        if not row:
+            return "Ticket not found", 404
+
+        entry = {
+            "id": row[0],
+            "fullname": row[3],
+            "status": row[4] or "waiting",
+            "created_at": row[5],
+            "admin_status": row[7] or "pending",
+            "notification_message": row[8] or "",
+        }
+        queue_type = row[1] or queue_type
+        queue_purpose = row[2] or queue_purpose
+        ticket_reference = row[6] or generate_ticket_reference(queue_slug, entry_id)
+
+        return render_template(
+            "User/TicketProof.html",
+            queue_slug=queue_slug,
+            queue_number=queue_number,
+            queue_type=queue_type,
+            queue_purpose=queue_purpose,
+            queue_processing_method=queue_mode_hints["processing_method"],
+            queue_release_type=queue_mode_hints["release_type"],
+            queue_flow_hint=queue_mode_hints["waiting_hint"],
+            entry=entry,
+            ticket_reference=ticket_reference,
+        )
+    except Exception as e:
+        print(f"Error loading ticket proof: {e}")
+        return "Unable to load ticket proof.", 500
     finally:
         if cur:
             cur.close()
