@@ -1187,7 +1187,7 @@ async function sendDocumentModal(e) {
     }
 
     // EmailJS payload
-    const resolvedName = userName.trim();
+    const resolvedName = extractFirstName(userName);
     const resolvedDate = new Date().toLocaleString("en-US", {
       year: "numeric",
       month: "long",
