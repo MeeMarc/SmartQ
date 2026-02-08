@@ -69,20 +69,23 @@
           </select>
 
           <label for="studentId">Require Student / Client ID?</label>
-          <select id="studentId">
-            <option value="Yes" selected>Yes</option>
+          <select id="studentId" required>
+            <option value="">-- Select --</option>
+            <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
 
           <label for="validId">Require Upload Valid ID (JPG, PNG, PDF, max 5MB)?</label>
-          <select id="validId">
-            <option value="Yes" selected>Yes</option>
+          <select id="validId" required>
+            <option value="">-- Select --</option>
+            <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
 
           <label for="supportingDoc">Require Supporting Document (JPG, PNG, PDF, max 5MB)?</label>
-          <select id="supportingDoc">
-            <option value="Yes" selected>Yes</option>
+          <select id="supportingDoc" required>
+            <option value="">-- Select --</option>
+            <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
 
@@ -97,7 +100,7 @@
 
         <!-- ========== ACTION BUTTONS ========== -->
         <div class="button-container">
-          <button type="submit">Generate QR</button>
+          <button type="submit" id="generateQrBtn">Generate QR</button>
           <button type="button" id="viewHistoryBtn">View QR History</button>
           <button type="button" id="loadPreviousBtn" style="background: #6c757d; display: none;">
             📋 Load Queue
@@ -144,6 +147,24 @@
   const container = document.getElementById("qrContainer");
 
   let qrList = JSON.parse(localStorage.getItem("queues")) || [];
+
+  function getMissingConfigFields() {
+    const configFields = [
+      { id: "processingMethod", label: "Processing Method" },
+      { id: "releaseType", label: "Release Type" },
+      { id: "studentId", label: "Require Student / Client ID" },
+      { id: "validId", label: "Require Upload Valid ID" },
+      { id: "supportingDoc", label: "Require Supporting Document" },
+      { id: "esignRequired", label: "E-Signature Required" }
+    ];
+
+    return configFields
+      .filter(field => {
+        const element = document.getElementById(field.id);
+        return !element || !element.value || element.value.trim() === "";
+      })
+      .map(field => field.label);
+  }
 
   /* ================= CONFIRMATION MODAL ================= */
   function showConfirmation(title, message, onConfirm) {
@@ -255,6 +276,13 @@
     const studentId = document.getElementById("studentId").value;
     const validId = document.getElementById("validId").value;
     const supportingDoc = document.getElementById("supportingDoc").value;
+
+    const missingConfigFields = getMissingConfigFields();
+    if (missingConfigFields.length > 0) {
+      showAlert(`Please select values for: ${missingConfigFields.join(", ")}.`, "error");
+      return;
+    }
+
     // Validate required fields
     if (!type || !purpose) {
       showAlert("Please fill in Queue Type and Purpose fields.", "error");
