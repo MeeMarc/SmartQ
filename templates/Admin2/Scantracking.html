@@ -936,6 +936,7 @@ function renderScans(scans) {
                         user.status === 'rescheduled' ? 'status-rescheduled' : 'status-waiting';
 
     const adminStatus = (user.admin_status || "pending").toString().trim().toLowerCase();
+
     const adminStatusText = adminStatus.charAt(0).toUpperCase() + adminStatus.slice(1);
     const adminStatusClass =
                         adminStatus === "accepted" ? "status-accepted" :
@@ -945,7 +946,14 @@ function renderScans(scans) {
     const hasDocuments = user.has_documents || (user.id_doc_url || user.req_doc_url || user.signature_url);
     const hasNotification = user.notification_message && user.notification_message.trim() !== '';
     const canMarkDone = adminStatus !== 'pending' && !['completed','cancelled','rescheduled'].includes(user.status);
-    const applicantId = ((user.applicant_id || "") + "").trim();
+    const applicantId = (
+  user.applicant_id ||
+  user.applicantId ||
+  user.entry_id ||
+  user.queue_entry_id ||
+  user.id || ""
+).toString().trim();
+
     const recipientEmail = (user.email || "").trim();
 
 
@@ -957,7 +965,8 @@ function renderScans(scans) {
     const hasApplicantId = applicantId.length > 0;
     const hasRecipientEmail = isValidEmail(recipientEmail);
 
-    const isAccepted = adminStatus === "accepted";
+const isAccepted = adminStatus === "accepted";
+
     const canSendDocument = releaseAllowsDigital && isAccepted && hasApplicantId && hasRecipientEmail;
 
     let sendDocUnavailableReason = "";
@@ -993,24 +1002,25 @@ function renderScans(scans) {
             ` : ''}
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
 
-            <!-- Send Document button -->
-            ${releaseAllowsDigital ? `
-              ${canSendDocument ? `
-              <button class="send-doc-btn"
-                      data-applicant-id="${applicantId}"
-                      data-fullname="${user.fullname || ''}"
-                      data-queue-type="${user.queue_type || 'Document'}"
-                      data-email="${recipientEmail}">
-                Send Document
-              </button>
-              ` : `
-              <button class="send-doc-btn disabled" type="button" title="${sendDocUnavailableReason}" disabled>
-                Send Document
-              </button>
-              `}
-            ` : ''}
-          </div>
-        </div>
+<!-- Send Document button -->
+${
+console.log("SEND DOC DEBUG:", user.fullname, { adminStatus, releaseFormat, releaseAllowsDigital, applicantId, hasApplicantId, recipientEmail, hasRecipientEmail, isAccepted, canSendDocument });
+  canSendDocument ? `
+    <button class="send-doc-btn"
+            data-applicant-id="${applicantId}"
+            data-fullname="${user.fullname || ''}"
+            data-queue-type="${user.queue_type || 'Document'}"
+            data-email="${recipientEmail}">
+      Send Document
+    </button>
+  ` : `
+    <button class="send-doc-btn disabled" type="button"
+            title="${sendDocUnavailableReason}" disabled>
+      Send Document
+    </button>
+  `
+}
+
 
         ${hasNotification ? `
           <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
