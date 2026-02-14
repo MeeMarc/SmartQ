@@ -927,22 +927,36 @@ function renderScans(scans) {
     const card = document.createElement("div");
     card.className = "scan-card";
 
-    const phone = user.phone ? ` • ${user.phone}` : "";
-    const purpose = user.purpose ? ` • ${user.purpose}` : "";
-    const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
-    const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
-    const statusClass = user.status === 'completed' ? 'status-completed' :
-                        user.status === 'cancelled' ? 'status-cancelled' :
-                        user.status === 'rescheduled' ? 'status-rescheduled' : 'status-waiting';
+const phone = user.phone ? ` • ${user.phone}` : "";
+const purpose = user.purpose ? ` • ${user.purpose}` : "";
+const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
 
- const adminStatus = (user.admin_status || "pending").toString().trim().toLowerCase();
+const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
+const statusClass =
+  user.status === "completed" ? "status-completed" :
+  user.status === "cancelled" ? "status-cancelled" :
+  user.status === "rescheduled" ? "status-rescheduled" : "status-waiting";
 
+// ✅ Admin Status
+const adminStatus = (user.admin_status || "pending").toString().trim().toLowerCase();
+const adminStatusText = adminStatus.charAt(0).toUpperCase() + adminStatus.slice(1);
+const adminStatusClass =
+  adminStatus === "accepted" ? "status-accepted" :
+  adminStatus === "rejected" ? "status-rejected" : "status-pending";
+
+// ✅ Other flags used by template
+const showAdminActions = adminStatus === "pending" && !["completed","cancelled","rescheduled"].includes(user.status);
+const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
+const hasNotification = !!(user.notification_message && user.notification_message.trim() !== "");
+const canMarkDone = adminStatus !== "pending" && !["completed","cancelled","rescheduled"].includes(user.status);
+
+// ✅ Send Document rules
 const applicantId = (user.applicant_id || "").toString().trim();
 const recipientEmail = (user.email || "").toString().trim();
 
 const releaseFormat = (user.queue_release_type || "").toString().trim().toLowerCase();
-
 const releaseAllowsDigital = releaseFormat.includes("digital");
+
 const isAccepted = adminStatus === "accepted";
 const hasApplicantId = applicantId.length > 0;
 const hasRecipientEmail = isValidEmail(recipientEmail);
@@ -976,7 +990,6 @@ console.log("SEND DOC CHECK", user.fullname, {
   canSendDocument,
   sendDocUnavailableReason
 });
-
 
 
 card.innerHTML = `
