@@ -380,7 +380,7 @@ function markAsDone(entryId, buttonElement) {
 function acceptEntry(entryId) {
   requestStatusMessage(
     'Accept Entry Message',
-    'Your application has been accepted.',
+    'This application has been accepted.',
     (message) => {
       showConfirmation(
         'Accept Entry',
@@ -946,26 +946,17 @@ function renderScans(scans) {
     const hasDocuments = user.has_documents || (user.id_doc_url || user.req_doc_url || user.signature_url);
     const hasNotification = user.notification_message && user.notification_message.trim() !== '';
     const canMarkDone = adminStatus !== 'pending' && !['completed','cancelled','rescheduled'].includes(user.status);
-    const applicantId = (
-  user.applicant_id ||
-  user.applicantId ||
-  user.entry_id ||
-  user.queue_entry_id ||
-  user.id || ""
-).toString().trim();
-
-    const recipientEmail = (user.email || "").trim();
+    const applicantId = (user.applicant_id || user.id || "").toString().trim();
+        const recipientEmail = (user.email || "").trim();
 
 
-    const releaseFormat = (user.release_format || user.queue_release_format || user.queue_release_type || "")
-      .toString().trim().toLowerCase();
-
+    const releaseFormat = (user.queue_release_type || "").toString().trim().toLowerCase();
     const releaseAllowsDigital = releaseFormat.includes("digital");
+
 
     const hasApplicantId = applicantId.length > 0;
     const hasRecipientEmail = isValidEmail(recipientEmail);
-
-const isAccepted = adminStatus === "accepted";
+    const isAccepted = adminStatus === "accepted";
 
     const canSendDocument = releaseAllowsDigital && isAccepted && hasApplicantId && hasRecipientEmail;
 
@@ -991,35 +982,34 @@ const isAccepted = adminStatus === "accepted";
             <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
             ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})">View Docs</button>` : ''}
             ${showAdminActions ? `
-<button class="accept-btn" onclick="acceptEntry(${user.id})">
-  Accept
-</button>
+              <button class="accept-btn" onclick="acceptEntry(${user.id})">
+                Accept
+              </button>
 
-<button class="reject-btn" onclick="rejectEntry(${user.id})">
-  Reject
-</button>
+              <button class="reject-btn" onclick="rejectEntry(${user.id})">
+                Reject
+              </button>
 
             ` : ''}
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
 
-<!-- Send Document button -->
-${
-console.log("SEND DOC DEBUG:", user.fullname, { adminStatus, releaseFormat, releaseAllowsDigital, applicantId, hasApplicantId, recipientEmail, hasRecipientEmail, isAccepted, canSendDocument });
-  canSendDocument ? `
-    <button class="send-doc-btn"
-            data-applicant-id="${applicantId}"
-            data-fullname="${user.fullname || ''}"
-            data-queue-type="${user.queue_type || 'Document'}"
-            data-email="${recipientEmail}">
-      Send Document
-    </button>
-  ` : `
-    <button class="send-doc-btn disabled" type="button"
-            title="${sendDocUnavailableReason}" disabled>
-      Send Document
-    </button>
-  `
-}
+              <!-- Send Document button -->
+              ${
+                canSendDocument ? `
+                  <button class="send-doc-btn"
+                          data-applicant-id="${applicantId}"
+                          data-fullname="${user.fullname || ''}"
+                          data-queue-type="${user.queue_type || 'Document'}"
+                          data-email="${recipientEmail}">
+                    Send Document
+                  </button>
+                ` : `
+                  <button class="send-doc-btn disabled" type="button"
+                          title="${sendDocUnavailableReason}" disabled>
+                    Send Document
+                  </button>
+                `
+              }
 
 
         ${hasNotification ? `
