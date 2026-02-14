@@ -380,7 +380,7 @@ function markAsDone(entryId, buttonElement) {
 function acceptEntry(entryId) {
   requestStatusMessage(
     'Accept Entry Message',
-    'Your application request has been accepted.',
+    'Your application has been accepted.',
     (message) => {
       showConfirmation(
         'Accept Entry',
@@ -412,7 +412,7 @@ function acceptEntry(entryId) {
 
             const emailParams = buildStatusEmailParams(
               data,
-              "Accepted", // ✅ FORCE STATUS
+              "Your application has been successfully approved. Please check your email regularly, as the requested document will be sent to the email address you provided.", // ✅ FORCE STATUS
               message,
               { bg: "#e8f7ee", color: "#198754" }
             );
@@ -440,7 +440,7 @@ function acceptEntry(entryId) {
 function rejectEntry(entryId) {
   requestStatusMessage(
     'Reject Entry Message',
-    'Your application request was rejected because some required documents or information are incorrect or incomplete.',
+    'This application has been rejected.',
     (message) => {
       showConfirmation(
         'Reject Entry',
@@ -472,7 +472,7 @@ function rejectEntry(entryId) {
 
             const emailParams = buildStatusEmailParams(
               data,
-              "Rejected", // ✅ FORCE STATUS
+              "Your application request was rejected because some required documents or information are incorrect or incomplete.", // ✅ FORCE STATUS
               message,
               { bg: "#fdecea", color: "#dc3545" }
             );
@@ -946,11 +946,19 @@ function renderScans(scans) {
     const canMarkDone = adminStatus !== 'pending' && !['completed','cancelled','rescheduled'].includes(user.status);
     const applicantId = ((user.applicant_id || "") + "").trim();
     const recipientEmail = (user.email || "").trim();
-    const releaseType = (user.queue_release_type || '').toLowerCase();
-    const releaseAllowsDigital = releaseType ? releaseType.includes('digital') : true;
+
+
+    const releaseFormat = (user.release_format || user.queue_release_format || user.queue_release_type || "").toString().trim().toLowerCase();
+
+    // ✅ allow ONLY if release format is Digital Copy
+    const releaseAllowsDigital = releaseFormat.includes("digital");
+
     const hasApplicantId = applicantId.length > 0;
     const hasRecipientEmail = isValidEmail(recipientEmail);
-    const canSendDocument = releaseAllowsDigital && hasApplicantId && hasRecipientEmail;
+    
+    const isAccepted = adminStatus === "accepted";
+    const canSendDocument = releaseAllowsDigital && isAccepted && hasApplicantId && hasRecipientEmail;
+
     let sendDocUnavailableReason = '';
     if (releaseAllowsDigital) {
       if (!hasApplicantId) {
