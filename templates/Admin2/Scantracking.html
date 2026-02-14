@@ -984,13 +984,18 @@ function renderScans(scans) {
 
 
 card.innerHTML = `
-  <div>
-    <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
-      <div style="flex: 1;">
+  <div style="display:flex; flex-direction:column; gap:10px;">
+
+    <!-- ROW 1: header + actions -->
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+      
+      <!-- Left info -->
+      <div style="min-width:220px; flex:1;">
         <strong>${user.fullname}</strong>${phone}${purpose}${scannedAt}
       </div>
 
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <!-- Right actions -->
+      <div style="display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; flex:1; min-width:260px;">
         <span class="status-badge ${statusClass}">${status}</span>
         <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
 
@@ -1020,14 +1025,17 @@ card.innerHTML = `
           `
         }
       </div>
+
     </div>
 
+    <!-- ROW 2: notification (full width, always below) -->
     ${hasNotification ? `
-      <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
-        <strong style="color: #003366;">📢 Notification:</strong>
-        <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
+      <div style="width:100%; padding:10px; background:#e7f3ff; border-left:3px solid #007bff; border-radius:4px;">
+        <strong style="color:#003366;">📢 Notification:</strong>
+        <p style="margin:5px 0 0 0; color:#004085;">${user.notification_message}</p>
       </div>
     ` : ''}
+
   </div>
 `;
 
