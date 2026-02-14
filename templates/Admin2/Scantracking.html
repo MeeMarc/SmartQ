@@ -946,8 +946,8 @@ function renderScans(scans) {
     const hasDocuments = user.has_documents || (user.id_doc_url || user.req_doc_url || user.signature_url);
     const hasNotification = user.notification_message && user.notification_message.trim() !== '';
     const canMarkDone = adminStatus !== 'pending' && !['completed','cancelled','rescheduled'].includes(user.status);
-    const applicantId = (user.applicant_id || user.id || "").toString().trim();
-        const recipientEmail = (user.email || "").trim();
+    const applicantId = (user.applicant_id || "").toString().trim();
+    const recipientEmail = (user.email || "").trim();
 
 
     const releaseFormat = (user.queue_release_type || "").toString().trim().toLowerCase();
@@ -971,55 +971,66 @@ function renderScans(scans) {
       sendDocUnavailableReason = "Missing or invalid recipient email";
     }
 
-    card.innerHTML = `
-      <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
-          <div style="flex: 1;">
-            <strong>${user.fullname}</strong>${phone}${purpose}${scannedAt}
-          </div>
-          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <span class="status-badge ${statusClass}">${status}</span>
-            <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
-            ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})">View Docs</button>` : ''}
-            ${showAdminActions ? `
-              <button class="accept-btn" onclick="acceptEntry(${user.id})">
-                Accept
-              </button>
-
-              <button class="reject-btn" onclick="rejectEntry(${user.id})">
-                Reject
-              </button>
-
-            ` : ''}
-            ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
-
-              <!-- Send Document button -->
-              ${
-                canSendDocument ? `
-                  <button class="send-doc-btn"
-                          data-applicant-id="${applicantId}"
-                          data-fullname="${user.fullname || ''}"
-                          data-queue-type="${user.queue_type || 'Document'}"
-                          data-email="${recipientEmail}">
-                    Send Document
-                  </button>
-                ` : `
-                  <button class="send-doc-btn disabled" type="button"
-                          title="${sendDocUnavailableReason}" disabled>
-                    Send Document
-                  </button>
-                `
-              }
+  console.log("SEND DOC CHECK", user.fullname, {
+  adminStatus,
+  queue_release_type: user.queue_release_type,
+  releaseAllowsDigital,
+  applicantId,
+  recipientEmail,
+  isAccepted,
+  canSendDocument,
+  sendDocUnavailableReason
+});
 
 
-        ${hasNotification ? `
-          <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
-            <strong style="color: #003366;">📢 Notification:</strong>
-            <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
-          </div>
-        ` : ''}
+card.innerHTML = `
+  <div>
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+      <div style="flex: 1;">
+        <strong>${user.fullname}</strong>${phone}${purpose}${scannedAt}
       </div>
-    `;
+
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span class="status-badge ${statusClass}">${status}</span>
+        <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
+
+        ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})">View Docs</button>` : ''}
+
+        ${showAdminActions ? `
+          <button class="accept-btn" onclick="acceptEntry(${user.id})">Accept</button>
+          <button class="reject-btn" onclick="rejectEntry(${user.id})">Reject</button>
+        ` : ''}
+
+        ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
+
+        ${
+          canSendDocument ? `
+            <button class="send-doc-btn"
+                    data-applicant-id="${applicantId}"
+                    data-fullname="${user.fullname || ''}"
+                    data-queue-type="${user.queue_type || 'Document'}"
+                    data-email="${recipientEmail}">
+              Send Document
+            </button>
+          ` : `
+            <button class="send-doc-btn disabled" type="button"
+                    title="${sendDocUnavailableReason}" disabled>
+              Send Document
+            </button>
+          `
+        }
+      </div>
+    </div>
+
+    ${hasNotification ? `
+      <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
+        <strong style="color: #003366;">📢 Notification:</strong>
+        <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
+      </div>
+    ` : ''}
+  </div>
+`;
+
 
     scanList.appendChild(card);
 
