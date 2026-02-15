@@ -963,8 +963,7 @@ const statusClass =
   user.status === "cancelled" ? "status-cancelled" :
   user.status === "rescheduled" ? "status-rescheduled" : "status-waiting";
 
-// ✅ Decision Status (robust: supports admin_status OR application_status + variations)
-// ✅ Decision Status (works for "Accepted"/"accepted" etc.)
+// ✅ Decision Status
 const decisionStatus = normalizeDecisionStatus(user.admin_status ?? user.application_status);
 const adminStatusText = decisionStatus.charAt(0).toUpperCase() + decisionStatus.slice(1);
 
@@ -973,28 +972,26 @@ const adminStatusClass =
   decisionStatus === "rejected" ? "status-rejected" :
   "status-pending";
 
-// ✅ Show accept/reject only if still pending
 const showAdminActions =
   decisionStatus === "pending" &&
   !["completed","cancelled","rescheduled"].includes((user.status || "").toString().trim().toLowerCase());
 
-// ✅ These two were missing in your code and will cause errors if not defined
 const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
 
 const canMarkDone =
   decisionStatus !== "pending" &&
   !["completed","cancelled","rescheduled"].includes((user.status || "").toString().trim().toLowerCase());
 
-// ✅ Send Document should be enabled ONLY when ACCEPTED (and disabled for REJECTED/PENDING)
-const entryId = (user.id ?? "").toString().trim();               // internal id
-const applicantId = (user.applicant_id ?? "").toString().trim(); // optional
+const entryId = (user.id ?? "").toString().trim();
+const applicantId = (user.applicant_id ?? "").toString().trim();
 const recipientEmail = (user.email ?? "").toString().trim();
 
 const isAccepted = decisionStatus === "accepted";
 const hasRecipientEmail = isValidEmail(recipientEmail);
-
-// If you want STRICTLY acceptance-only, this is enough:
 const canSendDocument = isAccepted && entryId && hasRecipientEmail;
+
+// ✅ ADD THIS ✅ (this is the missing variable)
+const hasNotification = !!((user.notification_message || "").toString().trim());
 
 let sendDocUnavailableReason = "";
 if (!isAccepted) {
@@ -1226,8 +1223,9 @@ if (!entryId) {
   try {
     // Upload file
     const formData = new FormData();
-    formData.append("entry_id", entryId);
+    formData.append("applicant_id", applicantId);  // ✅ instead of entry_id
     formData.append("document", fileInput.files[0]);
+
 
     const uploadResponse = await fetch("/upload_document", {
       method: "POST",
