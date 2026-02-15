@@ -937,58 +937,41 @@ const statusClass =
   user.status === "cancelled" ? "status-cancelled" :
   user.status === "rescheduled" ? "status-rescheduled" : "status-waiting";
 
-// ✅ Admin Status
-const adminStatus = (user.admin_status || "pending").toString().trim().toLowerCase();
-const adminStatusText = adminStatus.charAt(0).toUpperCase() + adminStatus.slice(1);
+// ✅ Decision Status (robust: supports admin_status OR application_status + variations)
+const decisionStatus = normalizeDecisionStatus(user.admin_status ?? user.application_status);
+const adminStatusText = decisionStatus.charAt(0).toUpperCase() + decisionStatus.slice(1);
+
 const adminStatusClass =
-  adminStatus === "accepted" ? "status-accepted" :
-  adminStatus === "rejected" ? "status-rejected" : "status-pending";
+  decisionStatus === "accepted" ? "status-accepted" :
+  decisionStatus === "rejected" ? "status-rejected" :
+  "status-pending";
 
-// ✅ Other flags used by template
-const showAdminActions = adminStatus === "pending" && !["completed","cancelled","rescheduled"].includes(user.status);
-const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
-const hasNotification = !!(user.notification_message && user.notification_message.trim() !== "");
-const canMarkDone = adminStatus !== "pending" && !["completed","cancelled","rescheduled"].includes(user.status);
+// Show accept/reject buttons only when still pending
+const showAdminActions =
+  decisionStatus === "pending" && !["completed","cancelled","rescheduled"].includes((user.status || "").toLowerCase());
 
-// ✅ Send Document rules (ENTRY ID is the key)
-const entryId = (user.id ?? "").toString().trim();               // ALWAYS available
-const applicantId = (user.applicant_id ?? "").toString().trim(); // optional reference only
+// ✅ Send Document should be enabled ONLY when ACCEPTED (and disabled for REJECTED/PENDING)
+const entryId = (user.id ?? "").toString().trim();               // internal id
+const applicantId = (user.applicant_id ?? "").toString().trim(); // optional
 const recipientEmail = (user.email ?? "").toString().trim();
 
-const releaseFormat = (user.queue_release_type || "").toString().trim().toLowerCase();
-const releaseAllowsDigital = releaseFormat.includes("digital");
-
-const isAccepted = adminStatus === "accepted";
-const hasEntryId = entryId.length > 0;
+const isAccepted = decisionStatus === "accepted";
 const hasRecipientEmail = isValidEmail(recipientEmail);
 
-const canSendDocument = releaseAllowsDigital && isAccepted && hasEntryId && hasRecipientEmail;
+// If you want STRICTLY acceptance-only, this is enough:
+const canSendDocument = isAccepted && entryId && hasRecipientEmail;
 
 let sendDocUnavailableReason = "";
-if (!releaseAllowsDigital) {
-  sendDocUnavailableReason = `Only available for Digital Copy release format. (release: "${releaseFormat || "missing"}")`;
-} else if (!isAccepted) {
-  sendDocUnavailableReason = `Only after accepted. (admin_status: "${adminStatus}")`;
-} else if (!hasEntryId) {
-  sendDocUnavailableReason = "Missing Entry ID (internal id).";
+if (!isAccepted) {
+  sendDocUnavailableReason =
+    decisionStatus === "rejected"
+      ? "Disabled: application is rejected."
+      : `Disabled: waiting for acceptance. (status: "${decisionStatus}")`;
+} else if (!entryId) {
+  sendDocUnavailableReason = "Disabled: missing Entry ID.";
 } else if (!hasRecipientEmail) {
-  sendDocUnavailableReason = `Missing/invalid email. (email: "${recipientEmail || "missing"}")`;
+  sendDocUnavailableReason = `Disabled: missing/invalid email. (email: "${recipientEmail || "missing"}")`;
 }
-
-console.log("SEND DOC CHECK", user.fullname, {
-  entryId,
-  applicantId,
-  adminStatus,
-  releaseFormat,
-  releaseAllowsDigital,
-  recipientEmail,
-  hasEntryId,
-  hasRecipientEmail,
-  isAccepted,
-  canSendDocument,
-  sendDocUnavailableReason
-});
-
 
 
 card.innerHTML = `

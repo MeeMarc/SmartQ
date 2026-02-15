@@ -314,26 +314,30 @@ ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'jpg', 'png', 'zip'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Upload document endpoint
+# Upload document endpoint (entry_id-based + accepted-only)
 @app.route('/upload_document', methods=['POST'])
 def upload_document():
     if 'document' not in request.files:
         return jsonify({"error": "No file part"}), 400
-    
+
     file = request.files['document']
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
-    
+
     if not allowed_file(file.filename):
         return jsonify({"error": "File type not allowed"}), 400
 
-    applicant_id = (request.form.get('applicant_id') or '').strip()
-    if not applicant_id:
-        return jsonify({"error": "Missing applicant_id"}), 400
+    # ✅ Use entry_id (matches your JS: formData.append("entry_id", entryId))
+    entry_id_raw = (request.form.get('entry_id') or '').strip()
+    if not entry_id_raw.isdigit():
+        return jsonify({"error": "Missing or invalid entry_id"}), 400
+    entry_id = int(entry_id_raw)
 
     conn = None
     cur = None
     recipient_email = ""
+    applicant_id = ""
+
     try:
         conn = get_db_connection()
         if conn is None:
@@ -341,43 +345,58 @@ def upload_document():
 
         ensure_queue_entries_table(conn)
         cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT email
-            FROM queue_entries
-            WHERE applicant_id = %s
-            ORDER BY created_at DESC NULLS LAST, id DESC
-            LIMIT 1
-            """,
-            (applicant_id,)
-        )
-        row = cur.fetchone()
-        if not row:
-            return jsonify({"error": "No queue entry found for the provided applicant_id"}), 404
 
-        recipient_email = (row[0] or "").strip()
+        # ✅ Fetch admin_status + email for this specific entry
+        cur.execute("""
+            SELECT applicant_id, email, admin_status
+            FROM queue_entries
+            WHERE id = %s
+            LIMIT 1
+        """, (entry_id,))
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({"error": "Entry not found"}), 404
+
+        applicant_id, recipient_email, admin_status = row
+        admin_status = (admin_status or "pending").strip().lower()
+        recipient_email = (recipient_email or "").strip()
+        applicant_id = (applicant_id or "").strip()
+
+        # ✅ Block if not accepted
+        if admin_status != "accepted":
+            return jsonify({
+                "error": "Documents can only be sent for ACCEPTED applications.",
+                "admin_status": admin_status
+            }), 403
+
+        # ✅ Email required
         if not is_valid_email(recipient_email):
-            return jsonify({"error": "Cannot send document: recipient email is missing or invalid for this applicant"}), 400
+            return jsonify({"error": "Recipient email is missing or invalid for this entry"}), 400
+
     except Exception as e:
-        return jsonify({"error": f"Failed to validate applicant record: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to validate entry: {str(e)}"}), 500
+
     finally:
         if cur:
             cur.close()
         if conn:
             conn.close()
 
-    # Create a safe, unique filename
+    # ✅ Create a safe unique filename (include entry_id so no collisions)
     timestamp = int(time.time())
-    filename = f"{applicant_id}_{timestamp}_{secure_filename(file.filename)}"
+    filename = f"entry{entry_id}_{timestamp}_{secure_filename(file.filename)}"
     save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(save_path)
 
-    # Return download URL
     download_url = request.host_url.rstrip('/') + f'/uploads/{filename}'
+
     return jsonify({
         "download_url": download_url,
-        "applicant_id": applicant_id,
-        "email": recipient_email
+        "entry_id": entry_id,
+        "applicant_id": applicant_id,      # optional, useful for reference
+        "email": recipient_email,
+        "admin_status": "accepted"
     })
 
 # Serve uploaded files
@@ -1773,10 +1792,7 @@ def update_queue_status():
 def accept_queue_entry(entry_id):
     try:
         data = request.get_json() or {}
-        notification_message = data.get(
-            'notification_message',
-            'Your application has been accepted.'
-        )
+        notification_message = data.get('notification_message', 'Your application has been accepted.')
 
         conn = get_db_connection()
         cur = conn.cursor()
@@ -1808,12 +1824,13 @@ def accept_queue_entry(entry_id):
 
         return jsonify({
             "status": "success",
+            "entry_id": entry_id,
             "user_name": user_name,
             "email": email or "",
             "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
             "application_status": application_status,
             "ticket_status": application_status,
-            "admin_status": "Accepted"
+            "admin_status": "accepted"   # ✅ lowercase + consistent
         })
 
     except Exception as e:
@@ -1825,10 +1842,7 @@ def accept_queue_entry(entry_id):
 def reject_queue_entry(entry_id):
     try:
         data = request.get_json() or {}
-        notification_message = data.get(
-            'notification_message',
-            'Your application has been rejected.'
-        )
+        notification_message = data.get('notification_message', 'Your application has been rejected.')
 
         conn = get_db_connection()
         cur = conn.cursor()
@@ -1860,16 +1874,18 @@ def reject_queue_entry(entry_id):
 
         return jsonify({
             "status": "success",
+            "entry_id": entry_id,
             "user_name": user_name,
             "email": email or "",
             "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
             "application_status": application_status,
             "ticket_status": application_status,
-            "admin_status": "Rejected"
+            "admin_status": "rejected"   # ✅ lowercase + consistent
         })
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 
