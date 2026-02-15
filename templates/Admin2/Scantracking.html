@@ -840,7 +840,8 @@ candidateForm.addEventListener("submit", function(e) {
   });
 });
 
-// View scans for a specific QR — focus right panel on the scan list (mga nag-scan)
+
+
 function viewScans(qrId) {
   const normalizedQrId = Number(qrId);
   if (!Number.isInteger(normalizedQrId) || normalizedQrId <= 0) {
@@ -849,60 +850,66 @@ function viewScans(qrId) {
   }
 
   currentQRId = normalizedQrId;
-fetch(`/get_qr_scans/${normalizedQrId}`, { credentials: "same-origin" })
-  .then(async (res) => {
-    const text = await res.text();
 
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
-    }
+  fetch(`/get_qr_scans/${normalizedQrId}`, { credentials: "same-origin" })
+    .then(async (res) => {
+      const text = await res.text();
 
-    // If server returned HTML (login page), detect it
-    const trimmed = text.trim();
-    if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) {
-      throw new Error("Server returned HTML instead of JSON (login redirect or server error page).");
-    }
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
+      }
 
-    return JSON.parse(text);
-  })
-  .then(payload => {
-    if (!payload || payload.status !== "success") {
-      throw new Error(payload?.message || "Failed to load scans (unknown error).");
-    }
+      const trimmed = text.trim();
+      if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) {
+        throw new Error("Server returned HTML instead of JSON (login redirect or error page).");
+      }
 
-    const scans = Array.isArray(payload.scans) ? payload.scans : [];
-    currentScans = scans;
+      return JSON.parse(text);
+    })
+    .then((payload) => {
+      // ✅ SUPPORT BOTH response formats:
+      // 1) your current backend: [ ... ]
+      // 2) optional format: { status:"success", scans:[...] }
+      const scans = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.scans)
+          ? payload.scans
+          : [];
 
-    const queueModeLabel = scans.length
-      ? `${scans[0].queue_processing_method || 'Online'} / ${scans[0].queue_release_type || 'Digital Copy'}`
-      : '';
+      currentScans = scans;
 
-    qrDetailContainer.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
-        <h3 style="margin:0;">Scans for QR #${normalizedQrId}${queueModeLabel ? ` <span style="font-size:0.9rem; color:#666; font-weight:500;">(${queueModeLabel})</span>` : ''}</h3>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button onclick="openNotificationModal(${normalizedQrId})" style="background:#17a2b8; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600;">Send Notification</button>
-          <button onclick="downloadScans(${normalizedQrId})" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600;">Download Scans</button>
+      const queueModeLabel = scans.length
+        ? `${scans[0].queue_processing_method || "Online"} / ${scans[0].queue_release_type || "Digital Copy"}`
+        : "";
+
+      qrDetailContainer.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+          <h3 style="margin:0;">Scans for QR #${normalizedQrId}${queueModeLabel ? ` <span style="font-size:0.9rem; color:#666; font-weight:500;">(${queueModeLabel})</span>` : ""}</h3>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button onclick="openNotificationModal(${normalizedQrId})" style="background:#17a2b8; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600;">Send Notification</button>
+            <button onclick="downloadScans(${normalizedQrId})" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600;">Download Scans</button>
+          </div>
         </div>
-      </div>
-      <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, status, or admin status">
-      <div class="scan-list" id="scanList"></div>
-    `;
+        <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, status, or admin status">
+        <div class="scan-list" id="scanList"></div>
+      `;
 
-    document.getElementById("scanSearch").addEventListener("input", filterScans);
-    renderScans(currentScans);
+      document.getElementById("scanSearch").addEventListener("input", filterScans);
+      renderScans(currentScans);
 
-    qrDetailContainer.scrollIntoView({ behavior: "smooth", block: "start" });
-  })
-  .catch(err => {
-    console.error("Error loading scans:", err);
-    showAlert(err.message || "Failed to load scans. Please try again.", "error");
+      qrDetailContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+    })
+    .catch((err) => {
+      console.error("Error loading scans:", err);
+      showAlert(err.message || "Failed to load scans. Please try again.", "error");
 
-    qrDetailContainer.innerHTML = `
-      <h3>Scans for QR #${normalizedQrId}</h3>
-      <p style="color:#b00020;">${(err.message || "").replace(/</g,"&lt;").slice(0, 500)}</p>
-    `;
-  });
+      qrDetailContainer.innerHTML = `
+        <h3>Scans for QR #${normalizedQrId}</h3>
+        <p style="color:#b00020;">${(err.message || "").replace(/</g, "&lt;").slice(0, 500)}</p>
+      `;
+    });
+}  // ✅ IMPORTANT: closes viewScans()
+
 
 
 function downloadScans(qrId) {
@@ -913,6 +920,17 @@ function downloadScans(qrId) {
   }
   window.location.href = `/download_scans/${normalizedQrId}`;
 }
+
+function normalizeDecisionStatus(raw) {
+  const s = (raw ?? "").toString().trim().toLowerCase();
+
+  if (["accepted", "accept", "approved", "approve"].includes(s)) return "accepted";
+  if (["rejected", "reject", "declined", "deny", "denied"].includes(s)) return "rejected";
+  if (!s || ["pending", "waiting", "none", "null"].includes(s)) return "pending";
+
+  return s;
+}
+
 
 // Render scans
 function renderScans(scans) {
@@ -946,6 +964,7 @@ const statusClass =
   user.status === "rescheduled" ? "status-rescheduled" : "status-waiting";
 
 // ✅ Decision Status (robust: supports admin_status OR application_status + variations)
+// ✅ Decision Status (works for "Accepted"/"accepted" etc.)
 const decisionStatus = normalizeDecisionStatus(user.admin_status ?? user.application_status);
 const adminStatusText = decisionStatus.charAt(0).toUpperCase() + decisionStatus.slice(1);
 
@@ -954,9 +973,17 @@ const adminStatusClass =
   decisionStatus === "rejected" ? "status-rejected" :
   "status-pending";
 
-// Show accept/reject buttons only when still pending
+// ✅ Show accept/reject only if still pending
 const showAdminActions =
-  decisionStatus === "pending" && !["completed","cancelled","rescheduled"].includes((user.status || "").toLowerCase());
+  decisionStatus === "pending" &&
+  !["completed","cancelled","rescheduled"].includes((user.status || "").toString().trim().toLowerCase());
+
+// ✅ These two were missing in your code and will cause errors if not defined
+const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
+
+const canMarkDone =
+  decisionStatus !== "pending" &&
+  !["completed","cancelled","rescheduled"].includes((user.status || "").toString().trim().toLowerCase());
 
 // ✅ Send Document should be enabled ONLY when ACCEPTED (and disabled for REJECTED/PENDING)
 const entryId = (user.id ?? "").toString().trim();               // internal id
