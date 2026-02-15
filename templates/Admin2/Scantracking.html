@@ -111,7 +111,6 @@
   </div>
 </div>
 
-
 <!-- Modal for Sending Notifications (only to selected scanned entries, no "all") -->
 <div class="modal" id="notificationModal">
   <div class="modal-content" style="max-width: 600px;">
@@ -121,7 +120,7 @@
     <form id="notificationForm">
       <input type="hidden" id="notificationQRId">
       
-     <div id="entrySelectionContainer" style="margin-top: 10px; max-height: 280px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 6px;">
+      <div id="entrySelectionContainer" style="margin-top: 10px; max-height: 280px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 6px;">
         <p style="margin: 0 0 10px 0; font-weight: 600;">Select entries to notify:</p>
         <div id="entryCheckboxes"></div>
       </div>
@@ -137,7 +136,8 @@
 <!-- Modal for Accept/Reject Notification Message -->
 <div class="modal" id="statusMessageModal">
   <div class="modal-content" style="max-width: 520px;">
-    <span class="close-modal" id="statusMessageClose">Ã—</span>
+    <!-- ✅ FIX: Ã— to × -->
+    <span class="close-modal" id="statusMessageClose">×</span>
     <h3 id="statusMessageTitle">Enter Notification Message</h3>
     <label for="statusMessageInput">Message (optional):</label>
     <textarea id="statusMessageInput" rows="4" style="width: 100%; padding: 10px; border: 1px solid #ccd6e0; border-radius: 8px; font-size: 0.95rem; resize: vertical;"></textarea>
@@ -165,8 +165,6 @@ const statusMessageClose = document.getElementById("statusMessageClose");
 let currentScans = [];
 let currentQRId = null;
 
-// EmailJS configuration.
-// Update these values and variable keys to match your EmailJS templates.
 const EMAILJS_CONFIG = {
   PUBLIC_KEY: "jpZBXk-dH8pr1YLy4",
   SERVICE_ID: "service_t9g8qmw",
@@ -204,9 +202,7 @@ function extractFirstName(fullName) {
   if (raw.includes(",")) {
     const parts = raw.split(",", 2);
     const given = (parts[1] || "").trim();
-    if (given) {
-      return given.split(/\s+/)[0];
-    }
+    if (given) return given.split(/\s+/)[0];
   }
 
   return raw.split(/\s+/)[0];
@@ -225,6 +221,7 @@ function buildStatusEmailParams(payload, applicationStatus, statusMessage, palet
     hour: "2-digit",
     minute: "2-digit"
   });
+
   const resolvedStatus = applicationStatus || payload.application_status || payload.ticket_status || payload.status || "Waiting";
   const resolvedAdminStatus = payload.admin_status || "";
   const resolvedEmail = payload.email || "";
@@ -240,7 +237,6 @@ function buildStatusEmailParams(payload, applicationStatus, statusMessage, palet
     [EMAILJS_VARS.STATUS.STATUS_BG]: palette.bg || "#e7f3ff",
     [EMAILJS_VARS.STATUS.STATUS_COLOR]: palette.color || "#0b5ed7",
     [EMAILJS_VARS.STATUS.APP_NAME]: "SmartQ",
-    // Alias variables so templates still work if names differ.
     email: resolvedEmail,
     name: resolvedName,
     fullname: resolvedName,
@@ -265,47 +261,48 @@ function showConfirmation(title, message, onConfirm) {
   const messageEl = document.getElementById('confirmationMessage');
   const yesBtn = document.getElementById('confirmYes');
   const noBtn = document.getElementById('confirmNo');
-  
+
   titleEl.textContent = title;
   messageEl.textContent = message;
   modal.style.display = 'flex';
-  
-  // Remove existing listeners
+
   const newYesBtn = yesBtn.cloneNode(true);
   const newNoBtn = noBtn.cloneNode(true);
   yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
   noBtn.parentNode.replaceChild(newNoBtn, noBtn);
-  
+
   document.getElementById('confirmYes').onclick = () => {
     modal.style.display = 'none';
     onConfirm();
   };
-  
+
   document.getElementById('confirmNo').onclick = () => {
     modal.style.display = 'none';
   };
 }
 
-// Custom Alert Dialog
+// ✅ FIX: showAlert supports warning
 function showAlert(message, type = 'success') {
   const modal = document.getElementById('alertModal');
   const messageEl = document.getElementById('alertMessage');
   const iconEl = document.getElementById('alertIcon');
   const okBtn = document.getElementById('alertOk');
-  
+
   messageEl.textContent = message;
-  
-  // Set icon based on type
+
   if (type === 'success') {
     iconEl.textContent = '✓';
     iconEl.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
+  } else if (type === 'warning') {
+    iconEl.textContent = '!';
+    iconEl.style.background = 'linear-gradient(135deg, #ffc107, #ff9800)';
   } else {
     iconEl.textContent = '✕';
     iconEl.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
   }
-  
+
   modal.style.display = 'flex';
-  
+
   okBtn.onclick = () => {
     modal.style.display = 'none';
   };
@@ -351,19 +348,13 @@ function markAsDone(entryId, buttonElement) {
       fetch('/update_queue_status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entry_id: entryId,
-          status: 'completed'
-        })
+        body: JSON.stringify({ entry_id: entryId, status: 'completed' })
       })
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
           showAlert('User marked as completed!', 'success');
-          // Refresh the scan list
-          if (currentQRId) {
-            viewScans(currentQRId);
-          }
+          if (currentQRId) viewScans(currentQRId);
         } else {
           showAlert('Error: ' + data.message, 'error');
         }
@@ -375,7 +366,6 @@ function markAsDone(entryId, buttonElement) {
     }
   );
 }
-
 
 function acceptEntry(entryId) {
   requestStatusMessage(
@@ -400,7 +390,6 @@ function acceptEntry(entryId) {
 
             const recipientEmail = (data.email || "").trim();
 
-            // ⚠️ Email invalid — status still ACCEPTED
             if (!isValidEmail(recipientEmail)) {
               showAlert(
                 'Application accepted. Status email was not sent because the recipient email is missing or invalid.',
@@ -412,7 +401,7 @@ function acceptEntry(entryId) {
 
             const emailParams = buildStatusEmailParams(
               data,
-              "Your application has been successfully approved. Please check your email regularly, as the requested document will be sent to the email address you provided.", // ✅ FORCE STATUS
+              "Your application has been successfully approved. Please check your email regularly, as the requested document will be sent to the email address you provided.",
               message,
               { bg: "#e8f7ee", color: "#198754" }
             );
@@ -435,7 +424,6 @@ function acceptEntry(entryId) {
     }
   );
 }
-
 
 function rejectEntry(entryId) {
   requestStatusMessage(
@@ -460,7 +448,6 @@ function rejectEntry(entryId) {
 
             const recipientEmail = (data.email || "").trim();
 
-            // ⚠️ Email invalid — status still REJECTED
             if (!isValidEmail(recipientEmail)) {
               showAlert(
                 'Application rejected. Status email was not sent because the recipient email is missing or invalid.',
@@ -472,7 +459,7 @@ function rejectEntry(entryId) {
 
             const emailParams = buildStatusEmailParams(
               data,
-              "Your application request was rejected because some required documents or information are incorrect or incomplete.", // ✅ FORCE STATUS
+              "Your application request was rejected because some required documents or information are incorrect or incomplete.",
               message,
               { bg: "#fdecea", color: "#dc3545" }
             );
@@ -496,43 +483,38 @@ function rejectEntry(entryId) {
   );
 }
 
-
-
-// Fetch QR List - shows only ACTIVE queues (not deleted ones)
+// Fetch QR List - shows only ACTIVE queues
 function fetchQRList() {
-  // First get active queues from temp_qr
   fetch("/temp_qr_data")
     .then(res => res.json())
     .then(activeQRs => {
       qrListContainer.innerHTML = "<h3>Active Queues</h3>";
-      
+
       if (activeQRs.length === 0) {
         qrListContainer.innerHTML += "<p>No active queues found. Create one in Create Queue page.</p>";
         return;
       }
-      
-      // Only show active queues (those in temp_qr)
+
       activeQRs.forEach(qr => {
         const box = document.createElement("div");
         box.className = "qr-box";
-            
-        // Format date from database (YYYY-MM-DD HH:MM:SS) to readable format
+
         let formattedDate = 'N/A';
         if (qr.created_at && qr.created_at !== 'N/A') {
           try {
             const date = new Date(qr.created_at);
-            formattedDate = date.toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'long', 
+            formattedDate = date.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
               day: 'numeric',
               hour: '2-digit',
               minute: '2-digit'
             });
           } catch (e) {
-            formattedDate = qr.created_at; // Fallback to original if parsing fails
+            formattedDate = qr.created_at;
           }
         }
-        
+
         box.innerHTML = `
           <h4>${qr.queue_type}</h4>
           <p>${qr.queue_purpose}</p>
@@ -559,7 +541,6 @@ function fetchQRList() {
     });
 }
 
-// Auto-refresh QR list every 60 seconds to show newly created queues
 fetchQRList();
 setInterval(fetchQRList, 60000);
 
@@ -576,8 +557,7 @@ function closeModal() {
 function openDocumentsModal(entryId) {
   documentsModal.style.display = "flex";
   document.getElementById("documentsContent").innerHTML = "<p>Loading documents...</p>";
-  
-  // Fetch document URLs
+
   fetch(`/view_entry_documents/${entryId}`)
     .then(res => res.json())
     .then(data => {
@@ -585,27 +565,26 @@ function openDocumentsModal(entryId) {
         document.getElementById("documentsContent").innerHTML = `<p style="color: red;">Error: ${data.message}</p>`;
         return;
       }
-      
+
       const documents = data.documents || {};
       const fullname = data.fullname || "Unknown";
       const applicantId = data.applicant_id || "N/A";
-      
-      // Update modal title
+
       document.getElementById("documentsModalTitle").textContent = `Documents - ${fullname}`;
-      
+
       let content = `
         <div style="margin-bottom: 20px; padding: 15px; background: #f8faff; border-radius: 8px;">
           <p style="margin: 5px 0;"><strong>Name:</strong> ${fullname}</p>
           <p style="margin: 5px 0;"><strong>Applicant ID:</strong> ${applicantId}</p>
         </div>
       `;
-      
+
       if (documents.id_doc) {
         const isPdf = documents.id_doc.toLowerCase().endsWith('.pdf');
         content += `
           <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
             <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">📄 ID Document</h4>
-            ${isPdf ? 
+            ${isPdf ?
               `<iframe src="${documents.id_doc}" style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px;"></iframe>
                <a href="${documents.id_doc}" target="_blank" style="display: inline-block; padding: 8px 15px; background: #003366; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">📥 Open PDF in new tab</a>` :
               `<div style="text-align: center;">
@@ -616,13 +595,13 @@ function openDocumentsModal(entryId) {
           </div>
         `;
       }
-      
+
       if (documents.req_doc) {
         const isPdf = documents.req_doc.toLowerCase().endsWith('.pdf');
         content += `
           <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
             <h4 style="color: #003366; margin-bottom: 15px; font-size: 1.1rem;">📋 Required Document</h4>
-            ${isPdf ? 
+            ${isPdf ?
               `<iframe src="${documents.req_doc}" style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px;"></iframe>
                <a href="${documents.req_doc}" target="_blank" style="display: inline-block; padding: 8px 15px; background: #003366; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">📥 Open PDF in new tab</a>` :
               `<div style="text-align: center;">
@@ -633,7 +612,7 @@ function openDocumentsModal(entryId) {
           </div>
         `;
       }
-      
+
       if (documents.signature) {
         content += `
           <div style="margin-bottom: 25px; padding: 15px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
@@ -645,11 +624,11 @@ function openDocumentsModal(entryId) {
           </div>
         `;
       }
-      
+
       if (!documents.id_doc && !documents.req_doc && !documents.signature) {
         content = '<p style="color: #666;">No documents uploaded for this entry.</p>';
       }
-      
+
       document.getElementById("documentsContent").innerHTML = content;
     })
     .catch(err => {
@@ -662,14 +641,10 @@ function closeDocumentsModal() {
   documentsModal.style.display = "none";
 }
 
-// Close documents modal when clicking outside
 documentsModal.addEventListener('click', function(e) {
-  if (e.target === documentsModal) {
-    closeDocumentsModal();
-  }
+  if (e.target === documentsModal) closeDocumentsModal();
 });
 
-// Notification Modal Functions
 function openNotificationModal(qrId) {
   notificationModal.style.display = "flex";
   notificationModal.style.alignItems = "center";
@@ -684,17 +659,15 @@ function closeNotificationModal() {
   notificationForm.reset();
 }
 
-
-
 function populateEntryCheckboxes() {
   const container = document.getElementById("entryCheckboxes");
   container.innerHTML = "";
-  
+
   if (currentScans.length === 0) {
     container.innerHTML = "<p style='color: #666;'>No entries available.</p>";
     return;
   }
-  
+
   currentScans.forEach(scan => {
     const div = document.createElement("div");
     div.style.marginBottom = "8px";
@@ -708,27 +681,25 @@ function populateEntryCheckboxes() {
   });
 }
 
-// Handle notification form submission (only selected entries; no "notify all")
 notificationForm.addEventListener("submit", function(e) {
   e.preventDefault();
-  
+
   const qrId = document.getElementById("notificationQRId").value;
   const message = document.getElementById("notificationMessage").value.trim();
 
-  
   if (!message) {
     showAlert("Please enter a notification message.", "error");
     return;
   }
-  
+
   const checkboxes = document.querySelectorAll("#entryCheckboxes input[type='checkbox']:checked");
   const entryIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
-  
+
   if (entryIds.length === 0) {
     showAlert("Please select at least one entry to notify.", "error");
     return;
   }
-  
+
   fetch("/send_notification", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -743,10 +714,7 @@ notificationForm.addEventListener("submit", function(e) {
     if (data.status === "success") {
       showAlert(data.message, "success");
       closeNotificationModal();
-      // Refresh scans to show updated notification status
-      if (currentQRId) {
-        viewScans(currentQRId);
-      }
+      if (currentQRId) viewScans(currentQRId);
     } else {
       showAlert("Error: " + data.message, "error");
     }
@@ -757,32 +725,24 @@ notificationForm.addEventListener("submit", function(e) {
   });
 });
 
-// Close notification modal when clicking outside
 notificationModal.addEventListener('click', function(e) {
-  if (e.target === notificationModal) {
-    closeNotificationModal();
-  }
+  if (e.target === notificationModal) closeNotificationModal();
 });
 
 statusMessageModal.addEventListener('click', function(e) {
-  if (e.target === statusMessageModal) {
-    closeStatusMessageModal();
-  }
+  if (e.target === statusMessageModal) closeStatusMessageModal();
 });
 
-// Handle Add Candidate submission
 candidateForm.addEventListener("submit", function(e) {
   e.preventDefault();
-  
-  // Get individual name fields
+
   const lastname = document.getElementById("lastname").value.trim();
   const firstname = document.getElementById("firstname").value.trim();
   const middleinitial = document.getElementById("middleinitial").value.trim();
   const suffix = document.getElementById("suffix").value.trim();
   const phone = document.getElementById("phone").value.trim();
   const email = document.getElementById("candidateEmail").value.trim();
-  
-  // Validate required fields
+
   if (!lastname || !firstname || !phone || !email) {
     showAlert("Please provide Last Name, First Name, Phone Number, and Email.", "error");
     return;
@@ -793,22 +753,14 @@ candidateForm.addEventListener("submit", function(e) {
     showAlert("Please enter a valid email address.", "error");
     return;
   }
-  
-  // Construct fullname from separate fields (same format as registration form)
-  // Format: "Lastname, Firstname M.I. Suffix"
+
   const name_parts = [lastname, firstname];
-  if (middleinitial) {
-    name_parts.push(middleinitial);
-  }
-  if (suffix) {
-    name_parts.push(suffix);
-  }
-  
-  let fullname = name_parts.slice(0, 2).join(', '); // "Lastname, Firstname"
-  if (name_parts.length > 2) {
-    fullname += ' ' + name_parts.slice(2).join(' '); // Add middle initial and suffix
-  }
-  
+  if (middleinitial) name_parts.push(middleinitial);
+  if (suffix) name_parts.push(suffix);
+
+  let fullname = name_parts.slice(0, 2).join(', ');
+  if (name_parts.length > 2) fullname += ' ' + name_parts.slice(2).join(' ');
+
   const data = {
     fullname: fullname,
     phone: phone,
@@ -823,13 +775,10 @@ candidateForm.addEventListener("submit", function(e) {
   })
   .then(res => res.json())
   .then(resp => {
-    if(resp.status === "success") {
+    if (resp.status === "success") {
       showAlert("Candidate added successfully!", "success");
       closeModal();
-      // Refresh scans if currently viewing the QR
-      if (currentQRId) {
-        viewScans(currentQRId);
-      }
+      if (currentQRId) viewScans(currentQRId);
     } else {
       showAlert("Error: " + resp.message, "error");
     }
@@ -839,8 +788,6 @@ candidateForm.addEventListener("submit", function(e) {
     showAlert("Failed to add candidate. Please try again.", "error");
   });
 });
-
-
 
 function viewScans(qrId) {
   const normalizedQrId = Number(qrId);
@@ -855,9 +802,7 @@ function viewScans(qrId) {
     .then(async (res) => {
       const text = await res.text();
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
 
       const trimmed = text.trim();
       if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) {
@@ -867,9 +812,6 @@ function viewScans(qrId) {
       return JSON.parse(text);
     })
     .then((payload) => {
-      // ✅ SUPPORT BOTH response formats:
-      // 1) your current backend: [ ... ]
-      // 2) optional format: { status:"success", scans:[...] }
       const scans = Array.isArray(payload)
         ? payload
         : Array.isArray(payload?.scans)
@@ -908,9 +850,7 @@ function viewScans(qrId) {
         <p style="color:#b00020;">${(err.message || "").replace(/</g, "&lt;").slice(0, 500)}</p>
       `;
     });
-}  // ✅ IMPORTANT: closes viewScans()
-
-
+}
 
 function downloadScans(qrId) {
   const normalizedQrId = Number(qrId);
@@ -931,8 +871,6 @@ function normalizeDecisionStatus(raw) {
   return s;
 }
 
-
-// Render scans
 function renderScans(scans) {
   const scanList = document.getElementById("scanList");
   if (!scanList) return;
@@ -965,7 +903,6 @@ function renderScans(scans) {
       statusLower === "cancelled" ? "status-cancelled" :
       statusLower === "rescheduled" ? "status-rescheduled" : "status-waiting";
 
-    // ✅ Decision Status
     const decisionStatus = normalizeDecisionStatus(user.admin_status ?? user.application_status);
     const adminStatusText = decisionStatus.charAt(0).toUpperCase() + decisionStatus.slice(1);
 
@@ -974,29 +911,23 @@ function renderScans(scans) {
       decisionStatus === "rejected" ? "status-rejected" :
       "status-pending";
 
-    // ✅ Show Accept/Reject only if pending and not finalized ticket status
     const showAdminActions =
       decisionStatus === "pending" &&
       !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
-    // ✅ IDs + email
     const entryId = (user.id ?? "").toString().trim();
     const applicantId = (user.applicant_id ?? "").toString().trim();
     const recipientEmail = (user.email ?? "").toString().trim();
 
-    // ✅ REQUIRED missing variable
     const hasRecipientEmail = isValidEmail(recipientEmail);
 
-    // ✅ Documents + Notification (declare ONCE)
     const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
     const hasNotification = !!((user.notification_message || "").toString().trim());
 
-    // ✅ Done button only after accepted/rejected, and not finalized ticket status
     const canMarkDone =
       decisionStatus !== "pending" &&
       !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
-    // ✅ Send Document only when ACCEPTED + valid entryId + valid email
     const canSendDocument = (decisionStatus === "accepted") && !!entryId && hasRecipientEmail;
 
     let sendDocUnavailableReason = "";
@@ -1062,7 +993,6 @@ function renderScans(scans) {
 
     scanList.appendChild(card);
 
-    // ✅ Attach Send Document listener
     const sendBtn = card.querySelector(".send-doc-btn");
     if (sendBtn && !sendBtn.disabled) {
       sendBtn.addEventListener("click", function () {
@@ -1078,7 +1008,6 @@ function renderScans(scans) {
   });
 }
 
-
 function filterScans() {
   const query = document.getElementById("scanSearch").value.toLowerCase();
   const filtered = currentScans.filter(user =>
@@ -1093,9 +1022,7 @@ function filterScans() {
 }
 </script>
 
-
-
-
+<!-- Send Document Modal -->
 <div id="sendDocumentModal" class="modal">
   <div class="modal-backdrop"></div>
 
@@ -1124,19 +1051,16 @@ function filterScans() {
   </div>
 </div>
 
-
-
-
-
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 
 <script>
 (function() {
-  emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
+  if (typeof emailjs !== "undefined") {
+    emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
+  }
 })();
 
-// Open modal and set template variables
-  function openSendDocumentModal(entryId, userName, documenttype, email, applicantIdRef = "") {
+function openSendDocumentModal(entryId, userName, documenttype, email, applicantIdRef = "") {
   const resolvedEntryId = (entryId || "").trim();
   const resolvedEmail = (email || "").trim();
 
@@ -1152,12 +1076,9 @@ function filterScans() {
 
   const modal = document.getElementById("sendDocumentModal");
 
-  // ✅ required (entry id)
-document.getElementById("sendDocEntryId").value = resolvedEntryId;
-document.getElementById("sendDocApplicantId").value = (applicantIdRef || "").trim(); // optional
+  document.getElementById("sendDocEntryId").value = resolvedEntryId;
+  document.getElementById("sendDocApplicantId").value = (applicantIdRef || "").trim();
 
-
-  // ✅ optional (keep only if you still want applicant_id reference)
   const ref = (applicantIdRef || "").trim();
   const applicantField = document.getElementById("sendDocApplicantId");
   if (applicantField) applicantField.value = ref;
@@ -1172,29 +1093,25 @@ document.getElementById("sendDocApplicantId").value = (applicantIdRef || "").tri
   modal.style.display = "flex";
 }
 
-
-// Close modal
 function closeSendDocumentModal() {
   document.getElementById("sendDocumentModal").style.display = "none";
 }
 
-// Send document
 async function sendDocumentModal(e) {
   e.preventDefault();
 
   const entryId = document.getElementById("sendDocEntryId").value.trim();
-  const applicantId = document.getElementById("sendDocApplicantId").value.trim(); // optional reference
+  const applicantId = document.getElementById("sendDocApplicantId").value.trim();
   const userName = document.getElementById("sendDocUserName").value;
   const documenttype = document.getElementById("sendDocDocumenttype").value;
   const email = document.getElementById("sendDocEmail").value.trim();
   const message = document.getElementById("sendDocMessage").value.trim();
   const fileInput = document.getElementById("sendDocFile");
 
-
-if (!entryId) {
-  showAlert("Cannot send document: missing Entry ID for this entry.", "error");
-  return;
-}
+  if (!entryId) {
+    showAlert("Cannot send document: missing Entry ID for this entry.", "error");
+    return;
+  }
 
   if (!isValidEmail(email)) {
     showAlert("Cannot send document: recipient email is missing or invalid.", "error");
@@ -1207,33 +1124,31 @@ if (!entryId) {
   }
 
   try {
-    // Upload file
-      const formData = new FormData();
-      formData.append("entry_id", entryId);              // ✅ required
-      formData.append("document", fileInput.files[0]);
+    const formData = new FormData();
+    formData.append("entry_id", entryId);
+    formData.append("document", fileInput.files[0]);
 
-      const uploadResponse = await fetch("/upload_document", {
-        method: "POST",
-        body: formData
-      });
+    const uploadResponse = await fetch("/upload_document", {
+      method: "POST",
+      body: formData
+    });
 
-      if (!uploadResponse.ok) {
-        let uploadError = "Upload failed.";
-        try {
-          const errData = await uploadResponse.json();
-          uploadError = errData.error || errData.message || uploadError;
-        } catch (_) {}
-        throw new Error(`(${uploadResponse.status}) ${uploadError}`);
-      }
+    if (!uploadResponse.ok) {
+      let uploadError = "Upload failed.";
+      try {
+        const errData = await uploadResponse.json();
+        uploadError = errData.error || errData.message || uploadError;
+      } catch (_) {}
+      throw new Error(`(${uploadResponse.status}) ${uploadError}`);
+    }
 
-      const data = await uploadResponse.json();
+    const data = await uploadResponse.json();
 
     const recipientEmail = (data.email || email).trim();
     if (!isValidEmail(recipientEmail)) {
       throw new Error("Cannot send document: recipient email is missing or invalid.");
     }
 
-    // EmailJS payload
     const resolvedName = extractFirstName(userName);
     const resolvedDate = new Date().toLocaleString("en-US", {
       year: "numeric",
@@ -1250,7 +1165,6 @@ if (!entryId) {
       [EMAILJS_VARS.DOCUMENT.USER_MESSAGE]: message,
       [EMAILJS_VARS.DOCUMENT.QUEUE_TYPE]: documenttype,
       [EMAILJS_VARS.DOCUMENT.DOWNLOAD_LINK]: data.download_url,
-      // Alias variables for template flexibility.
       name: resolvedName,
       fullname: resolvedName,
       created_at: resolvedDate,
@@ -1270,14 +1184,10 @@ if (!entryId) {
   }
 }
 
+/* ✅ FIX: make sure these functions are callable from clicks anywhere */
+window.openSendDocumentModal = openSendDocumentModal;
+window.sendDocumentModal = sendDocumentModal;
 </script>
-
-
-
-
-
-
-
 
 </body>
 </html>
