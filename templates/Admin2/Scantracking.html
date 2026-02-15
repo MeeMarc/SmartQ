@@ -949,19 +949,22 @@ function renderScans(scans) {
     return;
   }
 
-  scans.forEach(user => {
-    const card = document.createElement("div");
-    card.className = "scan-card";
+scans.forEach(user => {
+  const card = document.createElement("div");
+  card.className = "scan-card";
 
+  // ... YOUR VARIABLES HERE ...
 const phone = user.phone ? ` • ${user.phone}` : "";
 const purpose = user.purpose ? ` • ${user.purpose}` : "";
 const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
 
 const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
+const statusLower = (user.status || "").toString().trim().toLowerCase();
+
 const statusClass =
-  user.status === "completed" ? "status-completed" :
-  user.status === "cancelled" ? "status-cancelled" :
-  user.status === "rescheduled" ? "status-rescheduled" : "status-waiting";
+  statusLower === "completed" ? "status-completed" :
+  statusLower === "cancelled" ? "status-cancelled" :
+  statusLower === "rescheduled" ? "status-rescheduled" : "status-waiting";
 
 // ✅ Decision Status
 const decisionStatus = normalizeDecisionStatus(user.admin_status ?? user.application_status);
@@ -972,31 +975,33 @@ const adminStatusClass =
   decisionStatus === "rejected" ? "status-rejected" :
   "status-pending";
 
+// ✅ Show Accept/Reject only if pending and not finalized ticket status
 const showAdminActions =
   decisionStatus === "pending" &&
-  !["completed","cancelled","rescheduled"].includes((user.status || "").toString().trim().toLowerCase());
+  !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
-const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
-
-const canMarkDone =
-  decisionStatus !== "pending" &&
-  !["completed","cancelled","rescheduled"].includes((user.status || "").toString().trim().toLowerCase());
-
+// ✅ IDs + email
 const entryId = (user.id ?? "").toString().trim();
 const applicantId = (user.applicant_id ?? "").toString().trim();
 const recipientEmail = (user.email ?? "").toString().trim();
-const hasNotification = !!((user.notification_message || "").trim());
 
+// ✅ REQUIRED missing variable
+const hasRecipientEmail = isValidEmail(recipientEmail);
 
-const isAccepted = decisionStatus === "accepted";
+// ✅ Documents + Notification (declare ONCE)
 const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
-const canSendDocument = isAccepted && entryId && hasRecipientEmail;
-
-// ✅ ADD THIS ✅ (this is the missing variable)
 const hasNotification = !!((user.notification_message || "").toString().trim());
 
+// ✅ Done button only after accepted/rejected, and not finalized ticket status
+const canMarkDone =
+  decisionStatus !== "pending" &&
+  !["completed", "cancelled", "rescheduled"].includes(statusLower);
+
+// ✅ Send Document only when ACCEPTED + valid entryId + valid email
+const canSendDocument = (decisionStatus === "accepted") && !!entryId && hasRecipientEmail;
+
 let sendDocUnavailableReason = "";
-if (!isAccepted) {
+if (decisionStatus !== "accepted") {
   sendDocUnavailableReason =
     decisionStatus === "rejected"
       ? "Disabled: application is rejected."
@@ -1006,7 +1011,6 @@ if (!isAccepted) {
 } else if (!hasRecipientEmail) {
   sendDocUnavailableReason = `Disabled: missing/invalid email. (email: "${recipientEmail || "missing"}")`;
 }
-
 
 card.innerHTML = `
   <div>
