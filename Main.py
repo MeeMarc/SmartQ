@@ -1541,46 +1541,45 @@ def resolve_entry_document_urls(entry_id, id_doc_path=None, req_doc_path=None, s
 
 @app.route('/get_qr_scans/<int:qr_id>', methods=['GET'])
 def get_qr_scans(qr_id):
-    """Return a JSON list of users linked to a specific QR code."""
     conn = None
     cur = None
     try:
         conn = get_db_connection()
         if conn is None:
-            return jsonify([])
+            return jsonify({
+                "status": "error",
+                "message": "Database connection failed"
+            }), 500
 
         cur = conn.cursor()
 
-        # Prefer active queue IDs from temp_qr to avoid ID collisions with history.
         queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True)
-
         if not queue_link:
-            return jsonify([])
+            return jsonify({
+                "status": "success",
+                "scans": []
+            }), 200
 
-        # Extract queue_slug and queue_number from the queue_link
-        # Format: https://domain.com/queue/<slug>/<number>
         match = re.search(r'/queue/([^/]+)/(\d+)', queue_link)
         if not match:
-            return jsonify([])
-        
+            return jsonify({
+                "status": "error",
+                "message": f"Invalid queue_link format: {queue_link}"
+            }), 500
+
         queue_slug = match.group(1)
         queue_number = int(match.group(2))
+
         queue_mode = get_queue_mode(queue_slug, queue_number, cur=cur, ensure_columns=False)
         queue_processing_method = queue_mode.get("processing_method", "Online")
         queue_release_type = queue_mode.get("release_type", "Digital Copy")
 
-        # Ensure queue_entries table exists
         ensure_queue_entries_table(conn, include_column_migrations=False)
 
-        # Fetch queue entries (users who filled the form / scanned the QR)
-        # Order by status (waiting first) then by created_at
-        cur.execute(
-            """
+        cur.execute("""
             SELECT id, fullname, phone, email, purpose, status, admin_status, created_at, reference_number,
-                id_doc_path, req_doc_path, signature_path, applicant_id, notification_message,
-                queue_type
+                   id_doc_path, req_doc_path, signature_path, applicant_id, notification_message, queue_type
             FROM queue_entries
-
             WHERE queue_slug = %s AND queue_number = %s
             ORDER BY 
                 CASE 
@@ -1589,9 +1588,8 @@ def get_qr_scans(qr_id):
                     ELSE 3
                 END,
                 created_at DESC
-            """,
-            (queue_slug, queue_number)
-        )
+        """, (queue_slug, queue_number))
+
         rows = cur.fetchall()
 
         scans = []
@@ -1602,10 +1600,11 @@ def get_qr_scans(qr_id):
                 req_doc_path=row[10],
                 signature_path=row[11],
             )
-            id_doc_url = doc_urls["id_doc"]
-            req_doc_url = doc_urls["req_doc"]
-            signature_url = doc_urls["signature"]
-            
+
+            id_doc_url = doc_urls.get("id_doc")
+            req_doc_url = doc_urls.get("req_doc")
+            signature_url = doc_urls.get("signature")
+
             scans.append({
                 "id": row[0],
                 "fullname": row[1] or "Unknown",
@@ -1613,38 +1612,40 @@ def get_qr_scans(qr_id):
                 "email": row[3] or "",
                 "purpose": row[4] or "",
                 "status": row[5] or "waiting",
-                "admin_status": row[6] or "pending",
+                "admin_status": (row[6] or "pending").lower(),   # ✅ normalize
                 "scanned_at": row[7].strftime('%Y-%m-%d %I:%M %p') if row[7] else "",
                 "reference_number": row[8] or "",
-                "applicant_id": row[12] or "",
-                "queue_type": row[14] or "Document",
-                "queue_processing_method": queue_processing_method,
-                "queue_release_type": queue_release_type,
                 "id_doc_url": id_doc_url,
                 "req_doc_url": req_doc_url,
                 "signature_url": signature_url,
                 "has_documents": bool(id_doc_url or req_doc_url or signature_url),
-                "notification_message": row[13] or ""
+                "applicant_id": row[12] or "",
+                "notification_message": row[13] or "",
+                "queue_type": row[14] or "Document",
+                "queue_processing_method": queue_processing_method,
+                "queue_release_type": queue_release_type
             })
 
-        return jsonify(scans)
+        return jsonify({
+            "status": "success",
+            "scans": scans
+        }), 200
 
     except Exception as e:
-        print(f"Error fetching QR scans: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify([])
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
     finally:
         if cur:
-            try:
-                cur.close()
-            except Exception:
-                pass
+            try: cur.close()
+            except Exception: pass
         if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
+            try: conn.close()
+            except Exception: pass
 
 
 @app.route('/download_scans/<int:qr_id>', methods=['GET'])

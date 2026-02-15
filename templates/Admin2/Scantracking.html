@@ -849,53 +849,61 @@ function viewScans(qrId) {
   }
 
   currentQRId = normalizedQrId;
-  fetch(`/get_qr_scans/${normalizedQrId}`)
-    .then(res => {
-      if (!res.ok) {
-        throw new Error(`Request failed (${res.status})`);
-      }
-      return res.json();
-    })
-    .then(data => {
-      const scans = Array.isArray(data) ? data : [];
-      currentScans = scans;
-      const queueModeLabel = scans.length
-        ? `${scans[0].queue_processing_method || 'Online'} / ${scans[0].queue_release_type || 'Digital Copy'}`
-        : '';
-      qrDetailContainer.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-          <h3 style="margin: 0;">Scans for QR #${normalizedQrId}${queueModeLabel ? ` <span style="font-size: 0.9rem; color: #666; font-weight: 500;">(${queueModeLabel})</span>` : ''}</h3>
-          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button onclick="openNotificationModal(${normalizedQrId})" style="background: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Send Notification</button>
-            <button onclick="downloadScans(${normalizedQrId})" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Download Scans</button>
-          </div>
-        </div>
-        <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, status, or admin status">
-        <div class="scan-list" id="scanList"></div>
-      `;
+fetch(`/get_qr_scans/${normalizedQrId}`, { credentials: "same-origin" })
+  .then(async (res) => {
+    const text = await res.text();
 
-      const scanSearch = document.getElementById("scanSearch");
-      if (scanSearch) {
-        scanSearch.addEventListener("input", filterScans);
-      }
-      renderScans(currentScans);
-      
-            // Focus the right panel (scan list) so view is on "mga nag-scan"
-      qrDetailContainer.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (qrDetailContainer.querySelector("#scanList")) {
-        qrDetailContainer.querySelector("#scanList").focus({ preventScroll: true });
-      }
-    })
-    .catch(err => {
-      console.error("Error loading scans:", err);
-      currentScans = [];
-      qrDetailContainer.innerHTML = `
-        <h3>Scans for QR #${normalizedQrId}</h3>
-        <p style="color: #b00020; margin-top: 10px;">Unable to load scans right now. Please try again.</p>
-      `;
-      showAlert("Failed to load scans. Please try again.", "error");
-    });
-}
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
+    }
+
+    // If server returned HTML (login page), detect it
+    const trimmed = text.trim();
+    if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) {
+      throw new Error("Server returned HTML instead of JSON (login redirect or server error page).");
+    }
+
+    return JSON.parse(text);
+  })
+  .then(payload => {
+    if (!payload || payload.status !== "success") {
+      throw new Error(payload?.message || "Failed to load scans (unknown error).");
+    }
+
+    const scans = Array.isArray(payload.scans) ? payload.scans : [];
+    currentScans = scans;
+
+    const queueModeLabel = scans.length
+      ? `${scans[0].queue_processing_method || 'Online'} / ${scans[0].queue_release_type || 'Digital Copy'}`
+      : '';
+
+    qrDetailContainer.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+        <h3 style="margin:0;">Scans for QR #${normalizedQrId}${queueModeLabel ? ` <span style="font-size:0.9rem; color:#666; font-weight:500;">(${queueModeLabel})</span>` : ''}</h3>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button onclick="openNotificationModal(${normalizedQrId})" style="background:#17a2b8; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600;">Send Notification</button>
+          <button onclick="downloadScans(${normalizedQrId})" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600;">Download Scans</button>
+        </div>
+      </div>
+      <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, status, or admin status">
+      <div class="scan-list" id="scanList"></div>
+    `;
+
+    document.getElementById("scanSearch").addEventListener("input", filterScans);
+    renderScans(currentScans);
+
+    qrDetailContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+  })
+  .catch(err => {
+    console.error("Error loading scans:", err);
+    showAlert(err.message || "Failed to load scans. Please try again.", "error");
+
+    qrDetailContainer.innerHTML = `
+      <h3>Scans for QR #${normalizedQrId}</h3>
+      <p style="color:#b00020;">${(err.message || "").replace(/</g,"&lt;").slice(0, 500)}</p>
+    `;
+  });
+
 
 function downloadScans(qrId) {
   const normalizedQrId = Number(qrId);
