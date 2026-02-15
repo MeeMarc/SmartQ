@@ -949,137 +949,135 @@ function renderScans(scans) {
     return;
   }
 
-scans.forEach(user => {
-  const card = document.createElement("div");
-  card.className = "scan-card";
+  scans.forEach(user => {
+    const card = document.createElement("div");
+    card.className = "scan-card";
 
-  // ... YOUR VARIABLES HERE ...
-const phone = user.phone ? ` • ${user.phone}` : "";
-const purpose = user.purpose ? ` • ${user.purpose}` : "";
-const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
+    const phone = user.phone ? ` • ${user.phone}` : "";
+    const purpose = user.purpose ? ` • ${user.purpose}` : "";
+    const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
 
-const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
-const statusLower = (user.status || "").toString().trim().toLowerCase();
+    const status = user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : "Waiting";
+    const statusLower = (user.status || "").toString().trim().toLowerCase();
 
-const statusClass =
-  statusLower === "completed" ? "status-completed" :
-  statusLower === "cancelled" ? "status-cancelled" :
-  statusLower === "rescheduled" ? "status-rescheduled" : "status-waiting";
+    const statusClass =
+      statusLower === "completed" ? "status-completed" :
+      statusLower === "cancelled" ? "status-cancelled" :
+      statusLower === "rescheduled" ? "status-rescheduled" : "status-waiting";
 
-// ✅ Decision Status
-const decisionStatus = normalizeDecisionStatus(user.admin_status ?? user.application_status);
-const adminStatusText = decisionStatus.charAt(0).toUpperCase() + decisionStatus.slice(1);
+    // ✅ Decision Status
+    const decisionStatus = normalizeDecisionStatus(user.admin_status ?? user.application_status);
+    const adminStatusText = decisionStatus.charAt(0).toUpperCase() + decisionStatus.slice(1);
 
-const adminStatusClass =
-  decisionStatus === "accepted" ? "status-accepted" :
-  decisionStatus === "rejected" ? "status-rejected" :
-  "status-pending";
+    const adminStatusClass =
+      decisionStatus === "accepted" ? "status-accepted" :
+      decisionStatus === "rejected" ? "status-rejected" :
+      "status-pending";
 
-// ✅ Show Accept/Reject only if pending and not finalized ticket status
-const showAdminActions =
-  decisionStatus === "pending" &&
-  !["completed", "cancelled", "rescheduled"].includes(statusLower);
+    // ✅ Show Accept/Reject only if pending and not finalized ticket status
+    const showAdminActions =
+      decisionStatus === "pending" &&
+      !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
-// ✅ IDs + email
-const entryId = (user.id ?? "").toString().trim();
-const applicantId = (user.applicant_id ?? "").toString().trim();
-const recipientEmail = (user.email ?? "").toString().trim();
+    // ✅ IDs + email
+    const entryId = (user.id ?? "").toString().trim();
+    const applicantId = (user.applicant_id ?? "").toString().trim();
+    const recipientEmail = (user.email ?? "").toString().trim();
 
-// ✅ REQUIRED missing variable
-const hasRecipientEmail = isValidEmail(recipientEmail);
+    // ✅ REQUIRED missing variable
+    const hasRecipientEmail = isValidEmail(recipientEmail);
 
-// ✅ Documents + Notification (declare ONCE)
-const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
-const hasNotification = !!((user.notification_message || "").toString().trim());
+    // ✅ Documents + Notification (declare ONCE)
+    const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
+    const hasNotification = !!((user.notification_message || "").toString().trim());
 
-// ✅ Done button only after accepted/rejected, and not finalized ticket status
-const canMarkDone =
-  decisionStatus !== "pending" &&
-  !["completed", "cancelled", "rescheduled"].includes(statusLower);
+    // ✅ Done button only after accepted/rejected, and not finalized ticket status
+    const canMarkDone =
+      decisionStatus !== "pending" &&
+      !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
-// ✅ Send Document only when ACCEPTED + valid entryId + valid email
-const canSendDocument = (decisionStatus === "accepted") && !!entryId && hasRecipientEmail;
+    // ✅ Send Document only when ACCEPTED + valid entryId + valid email
+    const canSendDocument = (decisionStatus === "accepted") && !!entryId && hasRecipientEmail;
 
-let sendDocUnavailableReason = "";
-if (decisionStatus !== "accepted") {
-  sendDocUnavailableReason =
-    decisionStatus === "rejected"
-      ? "Disabled: application is rejected."
-      : `Disabled: waiting for acceptance. (status: "${decisionStatus}")`;
-} else if (!entryId) {
-  sendDocUnavailableReason = "Disabled: missing Entry ID.";
-} else if (!hasRecipientEmail) {
-  sendDocUnavailableReason = `Disabled: missing/invalid email. (email: "${recipientEmail || "missing"}")`;
-}
+    let sendDocUnavailableReason = "";
+    if (decisionStatus !== "accepted") {
+      sendDocUnavailableReason =
+        decisionStatus === "rejected"
+          ? "Disabled: application is rejected."
+          : `Disabled: waiting for acceptance. (status: "${decisionStatus}")`;
+    } else if (!entryId) {
+      sendDocUnavailableReason = "Disabled: missing Entry ID.";
+    } else if (!hasRecipientEmail) {
+      sendDocUnavailableReason = `Disabled: missing/invalid email. (email: "${recipientEmail || "missing"}")`;
+    }
 
-card.innerHTML = `
-  <div>
-    <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
-      <div style="flex: 1;">
-        <strong>${user.fullname}</strong>${phone}${purpose}${scannedAt}
-      </div>
-
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <span class="status-badge ${statusClass}">${status}</span>
-        <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
-
-        ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})">View Docs</button>` : ''}
-
-        ${showAdminActions ? `
-          <button class="accept-btn" onclick="acceptEntry(${user.id})">Accept</button>
-          <button class="reject-btn" onclick="rejectEntry(${user.id})">Reject</button>
-        ` : ''}
-
-        ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
-
-                ${
-                  canSendDocument ? `
-        <button class="send-doc-btn"
-                data-entry-id="${entryId}"
-                data-applicant-id="${applicantId}"
-                data-fullname="${user.fullname || ''}"
-                data-queue-type="${user.queue_type || 'Document'}"
-                data-email="${recipientEmail}">
-          Send Document
-        </button>
-                  ` : `
-        <button class="send-doc-btn disabled" type="button"
-                title="${sendDocUnavailableReason}" disabled>
-          Send Document
-        </button>
-                  `
-                }
-              </div>
-            </div>
-
-            ${hasNotification ? `
-              <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
-                <strong style="color: #003366;">📢 Notification:</strong>
-                <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
-              </div>
-            ` : ''}
+    card.innerHTML = `
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+          <div style="flex: 1;">
+            <strong>${user.fullname || "Unknown"}</strong>${phone}${purpose}${scannedAt}
           </div>
-        `;
 
-        scanList.appendChild(card);
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span class="status-badge ${statusClass}">${status}</span>
+            <span class="status-badge ${adminStatusClass}">${adminStatusText}</span>
 
-        // ✅ Attach Send Document listener
-        const sendBtn = card.querySelector(".send-doc-btn");
-        if (sendBtn && !sendBtn.disabled) {
-          sendBtn.addEventListener("click", function () {
-            openSendDocumentModal(
-              this.dataset.entryId,
-              this.dataset.fullname,
-              this.dataset.queueType || "Document",
-              this.dataset.email || "",
-              this.dataset.applicantId || ""
-            );
-          });
-        }
+            ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})">View Docs</button>` : ""}
 
+            ${showAdminActions ? `
+              <button class="accept-btn" onclick="acceptEntry(${user.id})">Accept</button>
+              <button class="reject-btn" onclick="rejectEntry(${user.id})">Reject</button>
+            ` : ""}
 
+            ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ""}
+
+            ${
+              canSendDocument ? `
+                <button class="send-doc-btn"
+                        data-entry-id="${entryId}"
+                        data-applicant-id="${applicantId}"
+                        data-fullname="${user.fullname || ""}"
+                        data-queue-type="${user.queue_type || "Document"}"
+                        data-email="${recipientEmail}">
+                  Send Document
+                </button>
+              ` : `
+                <button class="send-doc-btn disabled" type="button"
+                        title="${sendDocUnavailableReason}" disabled>
+                  Send Document
+                </button>
+              `
+            }
+          </div>
+        </div>
+
+        ${hasNotification ? `
+          <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
+            <strong style="color: #003366;">📢 Notification:</strong>
+            <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
+          </div>
+        ` : ""}
+      </div>
+    `;
+
+    scanList.appendChild(card);
+
+    // ✅ Attach Send Document listener
+    const sendBtn = card.querySelector(".send-doc-btn");
+    if (sendBtn && !sendBtn.disabled) {
+      sendBtn.addEventListener("click", function () {
+        openSendDocumentModal(
+          this.dataset.entryId,
+          this.dataset.fullname,
+          this.dataset.queueType || "Document",
+          this.dataset.email || "",
+          this.dataset.applicantId || ""
+        );
+      });
+    }
   });
 }
+
 
 // Filter scans by search
 function filterScans() {
