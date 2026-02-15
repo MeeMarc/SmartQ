@@ -950,19 +950,17 @@ const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_ur
 const hasNotification = !!(user.notification_message && user.notification_message.trim() !== "");
 const canMarkDone = adminStatus !== "pending" && !["completed","cancelled","rescheduled"].includes(user.status);
 
-const entryId = (user.id || "").toString().trim(); // ALWAYS available
-const applicantId = (user.applicant_id || "").toString().trim(); // reference only (optional)
-
-const recipientEmail = (user.email || "").toString().trim();
+// ✅ Send Document rules (ENTRY ID is the key)
+const entryId = (user.id ?? "").toString().trim();               // ALWAYS available
+const applicantId = (user.applicant_id ?? "").toString().trim(); // optional reference only
+const recipientEmail = (user.email ?? "").toString().trim();
 
 const releaseFormat = (user.queue_release_type || "").toString().trim().toLowerCase();
 const releaseAllowsDigital = releaseFormat.includes("digital");
 
 const isAccepted = adminStatus === "accepted";
-const hasRecipientEmail = isValidEmail(recipientEmail);
-
 const hasEntryId = entryId.length > 0;
-const canSendDocument = releaseAllowsDigital && isAccepted && hasEntryId && hasRecipientEmail;
+const hasRecipientEmail = isValidEmail(recipientEmail);
 
 const canSendDocument = releaseAllowsDigital && isAccepted && hasEntryId && hasRecipientEmail;
 
@@ -977,23 +975,20 @@ if (!releaseAllowsDigital) {
   sendDocUnavailableReason = `Missing/invalid email. (email: "${recipientEmail || "missing"}")`;
 }
 
-
 console.log("SEND DOC CHECK", user.fullname, {
-  admin_status: user.admin_status,
+  entryId,
+  applicantId,
   adminStatus,
-  queue_release_type: user.queue_release_type,
   releaseFormat,
   releaseAllowsDigital,
-  applicant_id: user.applicant_id,
-  applicantId,
-  email: user.email,
   recipientEmail,
-  hasApplicantId,
+  hasEntryId,
   hasRecipientEmail,
   isAccepted,
   canSendDocument,
   sendDocUnavailableReason
 });
+
 
 
 card.innerHTML = `
