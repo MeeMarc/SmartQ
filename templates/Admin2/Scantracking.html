@@ -1224,28 +1224,26 @@ if (!entryId) {
 
   try {
     // Upload file
-    const formData = new FormData();
-    formData.append("applicant_id", applicantId);  // ✅ instead of entry_id
-    formData.append("document", fileInput.files[0]);
+      const formData = new FormData();
+      formData.append("entry_id", entryId);              // ✅ required
+      formData.append("document", fileInput.files[0]);
 
+      const uploadResponse = await fetch("/upload_document", {
+        method: "POST",
+        body: formData
+      });
 
-    const uploadResponse = await fetch("/upload_document", {
-      method: "POST",
-      body: formData
-    });
-
-    if (!uploadResponse.ok) {
-      let uploadError = "Upload failed.";
-      try {
-        const errData = await uploadResponse.json();
-        uploadError = errData.error || errData.message || uploadError;
-      } catch (_) {
-        // Ignore JSON parsing errors; keep default message.
+      if (!uploadResponse.ok) {
+        let uploadError = "Upload failed.";
+        try {
+          const errData = await uploadResponse.json();
+          uploadError = errData.error || errData.message || uploadError;
+        } catch (_) {}
+        throw new Error(`(${uploadResponse.status}) ${uploadError}`);
       }
-      throw new Error(uploadError);
-    }
 
-    const data = await uploadResponse.json();
+      const data = await uploadResponse.json();
+
     const recipientEmail = (data.email || email).trim();
     if (!isValidEmail(recipientEmail)) {
       throw new Error("Cannot send document: recipient email is missing or invalid.");
