@@ -1546,26 +1546,17 @@ def get_qr_scans(qr_id):
     try:
         conn = get_db_connection()
         if conn is None:
-            return jsonify({
-                "status": "error",
-                "message": "Database connection failed"
-            }), 500
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
 
         cur = conn.cursor()
 
         queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True)
         if not queue_link:
-            return jsonify({
-                "status": "success",
-                "scans": []
-            }), 200
+            return jsonify({"status": "success", "scans": []}), 200
 
         match = re.search(r'/queue/([^/]+)/(\d+)', queue_link)
         if not match:
-            return jsonify({
-                "status": "error",
-                "message": f"Invalid queue_link format: {queue_link}"
-            }), 500
+            return jsonify({"status": "error", "message": f"Invalid queue_link format: {queue_link}"}), 500
 
         queue_slug = match.group(1)
         queue_number = int(match.group(2))
@@ -1612,7 +1603,7 @@ def get_qr_scans(qr_id):
                 "email": row[3] or "",
                 "purpose": row[4] or "",
                 "status": row[5] or "waiting",
-                "admin_status": (row[6] or "pending").lower(),   # ✅ normalize
+                "admin_status": (row[6] or "pending").lower(),
                 "scanned_at": row[7].strftime('%Y-%m-%d %I:%M %p') if row[7] else "",
                 "reference_number": row[8] or "",
                 "id_doc_url": id_doc_url,
@@ -1626,18 +1617,12 @@ def get_qr_scans(qr_id):
                 "queue_release_type": queue_release_type
             })
 
-        return jsonify({
-            "status": "success",
-            "scans": scans
-        }), 200
+        return jsonify({"status": "success", "scans": scans}), 200
 
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
     finally:
         if cur:
@@ -1646,6 +1631,7 @@ def get_qr_scans(qr_id):
         if conn:
             try: conn.close()
             except Exception: pass
+
 
 
 @app.route('/download_scans/<int:qr_id>', methods=['GET'])

@@ -985,9 +985,11 @@ const canMarkDone =
 const entryId = (user.id ?? "").toString().trim();
 const applicantId = (user.applicant_id ?? "").toString().trim();
 const recipientEmail = (user.email ?? "").toString().trim();
+const hasNotification = !!((user.notification_message || "").trim());
+
 
 const isAccepted = decisionStatus === "accepted";
-const hasRecipientEmail = isValidEmail(recipientEmail);
+const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
 const canSendDocument = isAccepted && entryId && hasRecipientEmail;
 
 // ✅ ADD THIS ✅ (this is the missing variable)
