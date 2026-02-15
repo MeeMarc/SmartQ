@@ -950,29 +950,33 @@ const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_ur
 const hasNotification = !!(user.notification_message && user.notification_message.trim() !== "");
 const canMarkDone = adminStatus !== "pending" && !["completed","cancelled","rescheduled"].includes(user.status);
 
-// ✅ Send Document rules
-const applicantId = (user.applicant_id || "").toString().trim();
+const entryId = (user.id || "").toString().trim(); // ALWAYS available
+const applicantId = (user.applicant_id || "").toString().trim(); // reference only (optional)
+
 const recipientEmail = (user.email || "").toString().trim();
 
 const releaseFormat = (user.queue_release_type || "").toString().trim().toLowerCase();
 const releaseAllowsDigital = releaseFormat.includes("digital");
 
 const isAccepted = adminStatus === "accepted";
-const hasApplicantId = applicantId.length > 0;
 const hasRecipientEmail = isValidEmail(recipientEmail);
 
-const canSendDocument = releaseAllowsDigital && isAccepted && hasApplicantId && hasRecipientEmail;
+const hasEntryId = entryId.length > 0;
+const canSendDocument = releaseAllowsDigital && isAccepted && hasEntryId && hasRecipientEmail;
+
+const canSendDocument = releaseAllowsDigital && isAccepted && hasEntryId && hasRecipientEmail;
 
 let sendDocUnavailableReason = "";
 if (!releaseAllowsDigital) {
   sendDocUnavailableReason = `Only available for Digital Copy release format. (release: "${releaseFormat || "missing"}")`;
 } else if (!isAccepted) {
   sendDocUnavailableReason = `Only after accepted. (admin_status: "${adminStatus}")`;
-} else if (!hasApplicantId) {
-  sendDocUnavailableReason = "Missing Applicant ID (applicant_id not returned by API).";
+} else if (!hasEntryId) {
+  sendDocUnavailableReason = "Missing Entry ID (internal id).";
 } else if (!hasRecipientEmail) {
   sendDocUnavailableReason = `Missing/invalid email. (email: "${recipientEmail || "missing"}")`;
 }
+
 
 console.log("SEND DOC CHECK", user.fullname, {
   admin_status: user.admin_status,
@@ -1012,49 +1016,51 @@ card.innerHTML = `
 
         ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ''}
 
-        ${
-          canSendDocument ? `
-            <button class="send-doc-btn"
-                    data-applicant-id="${applicantId}"
-                    data-fullname="${user.fullname || ''}"
-                    data-queue-type="${user.queue_type || 'Document'}"
-                    data-email="${recipientEmail}">
-              Send Document
-            </button>
-          ` : `
-            <button class="send-doc-btn disabled" type="button"
-                    title="${sendDocUnavailableReason}" disabled>
-              Send Document
-            </button>
-          `
+                ${
+                  canSendDocument ? `
+        <button class="send-doc-btn"
+                data-entry-id="${entryId}"
+                data-applicant-id="${applicantId}"
+                data-fullname="${user.fullname || ''}"
+                data-queue-type="${user.queue_type || 'Document'}"
+                data-email="${recipientEmail}">
+          Send Document
+        </button>
+                  ` : `
+        <button class="send-doc-btn disabled" type="button"
+                title="${sendDocUnavailableReason}" disabled>
+          Send Document
+        </button>
+                  `
+                }
+              </div>
+            </div>
+
+            ${hasNotification ? `
+              <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
+                <strong style="color: #003366;">📢 Notification:</strong>
+                <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
+              </div>
+            ` : ''}
+          </div>
+        `;
+
+        scanList.appendChild(card);
+
+        // ✅ Attach Send Document listener
+        const sendBtn = card.querySelector(".send-doc-btn");
+        if (sendBtn && !sendBtn.disabled) {
+          sendBtn.addEventListener("click", function () {
+            openSendDocumentModal(
+              this.dataset.entryId,
+              this.dataset.fullname,
+              this.dataset.queueType || "Document",
+              this.dataset.email || "",
+              this.dataset.applicantId || ""
+            );
+          });
         }
-      </div>
-    </div>
 
-    ${hasNotification ? `
-      <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
-        <strong style="color: #003366;">📢 Notification:</strong>
-        <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
-      </div>
-    ` : ''}
-  </div>
-`;
-
-
-    scanList.appendChild(card);
-
-// Attach Send Document listener immediately
-const sendBtn = card.querySelector(".send-doc-btn");
-if (sendBtn && !sendBtn.disabled) {
-  sendBtn.addEventListener("click", function() {
-    openSendDocumentModal(
-      this.dataset.applicantId,
-      this.dataset.fullname,
-      this.dataset.queueType || "Document",
-      this.dataset.email || ""
-    );
-  });
-}
 
   });
 }
@@ -1092,6 +1098,8 @@ function filterScans() {
       <input type="hidden" id="sendDocApplicantId">
       <input type="hidden" id="sendDocUserName">
       <input type="hidden" id="sendDocEmail">
+      <input type="hidden" id="sendDocEntryId">
+
 
       <!-- Document Name -->
       <label>Document Name:</label>
@@ -1132,13 +1140,15 @@ function filterScans() {
   })();
 
 // Open modal and set template variables
-function openSendDocumentModal(applicantId, userName, documenttype, email) {
-  const resolvedApplicantId = (applicantId || "").trim();
+function openSendDocumentModal(entryId, userName, documenttype, email, applicantIdRef = "") {
+  const resolvedEntryId = (entryId || "").trim();
   const resolvedEmail = (email || "").trim();
-  if (!resolvedApplicantId) {
-    showAlert("Cannot send document: missing Applicant ID for this entry.", "error");
+
+  if (!resolvedEntryId) {
+    showAlert("Cannot send document: missing Entry ID for this entry.", "error");
     return;
   }
+
   if (!isValidEmail(resolvedEmail)) {
     showAlert("Cannot send document: recipient email is missing or invalid.", "error");
     return;
@@ -1146,9 +1156,18 @@ function openSendDocumentModal(applicantId, userName, documenttype, email) {
 
   const modal = document.getElementById("sendDocumentModal");
 
-  document.getElementById("sendDocApplicantId").value = resolvedApplicantId;
+  // ✅ required (entry id)
+document.getElementById("sendDocEntryId").value = resolvedEntryId;
+document.getElementById("sendDocApplicantId").value = (applicantIdRef || "").trim(); // optional
+
+
+  // ✅ optional (keep only if you still want applicant_id reference)
+  const ref = (applicantIdRef || "").trim();
+  const applicantField = document.getElementById("sendDocApplicantId");
+  if (applicantField) applicantField.value = ref;
+
   document.getElementById("sendDocUserName").value = userName;
-  document.getElementById("sendDocDocumenttype").value = documenttype || "Document"; // fallback
+  document.getElementById("sendDocDocumenttype").value = documenttype || "Document";
   document.getElementById("sendDocEmail").value = resolvedEmail;
 
   document.getElementById("sendDocFile").value = "";
@@ -1167,17 +1186,19 @@ function closeSendDocumentModal() {
 async function sendDocumentModal(e) {
   e.preventDefault();
 
-  const applicantId = document.getElementById("sendDocApplicantId").value.trim();
+  const entryId = document.getElementById("sendDocEntryId").value.trim();
+  const applicantId = document.getElementById("sendDocApplicantId").value.trim(); // optional reference
   const userName = document.getElementById("sendDocUserName").value;
   const documenttype = document.getElementById("sendDocDocumenttype").value;
   const email = document.getElementById("sendDocEmail").value.trim();
   const message = document.getElementById("sendDocMessage").value.trim();
   const fileInput = document.getElementById("sendDocFile");
 
-  if (!applicantId) {
-    showAlert("Cannot send document: missing Applicant ID for this entry.", "error");
-    return;
-  }
+
+if (!entryId) {
+  showAlert("Cannot send document: missing Entry ID for this entry.", "error");
+  return;
+}
 
   if (!isValidEmail(email)) {
     showAlert("Cannot send document: recipient email is missing or invalid.", "error");
@@ -1192,7 +1213,7 @@ async function sendDocumentModal(e) {
   try {
     // Upload file
     const formData = new FormData();
-    formData.append("applicant_id", applicantId); // ✅ backend expects applicant_id
+    formData.append("entry_id", entryId);
     formData.append("document", fileInput.files[0]);
 
     const uploadResponse = await fetch("/upload_document", {
