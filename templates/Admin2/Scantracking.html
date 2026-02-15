@@ -1079,7 +1079,6 @@ function renderScans(scans) {
 }
 
 
-// Filter scans by search
 function filterScans() {
   const query = document.getElementById("scanSearch").value.toLowerCase();
   const filtered = currentScans.filter(user =>
@@ -1090,11 +1089,8 @@ function filterScans() {
     (user.admin_status && user.admin_status.toLowerCase().includes(query))
   );
 
-  // ✅ Render filtered scans (listeners attached automatically inside renderScans)
   renderScans(filtered);
 }
-
-</script>
 
 
 
