@@ -1091,6 +1091,8 @@ function filterScans() {
 
   renderScans(filtered);
 }
+</script>
+
 
 
 
@@ -1103,34 +1105,17 @@ function filterScans() {
     <h3>Send Document</h3>
 
     <form id="sendDocumentForm" onsubmit="sendDocumentModal(event)">
-
-      <!-- ✅ Hidden fields -->
       <input type="hidden" id="sendDocApplicantId">
       <input type="hidden" id="sendDocUserName">
       <input type="hidden" id="sendDocEmail">
       <input type="hidden" id="sendDocEntryId">
 
-
-      <!-- Document Name -->
       <label>Document Name:</label>
-      <input
-        type="text"
-        id="sendDocDocumenttype"
-        name="queue_type"
-        class="readonly-field"
-        readonly
-      >
-
+      <input type="text" id="sendDocDocumenttype" name="queue_type" class="readonly-field" readonly>
 
       <label>Message (optional):</label>
-      <textarea
-        id="sendDocMessage"
-        rows="4"
-        placeholder="Your document is ready for release...">
-      </textarea>
-      
+      <textarea id="sendDocMessage" rows="4" placeholder="Your document is ready for release..."></textarea>
 
-      <!-- File Upload -->
       <label>Attach Document:</label>
       <input type="file" id="sendDocFile" required>
 
@@ -1142,15 +1127,16 @@ function filterScans() {
 
 
 
+
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
 <script>
-  // Initialize EmailJS
-  (function() {
-    emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
-  })();
+(function() {
+  emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
+})();
 
 // Open modal and set template variables
-function openSendDocumentModal(entryId, userName, documenttype, email, applicantIdRef = "") {
+  function openSendDocumentModal(entryId, userName, documenttype, email, applicantIdRef = "") {
   const resolvedEntryId = (entryId || "").trim();
   const resolvedEmail = (email || "").trim();
 
@@ -1285,6 +1271,9 @@ if (!entryId) {
 }
 
 </script>
+
+
+
 
 
 
