@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Create Queue | SmartQ</title>
   <!-- Updated 2025-01-10: Service time, schedule, staff management, and auto-calculated queue limit -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/common.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/CreateQ.css') }}" />
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
 </head>
+
 <body>
 
   <header>
@@ -30,272 +33,273 @@
     </nav>
   </header>
 
-<!-- ================= MAIN CONTENT ================= -->
-<main class="HomeMainContent">
-  <h2>Create Queue and Generate QR Codes</h2>
+  <!-- ================= MAIN CONTENT ================= -->
+  <main class="HomeMainContent">
+    <h2>Create Queue and Generate QR Codes</h2>
 
-  <div class="HomeTwoContainer">
-    <!-- LEFT: Form -->
-    <div class="HomeRightContainer">
-      <form id="qrForm">
+    <div class="HomeTwoContainer">
+      <!-- LEFT: Form -->
+      <div class="HomeRightContainer">
+        <form id="qrForm">
 
-        <!-- ========== SECTION 1: Basic Information ========== -->
-        <div class="form-section" style="background: #f8f9fa; border: 2px solid #007bff;">
-          <h3 style="border-bottom-color: #007bff;">📋 Basic Information</h3>
-          
-          <label for="queueType">Queue Type:</label>
-          <input type="text" id="queueType" placeholder="e.g. Requirements Submission" required>
+          <!-- ========== SECTION 1: Basic Information ========== -->
+          <div class="form-section" style="background: #f8f9fa; border: 2px solid #007bff;">
+            <h3 style="border-bottom-color: #007bff;">📋 Basic Information</h3>
 
-          <label for="queuePurpose">Queue Purpose / Description:</label>
-          <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
+            <label for="queueType">Queue Type:</label>
+            <input type="text" id="queueType" placeholder="e.g. Requirements Submission" required>
 
-          <label for="processingDays">Processing Time (Days):</label>
-          <input type="number" id="processingDays" placeholder="e.g. 3" min="1" required>
+            <label for="queuePurpose">Queue Purpose / Description:</label>
+            <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
 
-          <p style="color: #666; font-style: italic;">
-            ✓ URL will be automatically generated based on Queue Type
-          </p>
-        </div>
+            <label for="processingDays">Processing Time (Days):</label>
+            <input type="number" id="processingDays" placeholder="e.g. 3" min="1" required>
 
-        <!-- ========== SECTION 2: Queue Configuration ========== -->
-        <div class="form-section">
-          <h3>⚙️ Queue Configuration</h3>
+            <p style="color: #666; font-style: italic;">
+              ✓ URL will be automatically generated based on Queue Type
+            </p>
+          </div>
 
-          <label for="processingMethod">Service Channel:</label>
-          <select id="processingMethod" required>
-            <option value="">-- Select --</option>
-            <option value="Walk-in">Walk-in (In-Person)</option>
-            <option value="Online">Online</option>
-          </select>
+          <!-- ========== SECTION 2: Queue Configuration ========== -->
+          <div class="form-section">
+            <h3>⚙️ Queue Configuration</h3>
 
-          <label for="releaseType">Release Format:</label>
-          <select id="releaseType" required>
-            <option value="">-- Select --</option>
-            <option value="Physical Claim">Physical Claim (Onsite Pickup)</option>
-            <option value="Digital Copy">Digital Copy (Online Release)</option>
-          </select>
+            <label for="processingMethod">Service Channel:</label>
+            <select id="processingMethod" required>
+              <option value="">-- Select --</option>
+              <option value="Walk-in">Walk-in (In-Person)</option>
+              <option value="Online">Online</option>
+            </select>
 
-          <label for="studentId">Require Applicant ID (Student/Client Number)?</label>
-          <select id="studentId" required>
-            <option value="">-- Select --</option>
-            <option value="Yes">Yes</option>
-            <option value="No">No</option>
-          </select>
+            <label for="releaseType">Release Format:</label>
+            <select id="releaseType" required>
+              <option value="">-- Select --</option>
+              <option value="Physical Claim">Physical Claim (Onsite Pickup)</option>
+              <option value="Digital Copy">Digital Copy (Online Release)</option>
+            </select>
 
-          <label for="validId">Require Valid ID Uploads (JPG, PNG, PDF, max 5MB each)?</label>
-          <select id="validId" required>
-            <option value="">-- Select --</option>
-            <option value="Yes">Yes</option>
-            <option value="No">No</option>
-          </select>
+            <label for="studentId">Require Applicant ID (Student/Client Number)?</label>
+            <select id="studentId" required>
+              <option value="">-- Select --</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
 
-          <label for="supportingDoc">Require Supporting Document Uploads (JPG, PNG, PDF, max 5MB each)?</label>
-          <select id="supportingDoc" required>
-            <option value="">-- Select --</option>
-            <option value="Yes">Yes</option>
-            <option value="No">No</option>
-          </select>
+            <label for="validId">Require Valid ID Uploads (JPG, PNG, PDF, max 5MB each)?</label>
+            <select id="validId" required>
+              <option value="">-- Select --</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
 
-          <label for="esignRequired">Require E-Signature?</label>
-          <select id="esignRequired" required>
-            <option value="">-- Select --</option>
-            <option value="Yes">Yes</option>
-            <option value="No">No</option>
-          </select>
-          <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">Set to "No" to hide that field from the registration form.</p>
-        </div>
+            <label for="supportingDoc">Require Supporting Document Uploads (JPG, PNG, PDF, max 5MB each)?</label>
+            <select id="supportingDoc" required>
+              <option value="">-- Select --</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
 
-        <!-- ========== ACTION BUTTONS ========== -->
-        <div class="button-container">
-          <button type="submit" id="generateQrBtn">Generate QR</button>
-          <button type="button" id="viewHistoryBtn">View QR History</button>
-          <button type="button" id="loadPreviousBtn" style="background: #6c757d; display: none;">
-            📋 Load Queue
-          </button>
-        </div>
+            <label for="esignRequired">Require E-Signature?</label>
+            <select id="esignRequired" required>
+              <option value="">-- Select --</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
+            <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">Set to "No" to hide that field from the
+              registration form.</p>
+          </div>
 
-      </form>
+          <!-- ========== ACTION BUTTONS ========== -->
+          <div class="button-container">
+            <button type="submit" id="generateQrBtn">Generate QR</button>
+            <button type="button" id="viewHistoryBtn">View QR History</button>
+            <button type="button" id="loadPreviousBtn" style="background: #6c757d; display: none;">
+              📋 Load Queue
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- RIGHT: Generated QRs -->
+      <div class="HomeLeftContainer">
+        <h3 id="qrContainerTitle">Generated Queues</h3>
+        <div class="qr-container" id="qrContainer"></div>
+      </div>
     </div>
+  </main>
 
-    <!-- RIGHT: Generated QRs -->
-    <div class="HomeLeftContainer">
-      <h3 id="qrContainerTitle">Generated Queues</h3>
-      <div class="qr-container" id="qrContainer"></div>
+  <!-- Confirmation Modal -->
+  <div class="confirmation-overlay" id="confirmationModal" style="display: none;">
+    <div class="confirmation-modal">
+      <div class="confirmation-icon">⚠️</div>
+      <h3 id="confirmationTitle">Confirm Action</h3>
+      <p id="confirmationMessage">Are you sure you want to proceed?</p>
+      <div class="confirmation-buttons">
+        <button class="confirm-btn-yes" id="confirmYes">Yes, Proceed</button>
+        <button class="confirm-btn-no" id="confirmNo">Cancel</button>
+      </div>
     </div>
   </div>
-</main>
 
-<!-- Confirmation Modal -->
-<div class="confirmation-overlay" id="confirmationModal" style="display: none;">
-  <div class="confirmation-modal">
-    <div class="confirmation-icon">⚠️</div>
-    <h3 id="confirmationTitle">Confirm Action</h3>
-    <p id="confirmationMessage">Are you sure you want to proceed?</p>
-    <div class="confirmation-buttons">
-      <button class="confirm-btn-yes" id="confirmYes">Yes, Proceed</button>
-      <button class="confirm-btn-no" id="confirmNo">Cancel</button>
+  <!-- Success/Error Modal -->
+  <div class="alert-overlay" id="alertModal" style="display: none;">
+    <div class="alert-modal">
+      <div class="alert-icon" id="alertIcon">✓</div>
+      <p id="alertMessage">Success!</p>
+      <button class="alert-btn" id="alertOk">OK</button>
     </div>
   </div>
-</div>
-
-<!-- Success/Error Modal -->
-<div class="alert-overlay" id="alertModal" style="display: none;">
-  <div class="alert-modal">
-    <div class="alert-icon" id="alertIcon">✓</div>
-    <p id="alertMessage">Success!</p>
-    <button class="alert-btn" id="alertOk">OK</button>
-  </div>
-</div>
 
 
-<!-- ================= JAVASCRIPT ================= -->
-<script>
-  const form = document.getElementById("qrForm");
-  const container = document.getElementById("qrContainer");
-  const qrContainerTitle = document.getElementById("qrContainerTitle");
-  const viewHistoryBtn = document.getElementById("viewHistoryBtn");
-  const loadPreviousBtn = document.getElementById("loadPreviousBtn");
+  <!-- ================= JAVASCRIPT ================= -->
+  <script>
+    const form = document.getElementById("qrForm");
+    const container = document.getElementById("qrContainer");
+    const qrContainerTitle = document.getElementById("qrContainerTitle");
+    const viewHistoryBtn = document.getElementById("viewHistoryBtn");
+    const loadPreviousBtn = document.getElementById("loadPreviousBtn");
 
-  const GENERATED_TITLE = "Generated Queues";
-  const HISTORY_TITLE = "QR History";
-  let qrList = JSON.parse(localStorage.getItem("queues")) || [];
-  let qrHistoryList = [];
-  let isHistoryView = false;
+    const GENERATED_TITLE = "Generated Queues";
+    const HISTORY_TITLE = "QR History";
+    let qrList = JSON.parse(localStorage.getItem("queues")) || [];
+    let qrHistoryList = [];
+    let isHistoryView = false;
 
-  function getMissingConfigFields() {
-    const configFields = [
-      { id: "processingMethod", label: "Service Channel" },
-      { id: "releaseType", label: "Release Format" },
-      { id: "studentId", label: "Applicant ID Requirement" },
-      { id: "validId", label: "Valid ID Upload Requirement" },
-      { id: "supportingDoc", label: "Supporting Document Upload Requirement" },
-      { id: "esignRequired", label: "E-Signature Requirement" }
-    ];
+    function getMissingConfigFields() {
+      const configFields = [
+        { id: "processingMethod", label: "Service Channel" },
+        { id: "releaseType", label: "Release Format" },
+        { id: "studentId", label: "Applicant ID Requirement" },
+        { id: "validId", label: "Valid ID Upload Requirement" },
+        { id: "supportingDoc", label: "Supporting Document Upload Requirement" },
+        { id: "esignRequired", label: "E-Signature Requirement" }
+      ];
 
-    return configFields
-      .filter(field => {
-        const element = document.getElementById(field.id);
-        return !element || !element.value || element.value.trim() === "";
-      })
-      .map(field => field.label);
-  }
-
-  /* ================= CONFIRMATION MODAL ================= */
-  function showConfirmation(title, message, onConfirm) {
-    const modal = document.getElementById('confirmationModal');
-    const titleEl = document.getElementById('confirmationTitle');
-    const messageEl = document.getElementById('confirmationMessage');
-    const yesBtn = document.getElementById('confirmYes');
-    const noBtn = document.getElementById('confirmNo');
-
-    titleEl.textContent = title;
-    messageEl.textContent = message;
-    modal.style.display = 'flex';
-
-    const newYesBtn = yesBtn.cloneNode(true);
-    const newNoBtn = noBtn.cloneNode(true);
-    yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
-    noBtn.parentNode.replaceChild(newNoBtn, noBtn);
-
-    document.getElementById('confirmYes').onclick = () => {
-      modal.style.display = 'none';
-      onConfirm();
-    };
-
-    document.getElementById('confirmNo').onclick = () => {
-      modal.style.display = 'none';
-    };
-  }
-
-  /* ================= ALERT MODAL ================= */
-  function showAlert(message, type = 'success') {
-    const modal = document.getElementById('alertModal');
-    const messageEl = document.getElementById('alertMessage');
-    const iconEl = document.getElementById('alertIcon');
-    const okBtn = document.getElementById('alertOk');
-
-    messageEl.textContent = message;
-
-    if (type === 'success') {
-      iconEl.textContent = '✓';
-      iconEl.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
-    } else {
-      iconEl.textContent = '✕';
-      iconEl.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
+      return configFields
+        .filter(field => {
+          const element = document.getElementById(field.id);
+          return !element || !element.value || element.value.trim() === "";
+        })
+        .map(field => field.label);
     }
 
-    modal.style.display = 'flex';
-    okBtn.onclick = () => modal.style.display = 'none';
-  }
+    /* ================= CONFIRMATION MODAL ================= */
+    function showConfirmation(title, message, onConfirm) {
+      const modal = document.getElementById('confirmationModal');
+      const titleEl = document.getElementById('confirmationTitle');
+      const messageEl = document.getElementById('confirmationMessage');
+      const yesBtn = document.getElementById('confirmYes');
+      const noBtn = document.getElementById('confirmNo');
 
-  function escapeHtml(value) {
-    return String(value || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+      modal.style.display = 'flex';
 
-  function formatCreatedAt(value) {
-    if (!value || value === "N/A") {
-      return "N/A";
+      const newYesBtn = yesBtn.cloneNode(true);
+      const newNoBtn = noBtn.cloneNode(true);
+      yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+      noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+
+      document.getElementById('confirmYes').onclick = () => {
+        modal.style.display = 'none';
+        onConfirm();
+      };
+
+      document.getElementById('confirmNo').onclick = () => {
+        modal.style.display = 'none';
+      };
     }
-    try {
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) {
+
+    /* ================= ALERT MODAL ================= */
+    function showAlert(message, type = 'success') {
+      const modal = document.getElementById('alertModal');
+      const messageEl = document.getElementById('alertMessage');
+      const iconEl = document.getElementById('alertIcon');
+      const okBtn = document.getElementById('alertOk');
+
+      messageEl.textContent = message;
+
+      if (type === 'success') {
+        iconEl.textContent = '✓';
+        iconEl.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
+      } else {
+        iconEl.textContent = '✕';
+        iconEl.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
+      }
+
+      modal.style.display = 'flex';
+      okBtn.onclick = () => modal.style.display = 'none';
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function formatCreatedAt(value) {
+      if (!value || value === "N/A") {
+        return "N/A";
+      }
+      try {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          return value;
+        }
+        return date.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      } catch (_) {
         return value;
       }
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch (_) {
-      return value;
-    }
-  }
-
-  function extractQueueNumberFromLink(link) {
-    const match = String(link || "").match(/\/queue\/[^/]+\/(\d+)/);
-    return match ? match[1] : "N/A";
-  }
-
-  function showGeneratedQueueView() {
-    isHistoryView = false;
-    qrContainerTitle.textContent = GENERATED_TITLE;
-    if (viewHistoryBtn) {
-      viewHistoryBtn.textContent = "View QR History";
-    }
-    if (loadPreviousBtn) {
-      loadPreviousBtn.style.display = "none";
-    }
-    renderQRs();
-  }
-
-  function renderQRHistory(historyRows) {
-    container.innerHTML = "";
-
-    if (!Array.isArray(historyRows) || historyRows.length === 0) {
-      container.innerHTML = "<p style=\"color:#666; text-align:center; width:100%;\">No QR history found.</p>";
-      return;
     }
 
-    historyRows.forEach((item, index) => {
-      const queueType = item.queue_type || "Unknown";
-      const queuePurpose = item.queue_purpose || "N/A";
-      const queueLink = (item.queue_link || "").trim() || "#";
-      const queueNumber = extractQueueNumberFromLink(queueLink);
-      const createdAt = formatCreatedAt(item.created_at);
-      const processingMethod = item.processing_method || "Online";
-      const releaseType = item.release_type || "Digital Copy";
+    function extractQueueNumberFromLink(link) {
+      const match = String(link || "").match(/\/queue\/[^/]+\/(\d+)/);
+      return match ? match[1] : "N/A";
+    }
 
-      const box = document.createElement("div");
-      box.className = "qr-box";
+    function showGeneratedQueueView() {
+      isHistoryView = false;
+      qrContainerTitle.textContent = GENERATED_TITLE;
+      if (viewHistoryBtn) {
+        viewHistoryBtn.textContent = "View QR History";
+      }
+      if (loadPreviousBtn) {
+        loadPreviousBtn.style.display = "none";
+      }
+      renderQRs();
+    }
 
-      box.innerHTML = `
+    function renderQRHistory(historyRows) {
+      container.innerHTML = "";
+
+      if (!Array.isArray(historyRows) || historyRows.length === 0) {
+        container.innerHTML = "<p style=\"color:#666; text-align:center; width:100%;\">No QR history found.</p>";
+        return;
+      }
+
+      historyRows.forEach((item, index) => {
+        const queueType = item.queue_type || "Unknown";
+        const queuePurpose = item.queue_purpose || "N/A";
+        const queueLink = (item.queue_link || "").trim() || "#";
+        const queueNumber = extractQueueNumberFromLink(queueLink);
+        const createdAt = formatCreatedAt(item.created_at);
+        const processingMethod = item.processing_method || "Online";
+        const releaseType = item.release_type || "Digital Copy";
+
+        const box = document.createElement("div");
+        box.className = "qr-box";
+
+        box.innerHTML = `
         <div class="queue-type-slot">
           <h4 class="queue-type-title" title="${escapeHtml(queueType)}">${escapeHtml(queueType)}</h4>
         </div>
@@ -311,114 +315,114 @@
         </div>
       `;
 
-      const linkEl = box.querySelector(".history-link");
-      linkEl.href = queueLink;
-      linkEl.textContent = queueLink;
+        const linkEl = box.querySelector(".history-link");
+        linkEl.href = queueLink;
+        linkEl.textContent = queueLink;
 
-      container.appendChild(box);
+        container.appendChild(box);
 
-      if (queueLink && queueLink !== "#") {
-        new QRCode(document.getElementById(`historyQr${index}`), {
-          text: queueLink,
-          width: 128,
-          height: 128
-        });
-      }
-    });
-  }
+        if (queueLink && queueLink !== "#") {
+          new QRCode(document.getElementById(`historyQr${index}`), {
+            text: queueLink,
+            width: 128,
+            height: 128
+          });
+        }
+      });
+    }
 
-  async function checkDatabaseConnection() {
-    try {
-      const res = await fetch("/test_db");
-      const data = await res.json();
-      if (!res.ok || data.status !== "success") {
-        const diagnosticError = String(data.error || `DB diagnostic failed (${res.status}).`);
-        const normalized = diagnosticError.toLowerCase();
-        const connectionErrorMarkers = [
-          "database connection failed",
-          "could not connect",
-          "connection refused",
-          "timeout",
-          "server closed the connection",
-          "could not translate host name",
-          "network is unreachable",
-          "name or service not known"
-        ];
-        const isConnectionError = connectionErrorMarkers.some(marker => normalized.includes(marker));
+    async function checkDatabaseConnection() {
+      try {
+        const res = await fetch("/test_db");
+        const data = await res.json();
+        if (!res.ok || data.status !== "success") {
+          const diagnosticError = String(data.error || `DB diagnostic failed (${res.status}).`);
+          const normalized = diagnosticError.toLowerCase();
+          const connectionErrorMarkers = [
+            "database connection failed",
+            "could not connect",
+            "connection refused",
+            "timeout",
+            "server closed the connection",
+            "could not translate host name",
+            "network is unreachable",
+            "name or service not known"
+          ];
+          const isConnectionError = connectionErrorMarkers.some(marker => normalized.includes(marker));
 
-        if (!isConnectionError) {
+          if (!isConnectionError) {
+            return {
+              status: "success",
+              message: `Database reachable (schema diagnostic warning: ${diagnosticError})`
+            };
+          }
+
           return {
-            status: "success",
-            message: `Database reachable (schema diagnostic warning: ${diagnosticError})`
+            status: "error",
+            message: diagnosticError
           };
         }
-
+        return { status: "success", message: "Database connection successful." };
+      } catch (err) {
         return {
           status: "error",
-          message: diagnosticError
+          message: err.message || "Unable to run database diagnostic."
         };
       }
-      return { status: "success", message: "Database connection successful." };
-    } catch (err) {
-      return {
-        status: "error",
-        message: err.message || "Unable to run database diagnostic."
-      };
-    }
-  }
-
-  async function fetchQRHistory() {
-    if (viewHistoryBtn) {
-      viewHistoryBtn.disabled = true;
     }
 
-    try {
-      const response = await fetch("/qr_history_data");
-      let payload = null;
+    async function fetchQRHistory() {
+      if (viewHistoryBtn) {
+        viewHistoryBtn.disabled = true;
+      }
+
       try {
-        payload = await response.json();
-      } catch (_) {
-        payload = null;
-      }
+        const response = await fetch("/qr_history_data");
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (_) {
+          payload = null;
+        }
 
-      if (!response.ok) {
-        const serverError = payload && payload.error ? payload.error : `Request failed (${response.status})`;
-        const dbDiagnostic = await checkDatabaseConnection();
-        const dbHint = dbDiagnostic.status === "error"
-          ? ` Database diagnostic: ${dbDiagnostic.message}`
-          : "";
-        throw new Error(`${serverError}.${dbHint}`);
-      }
+        if (!response.ok) {
+          const serverError = payload && payload.error ? payload.error : `Request failed (${response.status})`;
+          const dbDiagnostic = await checkDatabaseConnection();
+          const dbHint = dbDiagnostic.status === "error"
+            ? ` Database diagnostic: ${dbDiagnostic.message}`
+            : "";
+          throw new Error(`${serverError}.${dbHint}`);
+        }
 
-      qrHistoryList = Array.isArray(payload) ? payload : [];
-      isHistoryView = true;
-      qrContainerTitle.textContent = HISTORY_TITLE;
-      if (viewHistoryBtn) {
-        viewHistoryBtn.textContent = "Back to Generated";
-      }
-      if (loadPreviousBtn) {
-        loadPreviousBtn.style.display = "none";
-      }
-      renderQRHistory(qrHistoryList);
-    } catch (err) {
-      console.error("Error loading QR history:", err);
-      showAlert(`Failed to load QR history: ${err.message}`, "error");
-    } finally {
-      if (viewHistoryBtn) {
-        viewHistoryBtn.disabled = false;
+        qrHistoryList = Array.isArray(payload) ? payload : [];
+        isHistoryView = true;
+        qrContainerTitle.textContent = HISTORY_TITLE;
+        if (viewHistoryBtn) {
+          viewHistoryBtn.textContent = "Back to Generated";
+        }
+        if (loadPreviousBtn) {
+          loadPreviousBtn.style.display = "none";
+        }
+        renderQRHistory(qrHistoryList);
+      } catch (err) {
+        console.error("Error loading QR history:", err);
+        showAlert(`Failed to load QR history: ${err.message}`, "error");
+      } finally {
+        if (viewHistoryBtn) {
+          viewHistoryBtn.disabled = false;
+        }
       }
     }
-  }
 
-  /* ================= RENDER QRS ================= */
-  function renderQRs() {
-    container.innerHTML = "";
+    /* ================= RENDER QRS ================= */
+    function renderQRs() {
+      container.innerHTML = "";
 
-    qrList.forEach((item, index) => {
-      const box = document.createElement("div");
-      box.className = "qr-box";
+      qrList.forEach((item, index) => {
+        const box = document.createElement("div");
+        box.className = "qr-box";
 
-      box.innerHTML = `
+        box.innerHTML = `
         <div class="queue-type-slot">
           <h4 class="queue-type-title" title="${item.type}">${item.type}</h4>
         </div>
@@ -448,153 +452,154 @@
         </div>
       `;
 
-      container.appendChild(box);
+        container.appendChild(box);
 
-      new QRCode(document.getElementById(`qr${index}`), {
-        text: item.link,
-        width: 128,
-        height: 128
+        new QRCode(document.getElementById(`qr${index}`), {
+          text: item.link,
+          width: 128,
+          height: 128
+        });
       });
-    });
-  }
+    }
 
-  showGeneratedQueueView();
+    showGeneratedQueueView();
 
-  if (viewHistoryBtn) {
-    viewHistoryBtn.addEventListener("click", async () => {
-      if (isHistoryView) {
-        showGeneratedQueueView();
+    if (viewHistoryBtn) {
+      viewHistoryBtn.addEventListener("click", async () => {
+        if (isHistoryView) {
+          showGeneratedQueueView();
+          return;
+        }
+        await fetchQRHistory();
+      });
+    }
+
+    /* ================= CREATE QUEUE ================= */
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const type = document.getElementById("queueType").value.trim();
+      const purpose = document.getElementById("queuePurpose").value.trim();
+      const processingDays = document.getElementById("processingDays").value.trim();
+
+      const processingMethod = document.getElementById("processingMethod").value;
+      const releaseType = document.getElementById("releaseType").value;
+      const esignRequired = document.getElementById("esignRequired").value;
+      const studentId = document.getElementById("studentId").value;
+      const validId = document.getElementById("validId").value;
+      const supportingDoc = document.getElementById("supportingDoc").value;
+
+      const missingConfigFields = getMissingConfigFields();
+      if (missingConfigFields.length > 0) {
+        showAlert(`Please select values for: ${missingConfigFields.join(", ")}.`, "error");
         return;
       }
-      await fetchQRHistory();
-    });
-  }
 
-  /* ================= CREATE QUEUE ================= */
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const type = document.getElementById("queueType").value.trim();
-    const purpose = document.getElementById("queuePurpose").value.trim();
-    const processingDays = document.getElementById("processingDays").value.trim();
-
-    const processingMethod = document.getElementById("processingMethod").value;
-    const releaseType = document.getElementById("releaseType").value;
-    const esignRequired = document.getElementById("esignRequired").value;
-    const studentId = document.getElementById("studentId").value;
-    const validId = document.getElementById("validId").value;
-    const supportingDoc = document.getElementById("supportingDoc").value;
-
-    const missingConfigFields = getMissingConfigFields();
-    if (missingConfigFields.length > 0) {
-      showAlert(`Please select values for: ${missingConfigFields.join(", ")}.`, "error");
-      return;
-    }
-
-    // Validate required fields
-    if (!type || !purpose) {
-      showAlert("Please fill in Queue Type and Purpose fields.", "error");
-      return;
-    }
-
-    // Create FormData object for proper form submission
-    const formData = new URLSearchParams();
-    formData.append('type', type);
-    formData.append('purpose', purpose);
-    if (processingDays) formData.append('processingDays', processingDays);
-    formData.append('processingMethod', processingMethod);
-    formData.append('releaseType', releaseType);
-    formData.append('studentId', studentId);
-    formData.append('validId', validId);
-    formData.append('supportingDoc', supportingDoc);
-    formData.append('esignRequired', esignRequired);
-
-    fetch("/generate_qr_db", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: formData.toString()
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.error) throw new Error(data.error);
-
-      const now = new Date();
-      const formattedDate = now.toLocaleDateString('en-US', {
-        year: 'numeric', month: 'long', day: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
-
-      const newQR = {
-        type,
-        purpose,
-        processingDays,
-        processingMethod,
-        releaseType,
-        esignRequired,
-        studentId,
-        validId,
-        supportingDoc,
-        link: data.queue_link,
-        queueNumber: data.queue_number || 1,
-        qrId: data.qr_id,
-        created_at: formattedDate
-      };
-
-      qrList.push(newQR);
-      localStorage.setItem("queues", JSON.stringify(qrList));
-
-      showGeneratedQueueView();
-      form.reset();
-      showAlert("Queue created successfully!", "success");
-    })
-    .catch(err => {
-      console.error(err);
-      showAlert(`Error generating QR: ${err.message}`, "error");
-    });
-  });
-
-  /* ================= DELETE QR ================= */
-  async function deleteQR(index) {
-    const qr = qrList[index];
-
-    showConfirmation(
-      "Delete Queue",
-      `Are you sure you want to delete "${qr.type}"?`,
-      async () => {
-        try {
-          // Remove from active queue list in the backend (temp_qr / active queues)
-          if (qr.qrId) {
-            await fetch("/delete_qr", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: qr.qrId })
-            });
-          }
-
-          // Remove from local storage / UI list
-          qrList.splice(index, 1);
-          localStorage.setItem("queues", JSON.stringify(qrList));
-          showGeneratedQueueView();
-          showAlert("Queue removed from active list.", "success");
-        } catch (err) {
-          console.error(err);
-          showAlert("Error deleting queue. Please try again.", "error");
-        }
+      // Validate required fields
+      if (!type || !purpose) {
+        showAlert("Please fill in Queue Type and Purpose fields.", "error");
+        return;
       }
-    );
-  }
 
-  /* ================= DOWNLOAD QR ================= */
-  function downloadQR(index) {
-    const canvas = document.querySelector(`#qr${index} canvas`);
-    if (!canvas) return;
+      // Create FormData object for proper form submission
+      const formData = new URLSearchParams();
+      formData.append('type', type);
+      formData.append('purpose', purpose);
+      if (processingDays) formData.append('processingDays', processingDays);
+      formData.append('processingMethod', processingMethod);
+      formData.append('releaseType', releaseType);
+      formData.append('studentId', studentId);
+      formData.append('validId', validId);
+      formData.append('supportingDoc', supportingDoc);
+      formData.append('esignRequired', esignRequired);
 
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
-    link.download = `QR_${qrList[index].type}.png`;
-    link.click();
-  }
-</script>
+      fetch("/generate_qr_db", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData.toString()
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) throw new Error(data.error);
+
+          const now = new Date();
+          const formattedDate = now.toLocaleDateString('en-US', {
+            year: 'numeric', month: 'long', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          });
+
+          const newQR = {
+            type,
+            purpose,
+            processingDays,
+            processingMethod,
+            releaseType,
+            esignRequired,
+            studentId,
+            validId,
+            supportingDoc,
+            link: data.queue_link,
+            queueNumber: data.queue_number || 1,
+            qrId: data.qr_id,
+            created_at: formattedDate
+          };
+
+          qrList.push(newQR);
+          localStorage.setItem("queues", JSON.stringify(qrList));
+
+          showGeneratedQueueView();
+          form.reset();
+          showAlert("Queue created successfully!", "success");
+        })
+        .catch(err => {
+          console.error(err);
+          showAlert(`Error generating QR: ${err.message}`, "error");
+        });
+    });
+
+    /* ================= DELETE QR ================= */
+    async function deleteQR(index) {
+      const qr = qrList[index];
+
+      showConfirmation(
+        "Delete Queue",
+        `Are you sure you want to delete "${qr.type}"?`,
+        async () => {
+          try {
+            // Remove from active queue list in the backend (temp_qr / active queues)
+            if (qr.qrId) {
+              await fetch("/delete_qr", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: qr.qrId })
+              });
+            }
+
+            // Remove from local storage / UI list
+            qrList.splice(index, 1);
+            localStorage.setItem("queues", JSON.stringify(qrList));
+            showGeneratedQueueView();
+            showAlert("Queue removed from active list.", "success");
+          } catch (err) {
+            console.error(err);
+            showAlert("Error deleting queue. Please try again.", "error");
+          }
+        }
+      );
+    }
+
+    /* ================= DOWNLOAD QR ================= */
+    function downloadQR(index) {
+      const canvas = document.querySelector(`#qr${index} canvas`);
+      if (!canvas) return;
+
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
+      link.download = `QR_${qrList[index].type}.png`;
+      link.click();
+    }
+  </script>
 
 </body>
+
 </html>

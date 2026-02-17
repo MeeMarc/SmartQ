@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Settings - SmartQ</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/common.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/Profile.css') }}" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 </head>
+
 <body>
 
   <header>
@@ -29,90 +32,91 @@
     </nav>
   </header>
 
-  
+
   <main>
     <section class="settings-section">
       <h2>Account</h2>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          <div class="flash-messages">
-            {% for category, msg in messages %}
-              {% if category != 'login' and category != 'logout' %}
-                <p>{{ msg }}</p>
-              {% endif %}
-            {% endfor %}
-          </div>
+      {% if messages %}
+      <div class="flash-messages">
+        {% for category, msg in messages %}
+        {% if category != 'login' and category != 'logout' %}
+        <p>{{ msg }}</p>
         {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
       {% endwith %}
 
       <form method="POST" action="{{ url_for('admin_settings') }}">
- <label>Full Name:</label>
-<p>{{ admin[0] if admin else '' }}</p> <!-- display as text -->
+        <label>Full Name:</label>
+        <p>{{ admin[0] if admin else '' }}</p> <!-- display as text -->
 
-<label>Email:</label>
-<p>{{ admin[1] if admin else '' }}</p> <!-- display as text -->
+        <label>Email:</label>
+        <p>{{ admin[1] if admin else '' }}</p> <!-- display as text -->
 
-<!-- Added Old Password -->
-<label>Old Password:</label>
-<div class="input-group">
-  <input type="password" id="old_password" name="old_password" placeholder="Enter old password" required>
-  <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('old_password', this)"></i>
-</div>
+        <!-- Added Old Password -->
+        <label>Old Password:</label>
+        <div class="input-group">
+          <input type="password" id="old_password" name="old_password" placeholder="Enter old password" required>
+          <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('old_password', this)"></i>
+        </div>
 
-<label>New Password:</label>
-<div class="input-group">
-  <input type="password" id="new_password" name="new_password" placeholder="Enter new password" />
-  <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('new_password', this)"></i>
-</div>
+        <label>New Password:</label>
+        <div class="input-group">
+          <input type="password" id="new_password" name="new_password" placeholder="Enter new password" />
+          <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('new_password', this)"></i>
+        </div>
 
-<label>Confirm Password:</label>
-<div class="input-group">
-  <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm new password" />
-  <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('confirm_password', this)"></i>
-</div>
+        <label>Confirm Password:</label>
+        <div class="input-group">
+          <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm new password" />
+          <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('confirm_password', this)"></i>
+        </div>
 
 
 
-  <button type="submit">Save Changes</button>
-</form>
+        <button type="submit">Save Changes</button>
+      </form>
 
     </section>
   </main>
-<script>
-function togglePassword(id, el) {
-  const input = document.getElementById(id);
+  <script>
+    function togglePassword(id, el) {
+      const input = document.getElementById(id);
 
-  if (input.type === "password") {
-    input.type = "text";
-    el.classList.remove("fa-eye-slash");
-    el.classList.add("fa-eye");
-  } else {
-    input.type = "password";
-    el.classList.remove("fa-eye");
-    el.classList.add("fa-eye-slash");
-  }
-}
+      if (input.type === "password") {
+        input.type = "text";
+        el.classList.remove("fa-eye-slash");
+        el.classList.add("fa-eye");
+      } else {
+        input.type = "password";
+        el.classList.remove("fa-eye");
+        el.classList.add("fa-eye-slash");
+      }
+    }
 
-// Auto-dismiss flash messages after 4 seconds
-document.addEventListener('DOMContentLoaded', function() {
-  const flashMessages = document.querySelector('.flash-messages');
-  if (flashMessages) {
-    setTimeout(() => {
-      flashMessages.style.opacity = '0';
-      flashMessages.style.transform = 'translate(-50%, -45%)';
-      setTimeout(() => flashMessages.remove(), 300);
-    }, 4000);
-    
-    // Also allow clicking anywhere to dismiss
-    flashMessages.addEventListener('click', function() {
-      flashMessages.style.opacity = '0';
-      flashMessages.style.transform = 'translate(-50%, -45%)';
-      setTimeout(() => flashMessages.remove(), 300);
+    // Auto-dismiss flash messages after 4 seconds
+    document.addEventListener('DOMContentLoaded', function () {
+      const flashMessages = document.querySelector('.flash-messages');
+      if (flashMessages) {
+        setTimeout(() => {
+          flashMessages.style.opacity = '0';
+          flashMessages.style.transform = 'translate(-50%, -45%)';
+          setTimeout(() => flashMessages.remove(), 300);
+        }, 4000);
+
+        // Also allow clicking anywhere to dismiss
+        flashMessages.addEventListener('click', function () {
+          flashMessages.style.opacity = '0';
+          flashMessages.style.transform = 'translate(-50%, -45%)';
+          setTimeout(() => flashMessages.remove(), 300);
+        });
+      }
     });
-  }
-});
-</script>
+  </script>
 
 </body>
+
 </html>
