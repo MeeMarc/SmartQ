@@ -194,13 +194,18 @@
     const EMAILJS_CONFIG_STATUS = {
       PUBLIC_KEY: "_HnVy7yjDQ0045QtF",
       SERVICE_ID: "service_icakblw",
-      TEMPLATE_STATUS_ID: "template_p0ngrx2"
+      TEMPLATE_STATUS_ID: "template_p0ngrx2",
+      // Accept_notif template shown in EmailJS dashboard URL: /admin/templates/oltl3y7
+      TEMPLATE_ACCEPT_NOTIF_ID: "oltl3y7",
+      // Send Notif template shown in EmailJS dashboard URL: /admin/templates/pu1omtr
+      TEMPLATE_SEND_NOTIF_ID: "pu1omtr"
     };
 
     const EMAILJS_CONFIG_DOCUMENT = {
       PUBLIC_KEY: "jpZBXk-dH8pr1YLy4",
       SERVICE_ID: "service_t9g8qmw",
-      TEMPLATE_DOCUMENT_ID: "template_smlzhta"
+      // Send Docs template shown in EmailJS dashboard URL: /admin/templates/kp5liml
+      TEMPLATE_DOCUMENT_ID: "kp5liml"
     };
 
     const EMAILJS_VARS = {
@@ -298,6 +303,81 @@
         return Promise.reject(new Error("EmailJS config is incomplete."));
       }
       return emailjs.send(config.SERVICE_ID, templateId, params, config.PUBLIC_KEY);
+    }
+
+    async function sendEmailJsWithTemplateFallback(config, templateId, params) {
+      const rawTemplateId = (templateId || "").toString().trim();
+      if (!rawTemplateId) {
+        throw new Error("EmailJS template ID is missing.");
+      }
+
+      const templateIds = rawTemplateId.startsWith("template_")
+        ? [rawTemplateId, rawTemplateId.replace(/^template_/, "")]
+        : [rawTemplateId, `template_${rawTemplateId}`];
+
+      let lastError = null;
+      for (const candidateId of templateIds) {
+        try {
+          return await sendEmailJs(config, candidateId, params);
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      throw lastError || new Error("Unable to send email using configured template ID.");
+    }
+
+    function buildAcceptNotifEmailParams(payload) {
+      const resolvedName = extractFirstName(payload.user_name || payload.fullname || payload.name || "");
+      const resolvedDate = (payload.created_at || "").toString().trim() || new Date().toLocaleString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+      const resolvedEmail = (payload.email || "").toString().trim();
+      const resolvedStatus = (payload.application_status || "Accepted").toString().trim();
+
+      return {
+        title: "Application Update",
+        email: resolvedEmail,
+        user_name: resolvedName,
+        created_at: resolvedDate,
+        application_status: resolvedStatus
+      };
+    }
+
+    function buildSendDocsEmailParams(payload) {
+      const resolvedName = extractFirstName(payload.user_name || payload.fullname || payload.name || "");
+      const resolvedEmail = (payload.email || "").toString().trim();
+      const resolvedQueueType = (payload.queue_type || "Document").toString().trim() || "Document";
+      const resolvedMessage = (payload.user_message || "").toString().trim() || "Your requested document is ready for download.";
+      const resolvedDownloadLink = (payload.download_link || "").toString().trim();
+
+      return {
+        title: `Requested Document - ${resolvedQueueType}`,
+        email: resolvedEmail,
+        user_name: resolvedName,
+        queue_type: resolvedQueueType,
+        user_message: resolvedMessage,
+        download_link: resolvedDownloadLink
+      };
+    }
+
+    function buildSendNotifEmailParams(payload) {
+      const resolvedName = extractFirstName(payload.user_name || payload.fullname || payload.name || "");
+      const resolvedEmail = (payload.email || "").toString().trim();
+      const resolvedQueueType = (payload.queue_type || "Document").toString().trim() || "Document";
+      const resolvedMessage = (payload.user_message || "").toString().trim();
+
+      return {
+        title: "Queue Notification",
+        email: resolvedEmail,
+        user_name: resolvedName,
+        queue_type: resolvedQueueType,
+        user_message: resolvedMessage
+      };
     }
 
     // Custom Confirmation Dialog
@@ -446,15 +526,16 @@
                     return;
                   }
 
-                  const emailParams = buildStatusEmailParams(
-                    data,
-                    "Accepted",
-                    notificationMessage,
-                    { bg: "#e8f7ee", color: "#198754" },
-                    "Application Accepted"
-                  );
+                  const emailParams = buildAcceptNotifEmailParams({
+                    ...data,
+                    application_status: "Accepted"
+                  });
 
-                  sendEmailJs(EMAILJS_CONFIG_STATUS, EMAILJS_CONFIG_STATUS.TEMPLATE_STATUS_ID, emailParams)
+                  sendEmailJsWithTemplateFallback(
+                    EMAILJS_CONFIG_STATUS,
+                    EMAILJS_CONFIG_STATUS.TEMPLATE_ACCEPT_NOTIF_ID,
+                    emailParams
+                  )
                     .catch(err => {
                       console.error("Email failed", err);
                       showAlert("Application accepted, but email sending failed.", "warning");
@@ -779,17 +860,18 @@
         }
 
         try {
-          const params = buildStatusEmailParams({
+          const params = buildSendNotifEmailParams({
             email: email,
-            user_name: scan.fullname || 'Applicant',
-            fullname: scan.fullname || 'Applicant',
-            created_at: scan.created_at || '',
-            application_status: 'Notification',
-            admin_status: scan.admin_status || 'pending',
-            queue_type: scan.queue_type || 'Document'
-          }, 'Notification', message, { bg: '#e7f3ff', color: '#0b5ed7' }, 'Queue Notification');
+            user_name: scan.fullname || "Applicant",
+            queue_type: scan.queue_type || "Document",
+            user_message: message
+          });
 
-          await sendEmailJs(EMAILJS_CONFIG_STATUS, EMAILJS_CONFIG_STATUS.TEMPLATE_STATUS_ID, params);
+          await sendEmailJsWithTemplateFallback(
+            EMAILJS_CONFIG_STATUS,
+            EMAILJS_CONFIG_STATUS.TEMPLATE_SEND_NOTIF_ID,
+            params
+          );
           emailsSent++;
         } catch (err) {
           console.error(`Failed to email ${email}:`, err);
@@ -1303,35 +1385,20 @@
         }
 
         const resolvedName = extractFirstName(userName);
-        const resolvedDate = new Date().toLocaleString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit"
+
+        const emailParams = buildSendDocsEmailParams({
+          email: recipientEmail,
+          user_name: resolvedName,
+          queue_type: documenttype,
+          user_message: message,
+          download_link: resolvedDownloadUrl
         });
 
-        const emailParams = {
-          [EMAILJS_VARS.DOCUMENT.EMAIL]: recipientEmail,
-          [EMAILJS_VARS.DOCUMENT.APPLICANT_ID]: applicantId,
-          [EMAILJS_VARS.DOCUMENT.USER_NAME]: resolvedName,
-          [EMAILJS_VARS.DOCUMENT.USER_MESSAGE]: message,
-          [EMAILJS_VARS.DOCUMENT.QUEUE_TYPE]: documenttype,
-          [EMAILJS_VARS.DOCUMENT.DOWNLOAD_LINK]: resolvedDownloadUrl,
-          title: `Requested Document - ${documenttype || "Document"}`,
-          download_link: resolvedDownloadUrl,
-          download_url: resolvedDownloadUrl,
-          document_link: resolvedDownloadUrl,
-          file_url: resolvedDownloadUrl,
-          url: resolvedDownloadUrl,
-          name: resolvedName,
-          fullname: resolvedName,
-          created_at: resolvedDate,
-          date: resolvedDate,
-          document_name: documenttype
-        };
-
-        await sendEmailJs(EMAILJS_CONFIG_DOCUMENT, EMAILJS_CONFIG_DOCUMENT.TEMPLATE_DOCUMENT_ID, emailParams);
+        await sendEmailJsWithTemplateFallback(
+          EMAILJS_CONFIG_DOCUMENT,
+          EMAILJS_CONFIG_DOCUMENT.TEMPLATE_DOCUMENT_ID,
+          emailParams
+        );
 
         showAlert("Document sent successfully!", "success");
         closeSendDocumentModal();
