@@ -882,6 +882,121 @@ def get_queue_mode(queue_slug, queue_number, cur=None, ensure_columns=True):
         return {"processing_method": mode, "release_type": release}
     return default
 
+
+def get_queue_processing_days(queue_slug, queue_number, cur=None):
+    """Get estimated processing time (in days) for a queue."""
+    if not queue_slug or queue_number is None:
+        return None
+
+    queue_path = f"/queue/{queue_slug}/{queue_number}"
+    queue_links = []
+    try:
+        queue_links.append(f"{get_public_base_url()}{queue_path}")
+    except Exception:
+        pass
+    queue_links.append(queue_path)
+    queue_suffix = f"%{queue_path}"
+
+    own_connection = cur is None
+    conn = None
+    if own_connection:
+        conn = get_db_connection()
+        if conn is None:
+            return None
+
+    row = None
+    try:
+        if own_connection:
+            cur = conn.cursor()
+
+        for table_name in ("qr_history", "temp_qr"):
+            if row:
+                break
+
+            for queue_link in queue_links:
+                try:
+                    cur.execute(
+                        f"""SELECT avg_service_time
+                            FROM {table_name}
+                            WHERE queue_link = %s
+                              AND avg_service_time IS NOT NULL
+                            ORDER BY created_at DESC, id DESC
+                            LIMIT 1""",
+                        (queue_link,),
+                    )
+                    row = cur.fetchone()
+                except Exception as query_error:
+                    print(f"Warning get_queue_processing_days exact match query failed on {table_name}: {query_error}")
+                    try:
+                        cur.connection.rollback()
+                    except Exception:
+                        pass
+                    row = None
+
+                if row and row[0] is not None:
+                    break
+
+            if row and row[0] is not None:
+                break
+
+            try:
+                cur.execute(
+                    f"""SELECT avg_service_time
+                        FROM {table_name}
+                        WHERE queue_link LIKE %s
+                          AND avg_service_time IS NOT NULL
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT 1""",
+                    (queue_suffix,),
+                )
+                row = cur.fetchone()
+            except Exception as query_error:
+                print(f"Warning get_queue_processing_days fallback query failed on {table_name}: {query_error}")
+                try:
+                    cur.connection.rollback()
+                except Exception:
+                    pass
+                row = None
+
+            if row and row[0] is not None:
+                break
+    except Exception as e:
+        print(f"Error get_queue_processing_days: {e}")
+    finally:
+        try:
+            if own_connection and cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if own_connection and conn:
+                conn.close()
+        except Exception:
+            pass
+
+    if row and row[0] is not None:
+        try:
+            return float(row[0])
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def format_processing_time_label(days_value):
+    """Format processing days for user-facing text (e.g., '3 days')."""
+    if days_value is None:
+        return ""
+    try:
+        numeric = float(days_value)
+    except (TypeError, ValueError):
+        return str(days_value).strip()
+    if numeric <= 0:
+        return ""
+    if numeric.is_integer():
+        whole = int(numeric)
+        return f"{whole} day" if whole == 1 else f"{whole} days"
+    return f"{numeric:g} days"
+
 def get_queue_config(queue_slug, queue_number):
     """Get registration form config for a queue (which fields are enabled). Returns dict with require_* booleans."""
     default = {
@@ -1224,8 +1339,11 @@ def generate_qr_db():
         queue_purpose = request.form.get('purpose', '').strip()
         created_by = session.get('user_email', 'Unknown')
         
-        # Get the new parameters
+        # Get queue timing inputs (support both legacy avgServiceTime and current processingDays)
         avg_service_time = request.form.get('avgServiceTime', '').strip()
+        processing_days = request.form.get('processingDays', '').strip()
+        if not avg_service_time and processing_days:
+            avg_service_time = processing_days
         morning_start = request.form.get('morningStart', '').strip()
         morning_end = request.form.get('morningEnd', '').strip()
         afternoon_start = request.form.get('afternoonStart', '').strip()
@@ -1335,6 +1453,7 @@ def generate_qr_db():
             "queue_link": queue_link,
             "queue_number": queue_number,
             "qr_id": qr_id,
+            "processing_days": avg_service_time,
             "processing_method": processing_method,
             "release_type": release_type
         })
@@ -2171,13 +2290,13 @@ def update_queue_status():
 def accept_queue_entry(entry_id):
     try:
         data = request.get_json() or {}
-        notification_message = data.get('notification_message', 'Your application has been accepted.')
+        provided_notification_message = (data.get('notification_message') or '').strip()
 
         conn = get_db_connection()
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT fullname, email, created_at, status, queue_type, applicant_id, phone
+            SELECT fullname, email, created_at, status, queue_type, applicant_id, phone, queue_slug, queue_number
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -2186,7 +2305,7 @@ def accept_queue_entry(entry_id):
         if not row:
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        full_name, email, created_at, ticket_status, queue_type, applicant_id, phone = row
+        full_name, email, created_at, ticket_status, queue_type, applicant_id, phone, queue_slug, queue_number = row
         email = resolve_entry_email(
             cur,
             current_email=email,
@@ -2195,6 +2314,16 @@ def accept_queue_entry(entry_id):
         )
         user_name = extract_first_name(full_name)
         application_status = "Accepted"
+        processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
+        processing_time = format_processing_time_label(processing_days)
+
+        default_message = (
+            "We are pleased to inform you that your application form has been approved by our administrator.\n\n"
+            "Please check your email regularly for further instructions and updates regarding your requested document."
+        )
+        if processing_time:
+            default_message += f"\n\nEstimated processing time: {processing_time}."
+        notification_message = provided_notification_message or default_message
 
         cur.execute("""
             UPDATE queue_entries
@@ -2215,6 +2344,8 @@ def accept_queue_entry(entry_id):
             "email": email or "",
             "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
             "queue_type": queue_type or "Document",
+            "processing_days": processing_days,
+            "processing_time": processing_time,
             "notification_message": notification_message or "",
             "application_status": application_status,
             "ticket_status": application_status,
@@ -2230,13 +2361,13 @@ def accept_queue_entry(entry_id):
 def reject_queue_entry(entry_id):
     try:
         data = request.get_json() or {}
-        notification_message = data.get('notification_message', 'Your application has been rejected.')
+        provided_notification_message = (data.get('notification_message') or '').strip()
 
         conn = get_db_connection()
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT fullname, email, created_at, status, queue_type, applicant_id, phone
+            SELECT fullname, email, created_at, status, queue_type, applicant_id, phone, queue_slug, queue_number
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -2245,7 +2376,7 @@ def reject_queue_entry(entry_id):
         if not row:
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        full_name, email, created_at, ticket_status, queue_type, applicant_id, phone = row
+        full_name, email, created_at, ticket_status, queue_type, applicant_id, phone, queue_slug, queue_number = row
         email = resolve_entry_email(
             cur,
             current_email=email,
@@ -2254,6 +2385,13 @@ def reject_queue_entry(entry_id):
         )
         user_name = extract_first_name(full_name)
         application_status = "Rejected"
+        processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
+        processing_time = format_processing_time_label(processing_days)
+
+        notification_message = provided_notification_message or (
+            "We regret to inform you that your application form has not been approved by our administrator at this time.\n\n"
+            "Please review your submitted information and ensure that all requirements are complete and accurate before submitting a new request."
+        )
 
         cur.execute("""
             UPDATE queue_entries
@@ -2274,6 +2412,8 @@ def reject_queue_entry(entry_id):
             "email": email or "",
             "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
             "queue_type": queue_type or "Document",
+            "processing_days": processing_days,
+            "processing_time": processing_time,
             "notification_message": notification_message or "",
             "application_status": application_status,
             "ticket_status": application_status,
