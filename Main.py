@@ -4,6 +4,8 @@ import random
 import smtplib
 import hashlib
 import glob
+from collections import OrderedDict
+from threading import Lock
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response, send_from_directory
@@ -342,10 +344,42 @@ def get_content_type(filename):
     ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
     return CONTENT_TYPE_MAP.get(ext, 'application/octet-stream')
 
+# Hot in-process cache to reduce repeat DB fetches for uploaded files.
+DOCUMENT_CACHE_MAX_ITEMS = max(1, int(os.getenv("DOCUMENT_CACHE_MAX_ITEMS", "200")))
+DOCUMENT_CACHE_TTL_SECONDS = max(0, int(os.getenv("DOCUMENT_CACHE_TTL_SECONDS", "900")))
+_document_cache = OrderedDict()
+_document_cache_lock = Lock()
+
+def _cache_document(filename, data_bytes, content_type):
+    if not filename:
+        return
+    expires_at = (time.time() + DOCUMENT_CACHE_TTL_SECONDS) if DOCUMENT_CACHE_TTL_SECONDS > 0 else 0
+    with _document_cache_lock:
+        _document_cache[filename] = (data_bytes, content_type, expires_at)
+        _document_cache.move_to_end(filename)
+        while len(_document_cache) > DOCUMENT_CACHE_MAX_ITEMS:
+            _document_cache.popitem(last=False)
+
+def _get_cached_document(filename):
+    if not filename:
+        return None
+    now = time.time()
+    with _document_cache_lock:
+        cached = _document_cache.get(filename)
+        if not cached:
+            return None
+        data_bytes, content_type, expires_at = cached
+        if expires_at and expires_at <= now:
+            _document_cache.pop(filename, None)
+            return None
+        _document_cache.move_to_end(filename)
+        return data_bytes, content_type
+
 def save_file_to_db(filename, file_data, content_type=None):
     """Save a file to the uploaded_documents table in the database."""
     if content_type is None:
         content_type = get_content_type(filename)
+    data_bytes = file_data if isinstance(file_data, bytes) else bytes(file_data)
     conn = None
     cur = None
     try:
@@ -358,8 +392,9 @@ def save_file_to_db(filename, file_data, content_type=None):
             INSERT INTO uploaded_documents (filename, content_type, data)
             VALUES (%s, %s, %s)
             ON CONFLICT (filename) DO UPDATE SET data = EXCLUDED.data, content_type = EXCLUDED.content_type, created_at = NOW()
-        """, (filename, content_type, psycopg2.Binary(file_data)))
+        """, (filename, content_type, psycopg2.Binary(data_bytes)))
         conn.commit()
+        _cache_document(filename, data_bytes, content_type)
         return True
     except Exception as e:
         print(f"Error saving file to DB: {e}")
@@ -450,10 +485,14 @@ def upload_document():
     if not save_file_to_db(filename, file_data, content_type):
         return jsonify({"error": "Failed to save document"}), 500
 
-    download_url = request.host_url.rstrip('/') + f'/uploads/{filename}'
+    download_path = url_for('uploaded_file', filename=filename)
+    download_url = f"{get_public_base_url()}{download_path}"
 
     return jsonify({
         "download_url": download_url,
+        "download_link": download_url,
+        "document_link": download_url,
+        "file_url": download_url,
         "entry_id": entry_id,
         "applicant_id": applicant_id,
         "email": recipient_email,
@@ -461,8 +500,22 @@ def upload_document():
     })
 
 # Serve uploaded files from database
-@app.route('/uploads/<filename>')
+@app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
+    filename = (filename or "").strip().strip("/")
+    if not filename:
+        return "File not found", 404
+
+    cached = _get_cached_document(filename)
+    if cached:
+        data_bytes, content_type = cached
+        response = make_response(data_bytes)
+        response.headers['Content-Type'] = content_type
+        response.headers['Content-Length'] = len(data_bytes)
+        response.headers['Content-Disposition'] = f'inline; filename="{filename}"'
+        response.headers['Cache-Control'] = 'public, max-age=3600'
+        return response
+
     conn = None
     cur = None
     try:
@@ -476,9 +529,13 @@ def uploaded_file(filename):
         if not row:
             return "File not found", 404
         file_data, content_type = row
-        response = make_response(bytes(file_data))
+        data_bytes = bytes(file_data)
+        _cache_document(filename, data_bytes, content_type)
+        response = make_response(data_bytes)
         response.headers['Content-Type'] = content_type
+        response.headers['Content-Length'] = len(data_bytes)
         response.headers['Content-Disposition'] = f'inline; filename="{filename}"'
+        response.headers['Cache-Control'] = 'public, max-age=3600'
         return response
     except Exception as e:
         print(f"Error serving file: {e}")

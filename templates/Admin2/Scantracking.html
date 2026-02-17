@@ -1264,6 +1264,13 @@
         }
 
         const data = await uploadResponse.json();
+        const rawDownloadUrl = (data.download_url || data.download_link || data.document_link || "").trim();
+        if (!rawDownloadUrl) {
+          throw new Error("Upload succeeded but no download URL was returned.");
+        }
+        const resolvedDownloadUrl = /^https?:\/\//i.test(rawDownloadUrl)
+          ? rawDownloadUrl
+          : `${window.location.origin}${rawDownloadUrl.startsWith("/") ? "" : "/"}${rawDownloadUrl}`;
 
         const recipientEmail = (data.email || email).trim();
         if (!isValidEmail(recipientEmail)) {
@@ -1285,7 +1292,12 @@
           [EMAILJS_VARS.DOCUMENT.USER_NAME]: resolvedName,
           [EMAILJS_VARS.DOCUMENT.USER_MESSAGE]: message,
           [EMAILJS_VARS.DOCUMENT.QUEUE_TYPE]: documenttype,
-          [EMAILJS_VARS.DOCUMENT.DOWNLOAD_LINK]: data.download_url,
+          [EMAILJS_VARS.DOCUMENT.DOWNLOAD_LINK]: resolvedDownloadUrl,
+          download_link: resolvedDownloadUrl,
+          download_url: resolvedDownloadUrl,
+          document_link: resolvedDownloadUrl,
+          file_url: resolvedDownloadUrl,
+          url: resolvedDownloadUrl,
           name: resolvedName,
           fullname: resolvedName,
           created_at: resolvedDate,
