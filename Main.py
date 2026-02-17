@@ -1951,7 +1951,7 @@ def accept_queue_entry(entry_id):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT fullname, email, created_at, status
+            SELECT fullname, email, created_at, status, queue_type
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -1960,9 +1960,9 @@ def accept_queue_entry(entry_id):
         if not row:
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        full_name, email, created_at, ticket_status = row
+        full_name, email, created_at, ticket_status, queue_type = row
         user_name = extract_first_name(full_name)
-        application_status = (ticket_status or "waiting").capitalize()
+        application_status = "Accepted"
 
         cur.execute("""
             UPDATE queue_entries
@@ -1979,8 +1979,11 @@ def accept_queue_entry(entry_id):
             "status": "success",
             "entry_id": entry_id,
             "user_name": user_name,
+            "fullname": full_name or "",
             "email": email or "",
             "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
+            "queue_type": queue_type or "Document",
+            "notification_message": notification_message or "",
             "application_status": application_status,
             "ticket_status": application_status,
             "admin_status": "accepted"   # ✅ lowercase + consistent
@@ -2001,7 +2004,7 @@ def reject_queue_entry(entry_id):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT fullname, email, created_at, status
+            SELECT fullname, email, created_at, status, queue_type
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -2010,9 +2013,9 @@ def reject_queue_entry(entry_id):
         if not row:
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        full_name, email, created_at, ticket_status = row
+        full_name, email, created_at, ticket_status, queue_type = row
         user_name = extract_first_name(full_name)
-        application_status = (ticket_status or "waiting").capitalize()
+        application_status = "Rejected"
 
         cur.execute("""
             UPDATE queue_entries
@@ -2029,8 +2032,11 @@ def reject_queue_entry(entry_id):
             "status": "success",
             "entry_id": entry_id,
             "user_name": user_name,
+            "fullname": full_name or "",
             "email": email or "",
             "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
+            "queue_type": queue_type or "Document",
+            "notification_message": notification_message or "",
             "application_status": application_status,
             "ticket_status": application_status,
             "admin_status": "rejected"   # ✅ lowercase + consistent
