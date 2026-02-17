@@ -114,26 +114,46 @@
     </div>
   </div>
 
-  <!-- Modal for Sending Notifications (only to selected scanned entries, no "all") -->
+  <!-- Modal for Sending Notifications -->
   <div class="modal" id="notificationModal">
     <div class="modal-content" style="max-width: 600px;">
       <span class="close-modal" onclick="closeNotificationModal()">×</span>
       <h3>Send Notification</h3>
-      <p style="color: #666; font-size: 0.9rem; margin-bottom: 12px;">Select which scanned entries to notify. Only
-        selected entries will receive the notification.</p>
+      <p style="color: #666; font-size: 0.9rem; margin-bottom: 12px;">Choose to notify all people in the queue or select
+        specific entries.</p>
       <form id="notificationForm">
         <input type="hidden" id="notificationQRId">
 
+        <div style="margin-bottom: 12px; display: flex; gap: 10px;">
+          <button type="button" id="notifyAllBtn" onclick="toggleNotifyMode('all')"
+            style="flex:1; padding: 10px; border: 2px solid #17a2b8; background: #17a2b8; color: white; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95rem;">📢
+            Notify All</button>
+          <button type="button" id="notifySelectedBtn" onclick="toggleNotifyMode('selected')"
+            style="flex:1; padding: 10px; border: 2px solid #17a2b8; background: white; color: #17a2b8; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95rem;">☑️
+            Select People</button>
+        </div>
+
         <div id="entrySelectionContainer"
-          style="margin-top: 10px; max-height: 280px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 6px;">
-          <p style="margin: 0 0 10px 0; font-weight: 600;">Select entries to notify:</p>
+          style="display: none; margin-top: 10px; max-height: 280px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <p style="margin: 0; font-weight: 600;">Select entries to notify:</p>
+            <label style="display: flex; align-items: center; cursor: pointer; font-weight: 600; color: #17a2b8;">
+              <input type="checkbox" id="selectAllCheckbox" style="margin-right: 6px;"> Select All
+            </label>
+          </div>
           <div id="entryCheckboxes"></div>
+        </div>
+
+        <div id="notifyAllInfo"
+          style="margin-top: 10px; padding: 12px; background: #e7f9fc; border: 1px solid #b8e8f0; border-radius: 8px;">
+          <p style="margin: 0; color: #0c5460; font-weight: 500;">📢 All <span id="notifyAllCount">0</span> entries in
+            this queue will be notified via email.</p>
         </div>
 
         <label for="notificationMessage" style="margin-top: 15px;">Message: <span style="color: red;">*</span></label>
         <textarea id="notificationMessage" rows="4" placeholder="Enter notification message..." required></textarea>
 
-        <button type="submit" style="margin-top: 15px;">Send Notification</button>
+        <button type="submit" id="sendNotifBtn" style="margin-top: 15px;">Send Notification</button>
       </form>
     </div>
   </div>
@@ -665,9 +685,38 @@
       notificationForm.reset();
     }
 
+    let notifyMode = 'all'; // 'all' or 'selected'
+
+    function toggleNotifyMode(mode) {
+      notifyMode = mode;
+      const allBtn = document.getElementById('notifyAllBtn');
+      const selBtn = document.getElementById('notifySelectedBtn');
+      const selContainer = document.getElementById('entrySelectionContainer');
+      const allInfo = document.getElementById('notifyAllInfo');
+
+      if (mode === 'all') {
+        allBtn.style.background = '#17a2b8';
+        allBtn.style.color = 'white';
+        selBtn.style.background = 'white';
+        selBtn.style.color = '#17a2b8';
+        selContainer.style.display = 'none';
+        allInfo.style.display = 'block';
+      } else {
+        selBtn.style.background = '#17a2b8';
+        selBtn.style.color = 'white';
+        allBtn.style.background = 'white';
+        allBtn.style.color = '#17a2b8';
+        selContainer.style.display = 'block';
+        allInfo.style.display = 'none';
+      }
+    }
+
     function populateEntryCheckboxes() {
       const container = document.getElementById("entryCheckboxes");
       container.innerHTML = "";
+
+      // Update notify all count
+      document.getElementById('notifyAllCount').textContent = currentScans.length;
 
       if (currentScans.length === 0) {
         container.innerHTML = "<p style='color: #666;'>No entries available.</p>";
@@ -679,56 +728,123 @@
         div.style.marginBottom = "8px";
         div.innerHTML = `
       <label style="display: flex; align-items: center; cursor: pointer;">
-        <input type="checkbox" value="${scan.id}" style="margin-right: 8px;">
-        <span>${scan.fullname} (${scan.phone || 'N/A'})</span>
+        <input type="checkbox" class="entry-checkbox" value="${scan.id}" style="margin-right: 8px;">
+        <span>${scan.fullname} (${scan.email || scan.phone || 'N/A'})</span>
       </label>
     `;
         container.appendChild(div);
       });
+
+      // Select All checkbox handler
+      const selectAllCb = document.getElementById('selectAllCheckbox');
+      selectAllCb.checked = false;
+      selectAllCb.onchange = function () {
+        document.querySelectorAll('.entry-checkbox').forEach(cb => cb.checked = selectAllCb.checked);
+      };
     }
 
-    notificationForm.addEventListener("submit", function (e) {
+    async function sendNotificationEmails(scansToNotify, message) {
+      let emailsSent = 0;
+      let emailsFailed = 0;
+
+      for (const scan of scansToNotify) {
+        const email = (scan.email || '').trim();
+        if (!isValidEmail(email)) {
+          emailsFailed++;
+          continue;
+        }
+
+        try {
+          const params = buildStatusEmailParams({
+            email: email,
+            user_name: scan.fullname || 'Applicant',
+            fullname: scan.fullname || 'Applicant',
+            created_at: scan.created_at || '',
+            application_status: 'Notification',
+            admin_status: scan.admin_status || 'pending'
+          }, 'Notification', message, { bg: '#e7f3ff', color: '#0b5ed7' });
+
+          await sendEmailJs(EMAILJS_CONFIG.TEMPLATE_STATUS_ID, params);
+          emailsSent++;
+        } catch (err) {
+          console.error(`Failed to email ${email}:`, err);
+          emailsFailed++;
+        }
+      }
+
+      return { emailsSent, emailsFailed };
+    }
+
+    notificationForm.addEventListener("submit", async function (e) {
       e.preventDefault();
 
       const qrId = document.getElementById("notificationQRId").value;
       const message = document.getElementById("notificationMessage").value.trim();
+      const submitBtn = document.getElementById('sendNotifBtn');
 
       if (!message) {
         showAlert("Please enter a notification message.", "error");
         return;
       }
 
-      const checkboxes = document.querySelectorAll("#entryCheckboxes input[type='checkbox']:checked");
-      const entryIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+      let entryIds = [];
+      let scansToNotify = [];
 
-      if (entryIds.length === 0) {
-        showAlert("Please select at least one entry to notify.", "error");
-        return;
+      if (notifyMode === 'selected') {
+        const checkboxes = document.querySelectorAll(".entry-checkbox:checked");
+        entryIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+        if (entryIds.length === 0) {
+          showAlert("Please select at least one entry to notify.", "error");
+          return;
+        }
+
+        scansToNotify = currentScans.filter(s => entryIds.includes(s.id));
+      } else {
+        // Notify all
+        scansToNotify = currentScans;
+        entryIds = [];
       }
 
-      fetch("/send_notification", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          qr_id: parseInt(qrId),
-          entry_ids: entryIds,
-          message: message
-        })
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.status === "success") {
-            showAlert(data.message, "success");
-            closeNotificationModal();
-            if (currentQRId) viewScans(currentQRId);
-          } else {
-            showAlert("Error: " + data.message, "error");
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          showAlert("Failed to send notification. Please try again.", "error");
+      submitBtn.disabled = true;
+      submitBtn.textContent = `Sending to ${scansToNotify.length} entries...`;
+
+      try {
+        // 1. Save notification in database
+        const res = await fetch("/send_notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            qr_id: parseInt(qrId),
+            entry_ids: entryIds,
+            message: message
+          })
         });
+        const data = await res.json();
+
+        if (data.status !== "success") {
+          showAlert("Error: " + data.message, "error");
+          return;
+        }
+
+        // 2. Send email notifications via EmailJS
+        submitBtn.textContent = 'Sending emails...';
+        const { emailsSent, emailsFailed } = await sendNotificationEmails(scansToNotify, message);
+
+        let resultMsg = data.message;
+        if (emailsSent > 0) resultMsg += ` | ${emailsSent} email(s) sent.`;
+        if (emailsFailed > 0) resultMsg += ` | ${emailsFailed} email(s) failed (no valid email).`;
+
+        showAlert(resultMsg, "success");
+        closeNotificationModal();
+        if (currentQRId) viewScans(currentQRId);
+      } catch (err) {
+        console.error(err);
+        showAlert("Failed to send notification. Please try again.", "error");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send Notification';
+      }
     });
 
     notificationModal.addEventListener('click', function (e) {
