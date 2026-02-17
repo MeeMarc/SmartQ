@@ -1030,10 +1030,15 @@
       fetch(`/get_qr_scans/${normalizedQrId}`, { credentials: "same-origin" })
         .then(async (res) => {
           const text = await res.text();
-
-          if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
-
           const trimmed = text.trim();
+
+          if (!res.ok) {
+            if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) {
+              throw new Error(`HTTP ${res.status}: Failed to load scans due to a server error.`);
+            }
+            throw new Error(`HTTP ${res.status}: ${trimmed.slice(0, 300)}`);
+          }
+
           if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) {
             throw new Error("Server returned HTML instead of JSON (login redirect or error page).");
           }

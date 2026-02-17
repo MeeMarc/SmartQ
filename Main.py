@@ -1654,11 +1654,77 @@ def convert_doc_path_to_url(path_value):
     return f"/uploads/{basename}"
 
 
-def resolve_entry_document_urls(entry_id, id_doc_path=None, req_doc_path=None, signature_path=None):
+def build_legacy_uploaded_doc_lookup(cur, entry_ids):
+    """Batch resolve legacy uploaded_documents filenames for entry IDs.
+
+    Returns:
+        {entry_id: {"id_doc": "/uploads/...", "req_doc": "...", "signature": "..."}}
+    """
+    normalized_ids = sorted({
+        int(entry_id)
+        for entry_id in (entry_ids or [])
+        if str(entry_id).isdigit()
+    })
+    if not normalized_ids:
+        return {}
+
+    like_patterns = []
+    for entry_id in normalized_ids:
+        like_patterns.extend((f"{entry_id}_id%", f"{entry_id}_req%", f"{entry_id}_sig%"))
+
+    try:
+        cur.execute(
+            """
+            SELECT filename
+            FROM uploaded_documents
+            WHERE filename LIKE ANY(%s)
+            ORDER BY created_at DESC, id DESC
+            """,
+            (like_patterns,),
+        )
+        rows = cur.fetchall()
+    except Exception as e:
+        # Table may not exist in older deployments; skip legacy DB fallback in that case.
+        print(f"Warning: legacy uploaded_documents batch lookup skipped: {e}")
+        try:
+            cur.connection.rollback()
+        except Exception:
+            pass
+        return {}
+
+    lookup = {}
+    filename_pattern = re.compile(r"^(\d+)_(id|req|sig)")
+    doc_key_by_prefix = {"id": "id_doc", "req": "req_doc", "sig": "signature"}
+
+    for row in rows:
+        filename = row[0] if row else None
+        if not filename:
+            continue
+
+        match = filename_pattern.match(str(filename))
+        if not match:
+            continue
+
+        entry_id = int(match.group(1))
+        prefix = match.group(2)
+        doc_key = doc_key_by_prefix.get(prefix)
+        if not doc_key:
+            continue
+
+        entry_docs = lookup.setdefault(entry_id, {})
+        # Keep first one (newest due ORDER BY) for deterministic fallback.
+        entry_docs.setdefault(doc_key, f"/uploads/{filename}")
+
+    return lookup
+
+
+def resolve_entry_document_urls(entry_id, id_doc_path=None, req_doc_path=None, signature_path=None, legacy_doc_lookup=None):
     """Resolve document URLs from DB paths, with DB and filesystem fallback for legacy rows."""
     id_doc_url = convert_doc_path_to_url(id_doc_path)
     req_doc_url = convert_doc_path_to_url(req_doc_path)
     signature_url = convert_doc_path_to_url(signature_path)
+    use_preloaded_lookup = legacy_doc_lookup is not None
+    preloaded_docs = legacy_doc_lookup.get(entry_id, {}) if use_preloaded_lookup else {}
 
     # Fallback: check DB for legacy naming pattern
     def find_db_file(pattern_prefix, entry_id):
@@ -1689,11 +1755,17 @@ def resolve_entry_document_urls(entry_id, id_doc_path=None, req_doc_path=None, s
         return f"/static/uploads/{os.path.basename(matches[0])}"
 
     if not id_doc_url:
-        id_doc_url = find_db_file("id", entry_id) or find_legacy_file(f"{entry_id}_id.*")
+        id_doc_url = preloaded_docs.get("id_doc") if use_preloaded_lookup else None
+        if not id_doc_url:
+            id_doc_url = (None if use_preloaded_lookup else find_db_file("id", entry_id)) or find_legacy_file(f"{entry_id}_id.*")
     if not req_doc_url:
-        req_doc_url = find_db_file("req", entry_id) or find_legacy_file(f"{entry_id}_req.*")
+        req_doc_url = preloaded_docs.get("req_doc") if use_preloaded_lookup else None
+        if not req_doc_url:
+            req_doc_url = (None if use_preloaded_lookup else find_db_file("req", entry_id)) or find_legacy_file(f"{entry_id}_req.*")
     if not signature_url:
-        signature_url = find_db_file("sig", entry_id) or find_legacy_file(f"{entry_id}_sig.*")
+        signature_url = preloaded_docs.get("signature") if use_preloaded_lookup else None
+        if not signature_url:
+            signature_url = (None if use_preloaded_lookup else find_db_file("sig", entry_id)) or find_legacy_file(f"{entry_id}_sig.*")
 
     return {
         "id_doc": id_doc_url,
@@ -1748,6 +1820,12 @@ def get_qr_scans(qr_id):
         """, (queue_slug, queue_number))
 
         rows = cur.fetchall()
+        entry_ids_needing_legacy_lookup = [
+            row[0]
+            for row in rows
+            if not (row[9] and row[10] and row[11])
+        ]
+        legacy_doc_lookup = build_legacy_uploaded_doc_lookup(cur, entry_ids_needing_legacy_lookup)
 
         scans = []
         for row in rows:
@@ -1756,6 +1834,7 @@ def get_qr_scans(qr_id):
                 id_doc_path=row[9],
                 req_doc_path=row[10],
                 signature_path=row[11],
+                legacy_doc_lookup=legacy_doc_lookup,
             )
 
             id_doc_url = doc_urls.get("id_doc")
