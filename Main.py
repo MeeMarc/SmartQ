@@ -86,6 +86,25 @@ def get_db_connection():
         return None
 
 
+def ensure_uploaded_documents_table(conn):
+    """Create the uploaded_documents table if it doesn't exist (stores files in DB)."""
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS uploaded_documents (
+                id SERIAL PRIMARY KEY,
+                filename TEXT NOT NULL UNIQUE,
+                content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+                data BYTEA NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        print(f"Error creating uploaded_documents table: {e}")
+        conn.rollback()
+
 
 # ==============================================================  
 # AUTH ROUTES
@@ -303,16 +322,55 @@ def generate_qr():
     return jsonify({"qr_image": qr_base64})
 
 
-# Upload folder
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
 # Allowed file types
 ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'jpg', 'png', 'zip'}
-
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Content type mapping
+CONTENT_TYPE_MAP = {
+    'pdf': 'application/pdf',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'txt': 'text/plain',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'zip': 'application/zip',
+}
+
+def get_content_type(filename):
+    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+    return CONTENT_TYPE_MAP.get(ext, 'application/octet-stream')
+
+def save_file_to_db(filename, file_data, content_type=None):
+    """Save a file to the uploaded_documents table in the database."""
+    if content_type is None:
+        content_type = get_content_type(filename)
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return False
+        ensure_uploaded_documents_table(conn)
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO uploaded_documents (filename, content_type, data)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (filename) DO UPDATE SET data = EXCLUDED.data, content_type = EXCLUDED.content_type, created_at = NOW()
+        """, (filename, content_type, psycopg2.Binary(file_data)))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving file to DB: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 # Upload document endpoint (entry_id-based + accepted-only)
 @app.route('/upload_document', methods=['POST'])
@@ -383,26 +441,53 @@ def upload_document():
         if conn:
             conn.close()
 
-    # ✅ Create a safe unique filename (include entry_id so no collisions)
+    # ✅ Save file to database (persistent across Render redeploys)
     timestamp = int(time.time())
     filename = f"entry{entry_id}_{timestamp}_{secure_filename(file.filename)}"
-    save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(save_path)
+    file_data = file.read()
+    content_type = get_content_type(file.filename)
+
+    if not save_file_to_db(filename, file_data, content_type):
+        return jsonify({"error": "Failed to save document"}), 500
 
     download_url = request.host_url.rstrip('/') + f'/uploads/{filename}'
 
     return jsonify({
         "download_url": download_url,
         "entry_id": entry_id,
-        "applicant_id": applicant_id,      # optional, useful for reference
+        "applicant_id": applicant_id,
         "email": recipient_email,
         "admin_status": "accepted"
     })
 
-# Serve uploaded files
+# Serve uploaded files from database
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return "Database connection failed", 500
+        ensure_uploaded_documents_table(conn)
+        cur = conn.cursor()
+        cur.execute("SELECT data, content_type FROM uploaded_documents WHERE filename = %s", (filename,))
+        row = cur.fetchone()
+        if not row:
+            return "File not found", 404
+        file_data, content_type = row
+        response = make_response(bytes(file_data))
+        response.headers['Content-Type'] = content_type
+        response.headers['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
+    except Exception as e:
+        print(f"Error serving file: {e}")
+        return "Error retrieving file", 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 # ==============================================================  
@@ -1497,23 +1582,47 @@ def convert_doc_path_to_url(path_value):
         return None
 
     path = str(path_value).replace('\\', '/')
-    if path.startswith('/static/') or path.startswith('/uploads/'):
+    # New DB-stored documents use /uploads/ path
+    if path.startswith('/uploads/'):
+        return path
+    if path.startswith('uploads/'):
+        return f"/{path}"
+    # Legacy paths from old filesystem storage
+    if path.startswith('/static/'):
         return path
     if path.startswith('static/'):
         return f"/{path}"
-    if path.startswith('uploads/'):
-        return f"/{path}"
-    return f"/static/uploads/{os.path.basename(path)}"
+    # Fallback: try as /uploads/ path (DB-stored)
+    basename = os.path.basename(path)
+    return f"/uploads/{basename}"
 
 
 def resolve_entry_document_urls(entry_id, id_doc_path=None, req_doc_path=None, signature_path=None):
-    """Resolve document URLs from DB paths, with filesystem fallback for legacy rows."""
+    """Resolve document URLs from DB paths, with DB and filesystem fallback for legacy rows."""
     id_doc_url = convert_doc_path_to_url(id_doc_path)
     req_doc_url = convert_doc_path_to_url(req_doc_path)
     signature_url = convert_doc_path_to_url(signature_path)
 
-    uploads_dir = os.path.join("static", "uploads")
+    # Fallback: check DB for legacy naming pattern
+    def find_db_file(pattern_prefix, entry_id):
+        try:
+            conn = get_db_connection()
+            if conn is None:
+                return None
+            ensure_uploaded_documents_table(conn)
+            cur = conn.cursor()
+            cur.execute("SELECT filename FROM uploaded_documents WHERE filename LIKE %s LIMIT 1", (f"{entry_id}_{pattern_prefix}%",))
+            row = cur.fetchone()
+            cur.close()
+            conn.close()
+            if row:
+                return f"/uploads/{row[0]}"
+        except Exception:
+            pass
+        return None
 
+    # Also check filesystem for very old legacy files
+    uploads_dir = os.path.join("static", "uploads")
     def find_legacy_file(pattern):
         if not os.path.isdir(uploads_dir):
             return None
@@ -1523,11 +1632,11 @@ def resolve_entry_document_urls(entry_id, id_doc_path=None, req_doc_path=None, s
         return f"/static/uploads/{os.path.basename(matches[0])}"
 
     if not id_doc_url:
-        id_doc_url = find_legacy_file(f"{entry_id}_id.*")
+        id_doc_url = find_db_file("id", entry_id) or find_legacy_file(f"{entry_id}_id.*")
     if not req_doc_url:
-        req_doc_url = find_legacy_file(f"{entry_id}_req.*")
+        req_doc_url = find_db_file("req", entry_id) or find_legacy_file(f"{entry_id}_req.*")
     if not signature_url:
-        signature_url = find_legacy_file(f"{entry_id}_sig.*")
+        signature_url = find_db_file("sig", entry_id) or find_legacy_file(f"{entry_id}_sig.*")
 
     return {
         "id_doc": id_doc_url,
@@ -2986,29 +3095,26 @@ def queue_page(queue_slug, queue_number):
             entry_id = cur.fetchone()[0]
             conn.commit()
 
-            upload_dir = os.path.join("static", "uploads")
-            os.makedirs(upload_dir, exist_ok=True)
             id_doc_path = None
             req_doc_path = None
             signature_path = None
 
             if id_doc_bytes:
                 id_doc_name = f"{entry_id}_id.{id_doc_ext}"
-                with open(os.path.join(upload_dir, id_doc_name), "wb") as f:
-                    f.write(id_doc_bytes)
-                id_doc_path = f"static/uploads/{id_doc_name}"
+                content_type = get_content_type(id_doc_name)
+                save_file_to_db(id_doc_name, id_doc_bytes, content_type)
+                id_doc_path = f"/uploads/{id_doc_name}"
 
             if req_doc_bytes:
                 req_doc_name = f"{entry_id}_req.{req_doc_ext}"
-                with open(os.path.join(upload_dir, req_doc_name), "wb") as f:
-                    f.write(req_doc_bytes)
-                req_doc_path = f"static/uploads/{req_doc_name}"
+                content_type = get_content_type(req_doc_name)
+                save_file_to_db(req_doc_name, req_doc_bytes, content_type)
+                req_doc_path = f"/uploads/{req_doc_name}"
 
             if sig_bytes:
                 sig_name = f"{entry_id}_sig.png"
-                with open(os.path.join(upload_dir, sig_name), "wb") as f:
-                    f.write(sig_bytes)
-                signature_path = f"static/uploads/{sig_name}"
+                save_file_to_db(sig_name, sig_bytes, 'image/png')
+                signature_path = f"/uploads/{sig_name}"
 
             cur.execute(
                 """
