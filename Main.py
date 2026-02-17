@@ -441,7 +441,7 @@ def upload_document():
 
         # ✅ Fetch admin_status + email for this specific entry
         cur.execute("""
-            SELECT applicant_id, email, admin_status
+            SELECT applicant_id, email, admin_status, phone
             FROM queue_entries
             WHERE id = %s
             LIMIT 1
@@ -451,9 +451,14 @@ def upload_document():
         if not row:
             return jsonify({"error": "Entry not found"}), 404
 
-        applicant_id, recipient_email, admin_status = row
+        applicant_id, recipient_email, admin_status, phone = row
         admin_status = (admin_status or "pending").strip().lower()
-        recipient_email = (recipient_email or "").strip()
+        recipient_email = resolve_entry_email(
+            cur,
+            current_email=recipient_email,
+            applicant_id=applicant_id,
+            phone=phone
+        )
         applicant_id = (applicant_id or "").strip()
 
         # ✅ Block if not accepted
@@ -1654,6 +1659,143 @@ def convert_doc_path_to_url(path_value):
     return f"/uploads/{basename}"
 
 
+def normalize_email(value):
+    """Return normalized email string (trimmed + lowercased)."""
+    return (value or "").strip().lower()
+
+
+def resolve_entry_email(cur, current_email=None, applicant_id=None, phone=None):
+    """Resolve a usable email for an entry from direct or fallback identifiers."""
+    normalized = normalize_email(current_email)
+    if is_valid_email(normalized):
+        return normalized
+
+    fallback_candidates = []
+    applicant_key = (applicant_id or "").strip()
+    phone_key = (phone or "").strip()
+    if applicant_key:
+        fallback_candidates.append(("applicant_id", applicant_key))
+    if phone_key:
+        fallback_candidates.append(("phone", phone_key))
+
+    for field_name, field_value in fallback_candidates:
+        try:
+            cur.execute(
+                f"""
+                SELECT email
+                FROM queue_entries
+                WHERE {field_name} = %s
+                  AND email IS NOT NULL
+                  AND BTRIM(email) <> ''
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (field_value,),
+            )
+            row = cur.fetchone()
+        except Exception as e:
+            print(f"Warning: resolve_entry_email lookup failed on {field_name}: {e}")
+            try:
+                cur.connection.rollback()
+            except Exception:
+                pass
+            continue
+
+        candidate = normalize_email(row[0]) if row else ""
+        if is_valid_email(candidate):
+            return candidate
+
+    return normalized
+
+
+def build_missing_entry_email_lookup(cur, scan_rows):
+    """Batch-resolve emails for scan rows that have missing/invalid email."""
+    if not scan_rows:
+        return {}
+
+    missing_entries = []
+    phone_keys = set()
+    applicant_keys = set()
+
+    for row in scan_rows:
+        entry_id = row[0]
+        phone = (row[2] or "").strip()
+        current_email = normalize_email(row[3])
+        applicant_id = (row[12] or "").strip()
+
+        if is_valid_email(current_email):
+            continue
+
+        missing_entries.append((entry_id, phone, applicant_id))
+        if phone:
+            phone_keys.add(phone)
+        if applicant_id:
+            applicant_keys.add(applicant_id)
+
+    if not missing_entries:
+        return {}
+
+    by_phone = {}
+    if phone_keys:
+        try:
+            cur.execute(
+                """
+                SELECT phone, email
+                FROM queue_entries
+                WHERE phone = ANY(%s)
+                  AND email IS NOT NULL
+                  AND BTRIM(email) <> ''
+                ORDER BY created_at DESC, id DESC
+                """,
+                (list(phone_keys),),
+            )
+            for phone, email in cur.fetchall():
+                phone_value = (phone or "").strip()
+                email_value = normalize_email(email)
+                if phone_value and is_valid_email(email_value):
+                    by_phone.setdefault(phone_value, email_value)
+        except Exception as e:
+            print(f"Warning: build_missing_entry_email_lookup phone query failed: {e}")
+            try:
+                cur.connection.rollback()
+            except Exception:
+                pass
+
+    by_applicant = {}
+    if applicant_keys:
+        try:
+            cur.execute(
+                """
+                SELECT applicant_id, email
+                FROM queue_entries
+                WHERE applicant_id = ANY(%s)
+                  AND email IS NOT NULL
+                  AND BTRIM(email) <> ''
+                ORDER BY created_at DESC, id DESC
+                """,
+                (list(applicant_keys),),
+            )
+            for applicant_id, email in cur.fetchall():
+                applicant_value = (applicant_id or "").strip()
+                email_value = normalize_email(email)
+                if applicant_value and is_valid_email(email_value):
+                    by_applicant.setdefault(applicant_value, email_value)
+        except Exception as e:
+            print(f"Warning: build_missing_entry_email_lookup applicant query failed: {e}")
+            try:
+                cur.connection.rollback()
+            except Exception:
+                pass
+
+    lookup = {}
+    for entry_id, phone, applicant_id in missing_entries:
+        resolved = by_applicant.get(applicant_id) or by_phone.get(phone)
+        if resolved:
+            lookup[entry_id] = resolved
+
+    return lookup
+
+
 def build_legacy_uploaded_doc_lookup(cur, entry_ids):
     """Batch resolve legacy uploaded_documents filenames for entry IDs.
 
@@ -1826,9 +1968,14 @@ def get_qr_scans(qr_id):
             if not (row[9] and row[10] and row[11])
         ]
         legacy_doc_lookup = build_legacy_uploaded_doc_lookup(cur, entry_ids_needing_legacy_lookup)
+        email_fallback_lookup = build_missing_entry_email_lookup(cur, rows)
 
         scans = []
         for row in rows:
+            resolved_email = normalize_email(row[3])
+            if not is_valid_email(resolved_email):
+                resolved_email = email_fallback_lookup.get(row[0], resolved_email)
+
             doc_urls = resolve_entry_document_urls(
                 row[0],
                 id_doc_path=row[9],
@@ -1845,7 +1992,7 @@ def get_qr_scans(qr_id):
                 "id": row[0],
                 "fullname": row[1] or "Unknown",
                 "phone": row[2] or "",
-                "email": row[3] or "",
+                "email": resolved_email,
                 "purpose": row[4] or "",
                 "status": row[5] or "waiting",
                 "admin_status": (row[6] or "pending").lower(),
@@ -2030,7 +2177,7 @@ def accept_queue_entry(entry_id):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT fullname, email, created_at, status, queue_type
+            SELECT fullname, email, created_at, status, queue_type, applicant_id, phone
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -2039,7 +2186,13 @@ def accept_queue_entry(entry_id):
         if not row:
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        full_name, email, created_at, ticket_status, queue_type = row
+        full_name, email, created_at, ticket_status, queue_type, applicant_id, phone = row
+        email = resolve_entry_email(
+            cur,
+            current_email=email,
+            applicant_id=applicant_id,
+            phone=phone
+        )
         user_name = extract_first_name(full_name)
         application_status = "Accepted"
 
@@ -2083,7 +2236,7 @@ def reject_queue_entry(entry_id):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT fullname, email, created_at, status, queue_type
+            SELECT fullname, email, created_at, status, queue_type, applicant_id, phone
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -2092,7 +2245,13 @@ def reject_queue_entry(entry_id):
         if not row:
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        full_name, email, created_at, ticket_status, queue_type = row
+        full_name, email, created_at, ticket_status, queue_type, applicant_id, phone = row
+        email = resolve_entry_email(
+            cur,
+            current_email=email,
+            applicant_id=applicant_id,
+            phone=phone
+        )
         user_name = extract_first_name(full_name)
         application_status = "Rejected"
 
@@ -2445,7 +2604,7 @@ def auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type):
         # Match by both slug and type to ensure they're from the same queue series
         cur.execute(
             """
-            SELECT id, fullname, phone, purpose, queue_purpose
+            SELECT id, fullname, phone, purpose, queue_purpose, applicant_id, email
             FROM queue_entries
             WHERE reschedule_status = 'pending' 
             AND queue_type = %s
@@ -2458,16 +2617,16 @@ def auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type):
         pending_entries = cur.fetchall()
         
         for entry in pending_entries:
-            entry_id, fullname, phone, purpose, old_queue_purpose = entry
+            entry_id, fullname, phone, purpose, old_queue_purpose, applicant_id, email = entry
             
             # Create new entry in the new queue
             cur.execute(
                 """
                 INSERT INTO queue_entries (
                     queue_slug, queue_number, queue_type, queue_purpose,
-                    fullname, phone, purpose, status, admin_status
+                    fullname, phone, purpose, applicant_id, email, status, admin_status
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
                 RETURNING id
                 """,
                 (
@@ -2478,6 +2637,8 @@ def auto_enroll_pending_reschedules(queue_slug, queue_number, queue_type):
                     fullname,
                     phone,
                     purpose,
+                    applicant_id,
+                    normalize_email(email),
                 )
             )
             
@@ -2630,7 +2791,7 @@ def reschedule_queue_entry(entry_id):
         cur.execute(
             """
             SELECT id, queue_slug, queue_number, queue_type, queue_purpose,
-                   fullname, phone, purpose, status
+                   fullname, phone, purpose, status, applicant_id, email
             FROM queue_entries
             WHERE id = %s
             """,
@@ -2644,7 +2805,7 @@ def reschedule_queue_entry(entry_id):
             conn.close()
             return jsonify({"status": "error", "message": "Entry not found"}), 404
         
-        entry_id_db, queue_slug, queue_number, queue_type, queue_purpose, fullname, phone, purpose, status = row
+        entry_id_db, queue_slug, queue_number, queue_type, queue_purpose, fullname, phone, purpose, status, applicant_id, email = row
         
         # Check if entry can be rescheduled
         if status not in ['waiting']:
@@ -2676,9 +2837,9 @@ def reschedule_queue_entry(entry_id):
                 """
                 INSERT INTO queue_entries (
                     queue_slug, queue_number, queue_type, queue_purpose,
-                    fullname, phone, purpose, status, admin_status
+                    fullname, phone, purpose, applicant_id, email, status, admin_status
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
                 RETURNING id
                 """,
                 (
@@ -2689,6 +2850,8 @@ def reschedule_queue_entry(entry_id):
                     fullname,
                     phone,
                     purpose if purpose else None,
+                    applicant_id,
+                    normalize_email(email),
                 )
             )
             
@@ -3142,12 +3305,16 @@ def queue_page(queue_slug, queue_number):
         middleinitial = (request.form.get('middleinitial') or '').strip()
         suffix = (request.form.get('suffix') or '').strip()
         applicant_id = (request.form.get('applicant_id') or '').strip()
-        email = (request.form.get('email') or '').strip()
+        email = normalize_email(request.form.get('email'))
         purpose = (request.form.get('purpose') or '').strip()
         declaration = request.form.get('declaration') == 'on'
 
         if not all([lastname, firstname, email]):
             flash("Please complete all required fields.", "error")
+            return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
+
+        if not is_valid_email(email):
+            flash("Please enter a valid email address.", "error")
             return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
         if queue_config.get("require_student_id", True) and not applicant_id:
