@@ -49,6 +49,7 @@
     <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
     <p>Your ticket reference: <strong>{{ ticket_reference }}</strong></p>
     <p class="status-display">Status: <span class="status-badge status-{{ entry.status|default('waiting') }}">{{ entry.status|default('waiting')|capitalize }}</span></p>
+  
     
     <!-- Admin Approval Status -->
     {% if entry.admin_status %}
