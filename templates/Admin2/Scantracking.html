@@ -568,7 +568,7 @@
     function acceptEntry(entryId) {
       requestStatusMessage(
         'Accept Entry Message',
-        'We are pleased to inform you that your application form has been approved by our administrator.\n\nPlease check your email regularly for further instructions and updates regarding your requested document.',
+        'This application has been approved.',
         (message) => {
           const notificationMessage = (message || 'We are pleased to inform you that your application form has been approved by our administrator.\n\nPlease check your email regularly for further instructions and updates regarding your requested document.').trim();
           showConfirmation(
@@ -635,7 +635,7 @@
     function rejectEntry(entryId) {
       requestStatusMessage(
         'Reject Entry Message',
-        'We regret to inform you that your application form has not been approved by our administrator at this time.\n\nPlease review your submitted information and ensure that all requirements are complete and accurate before submitting a new request.',
+        'This application has been rejected.',
         (message) => {
           const notificationMessage = (message || 'We regret to inform you that your application form has not been approved by our administrator at this time.\n\nPlease review your submitted information and ensure that all requirements are complete and accurate before submitting a new request.').trim();
           showConfirmation(

@@ -48,7 +48,12 @@
     {% endif %}
     <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
     <p>Your ticket reference: <strong>{{ ticket_reference }}</strong></p>
-    <p class="status-display">Status: <span class="status-badge status-{{ entry.status|default('waiting') }}">{{ entry.status|default('waiting')|capitalize }}</span></p>
+    <p class="status-display">
+      Processing Time:
+    <span class="status-badge">
+    {{ entry.processing_days|default('TBA') }} day{{ 's' if entry.processing_days|default(0)|int != 1 else '' }}
+    </span>
+    </p>
   
     
     <!-- Admin Approval Status -->
