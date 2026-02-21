@@ -505,8 +505,10 @@
       const formData = new URLSearchParams();
       formData.append('type', type);
       formData.append('purpose', purpose);
+
       if (processingDays) formData.append('avg_service_time', processingDays);
-      formData.append('avg_service_time', processingDays);
+
+      formData.append('processingMethod', processingMethod);
       formData.append('releaseType', releaseType);
       formData.append('studentId', studentId);
       formData.append('validId', validId);

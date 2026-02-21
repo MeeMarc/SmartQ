@@ -309,25 +309,179 @@ def logout():
 # QR CODE GENERATION
 # ==============================================================
 
-@app.route('/generate_qr', methods=['POST'])
-def generate_qr():
-    purpose = request.form.get('purpose', 'General')
-    candidate = request.form.get('candidate', 'Anonymous')
+import re
+from flask import request, jsonify
 
-    qr_data = f"{candidate} - Purpose: {purpose}"
-    qr_img = qrcode.make(qr_data)
+def slugify(text: str) -> str:
+    text = (text or "").strip().lower()
+    text = re.sub(r"[^a-z0-9]+", "-", text)
+    return text.strip("-") or "queue"
 
-    buffer = io.BytesIO()
-    qr_img.save(buffer, format="PNG")
-    qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+def ensure_processing_columns(conn):
+    """Ensure temp_qr/qr_history have needed columns for processing days + config."""
+    cur = conn.cursor()
 
-    return jsonify({"qr_image": qr_base64})
+    # Ensure tables exist (safe if they already exist)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS temp_qr (
+            id SERIAL PRIMARY KEY,
+            queue_link TEXT,
+            queue_type TEXT,
+            queue_purpose TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS qr_history (
+            id SERIAL PRIMARY KEY,
+            queue_link TEXT,
+            queue_type TEXT,
+            queue_purpose TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
 
+    # Add missing columns (safe if they already exist)
+    for table in ("temp_qr", "qr_history"):
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS queue_slug TEXT")
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS queue_number INTEGER")
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS avg_service_time DOUBLE PRECISION")
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS processing_method TEXT")
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS release_type TEXT")
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS require_student_id BOOLEAN")
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS require_valid_id BOOLEAN")
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS require_supporting_doc BOOLEAN")
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS esign_required BOOLEAN")
+
+    conn.commit()
+    cur.close()
+
+@app.route("/generate_qr_db", methods=["POST"])
+def generate_qr_db():
+    # Values coming from your CreateQ JS
+    queue_type = (request.form.get("type") or "").strip()
+    queue_purpose = (request.form.get("purpose") or "").strip()
+
+    avg_raw = (request.form.get("avg_service_time") or "").strip()
+    try:
+        avg_service_time = float(avg_raw) if avg_raw else None
+    except Exception:
+        avg_service_time = None
+
+    processing_method = (request.form.get("processingMethod") or "").strip() or None
+    release_type = (request.form.get("releaseType") or "").strip() or None
+
+    # your JS sends "Yes"/"No"
+    def yn_to_bool(v, default=True):
+        if v is None or str(v).strip() == "":
+            return default
+        return str(v).strip().lower() == "yes"
+
+    require_student_id = yn_to_bool(request.form.get("studentId"), default=True)
+    require_valid_id = yn_to_bool(request.form.get("validId"), default=True)
+    require_supporting_doc = yn_to_bool(request.form.get("supportingDoc"), default=True)
+    esign_required = yn_to_bool(request.form.get("esignRequired"), default=True)
+
+    if not queue_type or not queue_purpose:
+        return jsonify({"error": "Missing queue type or purpose."}), 400
+
+    queue_slug = slugify(queue_type)
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"error": "Database connection failed."}), 500
+
+        ensure_processing_columns(conn)
+        cur = conn.cursor()
+
+        # queue_number = next number for this slug
+        cur.execute("""
+            SELECT COALESCE(MAX(queue_number), 0) + 1
+            FROM qr_history
+            WHERE queue_slug = %s
+        """, (queue_slug,))
+        queue_number = int(cur.fetchone()[0])
+
+        queue_path = f"/queue/{queue_slug}/{queue_number}"
+        try:
+            base = get_public_base_url().rstrip("/")
+            queue_link = f"{base}{queue_path}"
+        except Exception:
+            queue_link = queue_path
+
+        # Insert into temp_qr (active)
+        cur.execute("""
+            INSERT INTO temp_qr (
+                queue_slug, queue_number, queue_type, queue_purpose, queue_link,
+                avg_service_time, processing_method, release_type,
+                require_student_id, require_valid_id, require_supporting_doc, esign_required,
+                created_at
+            )
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
+            RETURNING id
+        """, (
+            queue_slug, queue_number, queue_type, queue_purpose, queue_link,
+            avg_service_time, processing_method, release_type,
+            require_student_id, require_valid_id, require_supporting_doc, esign_required
+        ))
+        qr_id = cur.fetchone()[0]
+
+        # Insert into qr_history (history)
+        cur.execute("""
+            INSERT INTO qr_history (
+                queue_slug, queue_number, queue_type, queue_purpose, queue_link,
+                avg_service_time, processing_method, release_type,
+                require_student_id, require_valid_id, require_supporting_doc, esign_required,
+                created_at
+            )
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
+        """, (
+            queue_slug, queue_number, queue_type, queue_purpose, queue_link,
+            avg_service_time, processing_method, release_type,
+            require_student_id, require_valid_id, require_supporting_doc, esign_required
+        ))
+
+        conn.commit()
+
+        return jsonify({
+            "queue_link": queue_link,
+            "queue_number": queue_number,
+            "qr_id": qr_id
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("generate_qr_db error:", e)
+        return jsonify({"error": "Failed to create queue."}), 500
+
+    finally:
+        try:
+            if cur: cur.close()
+        except Exception:
+            pass
+        try:
+            if conn: conn.close()
+        except Exception:
+            pass
+
+
+# ==============================
+# File helpers (place near top of Main.py)
+# ==============================
+import os
+import time
+from collections import OrderedDict
+from threading import Lock
 
 # Allowed file types
-ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'jpg', 'png', 'zip'}
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'jpg', 'jpeg', 'png', 'zip'}
+
+def allowed_file(filename: str) -> bool:
+    return bool(filename) and "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Content type mapping
 CONTENT_TYPE_MAP = {
@@ -340,17 +494,18 @@ CONTENT_TYPE_MAP = {
     'zip': 'application/zip',
 }
 
-def get_content_type(filename):
-    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+def get_content_type(filename: str) -> str:
+    ext = filename.rsplit('.', 1)[1].lower() if filename and '.' in filename else ''
     return CONTENT_TYPE_MAP.get(ext, 'application/octet-stream')
 
 # Hot in-process cache to reduce repeat DB fetches for uploaded files.
 DOCUMENT_CACHE_MAX_ITEMS = max(1, int(os.getenv("DOCUMENT_CACHE_MAX_ITEMS", "200")))
 DOCUMENT_CACHE_TTL_SECONDS = max(0, int(os.getenv("DOCUMENT_CACHE_TTL_SECONDS", "900")))
+
 _document_cache = OrderedDict()
 _document_cache_lock = Lock()
 
-def _cache_document(filename, data_bytes, content_type):
+def _cache_document(filename: str, data_bytes: bytes, content_type: str):
     if not filename:
         return
     expires_at = (time.time() + DOCUMENT_CACHE_TTL_SECONDS) if DOCUMENT_CACHE_TTL_SECONDS > 0 else 0
@@ -360,7 +515,7 @@ def _cache_document(filename, data_bytes, content_type):
         while len(_document_cache) > DOCUMENT_CACHE_MAX_ITEMS:
             _document_cache.popitem(last=False)
 
-def _get_cached_document(filename):
+def _get_cached_document(filename: str):
     if not filename:
         return None
     now = time.time()
