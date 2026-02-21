@@ -52,15 +52,7 @@
     
 <p class="status-display">
   Processing Time:
-  <span class="status-badge">
-    {% set raw = entry.processing_days %}
-    {% if raw is not none and raw|string|trim != '' and raw|float > 0 %}
-      {% set d = raw|float %}
-      {{ d|int if d == (d|int) else d }} day{{ 's' if d != 1 else '' }}
-    {% else %}
-      TBA
-    {% endif %}
-  </span>
+  <span class="status-badge">{{ processing_time_label }}</span>
 </p>
     
     <!-- Admin Approval Status -->

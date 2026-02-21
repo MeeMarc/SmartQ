@@ -52,8 +52,8 @@
             <label for="queuePurpose">Queue Purpose / Description:</label>
             <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
 
-            <label for="processingDays">Processing Time (Days):</label>
-            <input type="number" id="processingDays" placeholder="e.g. 3" min="1" required>
+           <label for="processingDays">Processing Time (Days):</label>
+           <input type="number" id="processingDays" name="avg_service_time" placeholder="e.g. 3" min="1" required>
 
             <p style="color: #666; font-style: italic;">
               ✓ URL will be automatically generated based on Queue Type
@@ -505,8 +505,8 @@
       const formData = new URLSearchParams();
       formData.append('type', type);
       formData.append('purpose', purpose);
-      if (processingDays) formData.append('processingDays', processingDays);
-      formData.append('processingMethod', processingMethod);
+      if (processingDays) formData.append('avg_service_time', processingDays);
+      formData.append('avg_service_time', processingDays);
       formData.append('releaseType', releaseType);
       formData.append('studentId', studentId);
       formData.append('validId', validId);
