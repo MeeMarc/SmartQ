@@ -309,179 +309,25 @@ def logout():
 # QR CODE GENERATION
 # ==============================================================
 
-import re
-from flask import request, jsonify
+@app.route('/generate_qr', methods=['POST'])
+def generate_qr():
+    purpose = request.form.get('purpose', 'General')
+    candidate = request.form.get('candidate', 'Anonymous')
 
-def slugify(text: str) -> str:
-    text = (text or "").strip().lower()
-    text = re.sub(r"[^a-z0-9]+", "-", text)
-    return text.strip("-") or "queue"
+    qr_data = f"{candidate} - Purpose: {purpose}"
+    qr_img = qrcode.make(qr_data)
 
-def ensure_processing_columns(conn):
-    """Ensure temp_qr/qr_history have needed columns for processing days + config."""
-    cur = conn.cursor()
+    buffer = io.BytesIO()
+    qr_img.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-    # Ensure tables exist (safe if they already exist)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS temp_qr (
-            id SERIAL PRIMARY KEY,
-            queue_link TEXT,
-            queue_type TEXT,
-            queue_purpose TEXT,
-            created_at TIMESTAMPTZ DEFAULT NOW()
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS qr_history (
-            id SERIAL PRIMARY KEY,
-            queue_link TEXT,
-            queue_type TEXT,
-            queue_purpose TEXT,
-            created_at TIMESTAMPTZ DEFAULT NOW()
-        )
-    """)
+    return jsonify({"qr_image": qr_base64})
 
-    # Add missing columns (safe if they already exist)
-    for table in ("temp_qr", "qr_history"):
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS queue_slug TEXT")
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS queue_number INTEGER")
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS avg_service_time DOUBLE PRECISION")
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS processing_method TEXT")
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS release_type TEXT")
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS require_student_id BOOLEAN")
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS require_valid_id BOOLEAN")
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS require_supporting_doc BOOLEAN")
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS esign_required BOOLEAN")
-
-    conn.commit()
-    cur.close()
-
-@app.route("/generate_qr_db", methods=["POST"])
-def generate_qr_db():
-    # Values coming from your CreateQ JS
-    queue_type = (request.form.get("type") or "").strip()
-    queue_purpose = (request.form.get("purpose") or "").strip()
-
-    avg_raw = (request.form.get("avg_service_time") or "").strip()
-    try:
-        avg_service_time = float(avg_raw) if avg_raw else None
-    except Exception:
-        avg_service_time = None
-
-    processing_method = (request.form.get("processingMethod") or "").strip() or None
-    release_type = (request.form.get("releaseType") or "").strip() or None
-
-    # your JS sends "Yes"/"No"
-    def yn_to_bool(v, default=True):
-        if v is None or str(v).strip() == "":
-            return default
-        return str(v).strip().lower() == "yes"
-
-    require_student_id = yn_to_bool(request.form.get("studentId"), default=True)
-    require_valid_id = yn_to_bool(request.form.get("validId"), default=True)
-    require_supporting_doc = yn_to_bool(request.form.get("supportingDoc"), default=True)
-    esign_required = yn_to_bool(request.form.get("esignRequired"), default=True)
-
-    if not queue_type or not queue_purpose:
-        return jsonify({"error": "Missing queue type or purpose."}), 400
-
-    queue_slug = slugify(queue_type)
-
-    conn = None
-    cur = None
-    try:
-        conn = get_db_connection()
-        if conn is None:
-            return jsonify({"error": "Database connection failed."}), 500
-
-        ensure_processing_columns(conn)
-        cur = conn.cursor()
-
-        # queue_number = next number for this slug
-        cur.execute("""
-            SELECT COALESCE(MAX(queue_number), 0) + 1
-            FROM qr_history
-            WHERE queue_slug = %s
-        """, (queue_slug,))
-        queue_number = int(cur.fetchone()[0])
-
-        queue_path = f"/queue/{queue_slug}/{queue_number}"
-        try:
-            base = get_public_base_url().rstrip("/")
-            queue_link = f"{base}{queue_path}"
-        except Exception:
-            queue_link = queue_path
-
-        # Insert into temp_qr (active)
-        cur.execute("""
-            INSERT INTO temp_qr (
-                queue_slug, queue_number, queue_type, queue_purpose, queue_link,
-                avg_service_time, processing_method, release_type,
-                require_student_id, require_valid_id, require_supporting_doc, esign_required,
-                created_at
-            )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
-            RETURNING id
-        """, (
-            queue_slug, queue_number, queue_type, queue_purpose, queue_link,
-            avg_service_time, processing_method, release_type,
-            require_student_id, require_valid_id, require_supporting_doc, esign_required
-        ))
-        qr_id = cur.fetchone()[0]
-
-        # Insert into qr_history (history)
-        cur.execute("""
-            INSERT INTO qr_history (
-                queue_slug, queue_number, queue_type, queue_purpose, queue_link,
-                avg_service_time, processing_method, release_type,
-                require_student_id, require_valid_id, require_supporting_doc, esign_required,
-                created_at
-            )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
-        """, (
-            queue_slug, queue_number, queue_type, queue_purpose, queue_link,
-            avg_service_time, processing_method, release_type,
-            require_student_id, require_valid_id, require_supporting_doc, esign_required
-        ))
-
-        conn.commit()
-
-        return jsonify({
-            "queue_link": queue_link,
-            "queue_number": queue_number,
-            "qr_id": qr_id
-        })
-
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        print("generate_qr_db error:", e)
-        return jsonify({"error": "Failed to create queue."}), 500
-
-    finally:
-        try:
-            if cur: cur.close()
-        except Exception:
-            pass
-        try:
-            if conn: conn.close()
-        except Exception:
-            pass
-
-
-# ==============================
-# File helpers (place near top of Main.py)
-# ==============================
-import os
-import time
-from collections import OrderedDict
-from threading import Lock
 
 # Allowed file types
-ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'jpg', 'jpeg', 'png', 'zip'}
-
-def allowed_file(filename: str) -> bool:
-    return bool(filename) and "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'jpg', 'png', 'zip'}
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Content type mapping
 CONTENT_TYPE_MAP = {
@@ -494,18 +340,17 @@ CONTENT_TYPE_MAP = {
     'zip': 'application/zip',
 }
 
-def get_content_type(filename: str) -> str:
-    ext = filename.rsplit('.', 1)[1].lower() if filename and '.' in filename else ''
+def get_content_type(filename):
+    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
     return CONTENT_TYPE_MAP.get(ext, 'application/octet-stream')
 
 # Hot in-process cache to reduce repeat DB fetches for uploaded files.
 DOCUMENT_CACHE_MAX_ITEMS = max(1, int(os.getenv("DOCUMENT_CACHE_MAX_ITEMS", "200")))
 DOCUMENT_CACHE_TTL_SECONDS = max(0, int(os.getenv("DOCUMENT_CACHE_TTL_SECONDS", "900")))
-
 _document_cache = OrderedDict()
 _document_cache_lock = Lock()
 
-def _cache_document(filename: str, data_bytes: bytes, content_type: str):
+def _cache_document(filename, data_bytes, content_type):
     if not filename:
         return
     expires_at = (time.time() + DOCUMENT_CACHE_TTL_SECONDS) if DOCUMENT_CACHE_TTL_SECONDS > 0 else 0
@@ -515,7 +360,7 @@ def _cache_document(filename: str, data_bytes: bytes, content_type: str):
         while len(_document_cache) > DOCUMENT_CACHE_MAX_ITEMS:
             _document_cache.popitem(last=False)
 
-def _get_cached_document(filename: str):
+def _get_cached_document(filename):
     if not filename:
         return None
     now = time.time()
@@ -1044,21 +889,13 @@ def get_queue_processing_days(queue_slug, queue_number, cur=None):
         return None
 
     queue_path = f"/queue/{queue_slug}/{queue_number}"
-
-    # Build possible exact variants
     queue_links = []
     try:
-        base = get_public_base_url().rstrip("/")
-        queue_links.append(f"{base}{queue_path}")
-        queue_links.append(f"{base}{queue_path}/")   # trailing slash variant
+        queue_links.append(f"{get_public_base_url()}{queue_path}")
     except Exception:
         pass
-
     queue_links.append(queue_path)
-    queue_links.append(f"{queue_path}/")            # trailing slash variant
-
-    # IMPORTANT FIX: match anywhere, not only at end
-    queue_like = f"%{queue_path}%"
+    queue_suffix = f"%{queue_path}"
 
     own_connection = cur is None
     conn = None
@@ -1076,7 +913,6 @@ def get_queue_processing_days(queue_slug, queue_number, cur=None):
             if row:
                 break
 
-            # 1) Try exact matches first
             for queue_link in queue_links:
                 try:
                     cur.execute(
@@ -1103,7 +939,6 @@ def get_queue_processing_days(queue_slug, queue_number, cur=None):
             if row and row[0] is not None:
                 break
 
-            # 2) Fallback: LIKE match (FIXED)
             try:
                 cur.execute(
                     f"""SELECT avg_service_time
@@ -1112,7 +947,7 @@ def get_queue_processing_days(queue_slug, queue_number, cur=None):
                           AND avg_service_time IS NOT NULL
                         ORDER BY created_at DESC, id DESC
                         LIMIT 1""",
-                    (queue_like,),
+                    (queue_suffix,),
                 )
                 row = cur.fetchone()
             except Exception as query_error:
@@ -1125,7 +960,6 @@ def get_queue_processing_days(queue_slug, queue_number, cur=None):
 
             if row and row[0] is not None:
                 break
-
     except Exception as e:
         print(f"Error get_queue_processing_days: {e}")
     finally:
@@ -3578,10 +3412,6 @@ def queue_page(queue_slug, queue_number):
     current_count = get_queue_entry_count(queue_slug, queue_number)
     queue_full = queue_limit is not None and queue_limit > 0 and current_count >= queue_limit
 
-    # ✅ ADD: processing time shown on the registration page
-    processing_days = get_queue_processing_days(queue_slug, queue_number)
-    processing_time_label = format_processing_time_label(processing_days) or "TBA"
-
     if request.method == 'POST':
         ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "pdf"}
         MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
@@ -3778,10 +3608,6 @@ def queue_page(queue_slug, queue_number):
         queue_require_valid_id=queue_config.get("require_valid_id", True),
         queue_require_supporting_doc=queue_config.get("require_supporting_doc", True),
         queue_esign_required=queue_config.get("esign_required", True),
-
-        # ✅ ADD THESE:
-        processing_days=processing_days,
-        processing_time_label=processing_time_label,
     )
 
 
@@ -3836,7 +3662,6 @@ def ticket_proof(queue_slug, queue_number, entry_id):
         queue_mode.get("processing_method"),
         queue_mode.get("release_type")
     )
-
     conn = None
     cur = None
     try:
@@ -3846,7 +3671,6 @@ def ticket_proof(queue_slug, queue_number, entry_id):
 
         ensure_queue_entries_table(conn)
         cur = conn.cursor()
-
         cur.execute(
             """
             SELECT id, queue_type, queue_purpose, fullname, status, created_at,
@@ -3856,7 +3680,6 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             """,
             (entry_id, queue_slug, queue_number),
         )
-
         row = cur.fetchone()
         if not row:
             return "Ticket not found", 404
@@ -3869,18 +3692,9 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             "admin_status": row[7] or "pending",
             "notification_message": row[8] or "",
         }
-
         queue_type = row[1] or queue_type
         queue_purpose = row[2] or queue_purpose
         ticket_reference = row[6] or generate_ticket_reference(queue_slug, entry_id)
-
-        # ✅ Processing days for TicketProof page
-        processing_days = get_queue_processing_days(queue_slug, queue_number)
-        processing_time_label = format_processing_time_label(processing_days) or "TBA"
-
-        # ✅ Attach to entry (entry is a dict)
-        entry["processing_days"] = processing_days
-        entry["processing_time_label"] = processing_time_label
 
         return render_template(
             "User/TicketProof.html",
@@ -3893,24 +3707,16 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
             ticket_reference=ticket_reference,
-            processing_time_label=processing_time_label,  # optional (handy in template)
         )
-
     except Exception as e:
         print(f"Error loading ticket proof: {e}")
         return "Unable to load ticket proof.", 500
-
     finally:
-        try:
-            if cur:
-                cur.close()
-        except Exception:
-            pass
-        try:
-            if conn:
-                conn.close()
-        except Exception:
-            pass
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 
 
 
