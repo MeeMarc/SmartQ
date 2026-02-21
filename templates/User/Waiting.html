@@ -48,13 +48,20 @@
     {% endif %}
     <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
     <p>Your ticket reference: <strong>{{ ticket_reference }}</strong></p>
-    <p class="status-display">
-      Processing Time:
-    <span class="status-badge">
-    {{ entry.processing_days|default('TBA') }} day{{ 's' if entry.processing_days|default(0)|int != 1 else '' }}
-    </span>
-    </p>
-  
+
+    
+<p class="status-display">
+  Processing Time:
+  <span class="status-badge">
+    {% set raw = entry.processing_days %}
+    {% if raw is not none and raw|string|trim != '' and raw|float > 0 %}
+      {% set d = raw|float %}
+      {{ d|int if d == (d|int) else d }} day{{ 's' if d != 1 else '' }}
+    {% else %}
+      TBA
+    {% endif %}
+  </span>
+</p>
     
     <!-- Admin Approval Status -->
     {% if entry.admin_status %}
