@@ -2343,7 +2343,7 @@ def accept_queue_entry(entry_id):
         base_message = provided_notification_message or default_message
 
         # ✅ number only (no "days")
-        processing_line = f"Estimated Document Processing Duration (Business Days): {processing_time}" if processing_time else ""
+        processing_line = f"Estimated Document Processing Duration: {processing_time} + Business Days." if processing_time else ""
 
         if processing_line:
             if "\n\n" in base_message:
