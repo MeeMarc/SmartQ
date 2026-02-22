@@ -551,7 +551,6 @@ def uploaded_file(filename):
         if conn:
             conn.close()
 
-
 # ==============================================================  
 # QR DATABASE HANDLING (NEW)
 # ==============================================================
@@ -1339,6 +1338,7 @@ def generate_qr_db():
         queue_purpose = request.form.get('purpose', '').strip()
         created_by = session.get('user_email', 'Unknown')
         
+        # Get the new parameters
         # Get queue timing inputs (support both legacy avgServiceTime and current processingDays)
         avg_service_time = request.form.get('avgServiceTime', '').strip()
         processing_days = request.form.get('processingDays', '').strip()
@@ -2354,9 +2354,7 @@ def accept_queue_entry(entry_id):
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
-
+    
 @app.route('/reject_queue_entry/<int:entry_id>', methods=['POST'])
 def reject_queue_entry(entry_id):
     try:
@@ -2422,10 +2420,7 @@ def reject_queue_entry(entry_id):
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
-
-
+    
 @app.route('/view_entry_documents/<int:entry_id>', methods=['GET'])
 def view_entry_documents(entry_id):
     """Get document URLs for a specific queue entry."""
@@ -3716,7 +3711,6 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             cur.close()
         if conn:
             conn.close()
-
 
 
 
