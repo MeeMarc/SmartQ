@@ -32,23 +32,6 @@ QUEUE_ENTRIES_SCHEMA_MIGRATED = False
 # uses the correct scheme/host (https and your subdomain)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
-import re
-def normalize_processing_time(value: str) -> str:
-    raw = (value or "").strip()
-    if not raw:
-        return ""
-
-    # Accept "3", "3.7", "3 days", "5 business days"
-    m = re.search(r"(\d+(?:\.\d+)?)", raw)
-    if not m:
-        return ""
-
-    num = float(m.group(1))
-    if num <= 0:
-        return ""
-
-    return str(int(num))  # ✅ whole number only
-
 
 @app.route('/favicon.ico')
 def favicon():
@@ -2303,13 +2286,28 @@ def update_queue_status():
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+import re
+import traceback
+
+def normalize_processing_time(value) -> str:
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    m = re.search(r"(\d+(?:\.\d+)?)", raw)
+    if not m:
+        return ""
+    num = float(m.group(1))
+    if num <= 0:
+        return ""
+    return str(int(num))  # ✅ whole number only
+
+
 @app.route('/accept_queue_entry/<int:entry_id>', methods=['POST'])
 def accept_queue_entry(entry_id):
     try:
         data = request.get_json() or {}
         provided_notification_message = (data.get('notification_message') or '').strip()
 
-        # ✅ admin free input from modal -> normalize to whole number
         provided_processing_time = normalize_processing_time(data.get('processing_time'))
 
         conn = get_db_connection()
@@ -2332,11 +2330,9 @@ def accept_queue_entry(entry_id):
         user_name = extract_first_name(full_name)
         application_status = "Accepted"
 
-        # Optional fallback if admin didn't type processing time
         processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
         auto_processing_time = normalize_processing_time(format_processing_time_label(processing_days))
 
-        # ✅ final processing_time is always "3" (or "")
         processing_time = provided_processing_time or auto_processing_time or ""
 
         default_message = (
@@ -2346,8 +2342,8 @@ def accept_queue_entry(entry_id):
 
         base_message = provided_notification_message or default_message
 
-        # ✅ No "days/days" and no "+ business days."
-        processing_line = f"Estimated Document Processing Duration: {processing_time} + Business Days" if processing_time else ""
+        # ✅ number only (no "days")
+        processing_line = f"Estimated Document Processing Duration (Business Days): {processing_time}" if processing_time else ""
 
         if processing_line:
             if "\n\n" in base_message:
@@ -2378,15 +2374,17 @@ def accept_queue_entry(entry_id):
             "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
             "queue_type": queue_type or "Document",
             "processing_days": processing_days,
-            "processing_time": processing_time,  # ✅ "3"
+            "processing_time": processing_time,
             "notification_message": notification_message,
             "application_status": application_status,
             "ticket_status": application_status,
             "admin_status": "accepted"
         })
 
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+    except Exception:
+        print("ACCEPT ERROR:\n", traceback.format_exc())
+        return jsonify({"status": "error", "message": "Server error"}), 500
+    
     
 @app.route('/reject_queue_entry/<int:entry_id>', methods=['POST'])
 def reject_queue_entry(entry_id):
