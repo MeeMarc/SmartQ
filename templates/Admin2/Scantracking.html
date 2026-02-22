@@ -172,7 +172,7 @@
       <input
         id="statusProcessingInput"
         type="text"
-        placeholder="e.g., 3 days / 5 business days"
+        placeholder="e.g., 3 / 5 business days"
         style="width:100%; padding:10px; border:1px solid #ccd6e0; border-radius:8px; font-size:0.95rem;"
       />
     </div>
@@ -269,13 +269,12 @@
     function formatProcessingTime(value) {
       const raw = (value ?? "").toString().trim();
       if (!raw) return "";
+
       const numeric = Number(raw);
       if (Number.isFinite(numeric) && numeric > 0) {
-        if (Number.isInteger(numeric)) {
-          return `${numeric} ${numeric === 1 ? "day" : "days"}`;
-        }
-        return `${numeric} days`;
+        return String(Math.trunc(numeric)); // whole number only
       }
+
       return raw;
     }
 
@@ -521,145 +520,106 @@
     }
 
 
-function requestStatusMessage(title, defaultMessage, onSave) {
-  const modal = document.getElementById("statusMessageModal");
-  const closeBtn = document.getElementById("statusMessageClose");
-  const saveBtn = document.getElementById("statusMessageSave");
-  const cancelBtn = document.getElementById("statusMessageCancel");
+    // ✅ Whole number only (extracts number even if user types "3 days")
+    function formatProcessingTime(value) {
+      const raw = (value ?? "").toString().trim();
+      if (!raw) return "";
 
-  const titleEl = document.getElementById("statusMessageTitle");
-  const messageInput = document.getElementById("statusMessageInput");
-  const processingInput = document.getElementById("statusProcessingTime");
+      const match = raw.match(/(\d+(?:\.\d+)?)/);
+      if (!match) return "";
 
-  titleEl.textContent = title;
-  messageInput.value = defaultMessage || "";
-  if (processingInput) processingInput.value = "";
+      const num = Number(match[1]);
+      if (!Number.isFinite(num) || num <= 0) return "";
 
-  modal.style.display = "flex";
-
-  function cleanup() {
-    modal.style.display = "none";
-    saveBtn.removeEventListener("click", handleSave);
-    cancelBtn.removeEventListener("click", handleCancel);
-    closeBtn.removeEventListener("click", handleCancel);
-  }
-
-  function handleSave() {
-    const msg = (messageInput.value || "").trim();
-    const processing_time = processingInput ? (processingInput.value || "").trim() : "";
-    cleanup();
-    onSave(msg, processing_time);
-  }
-
-  function handleCancel() {
-    cleanup();
-  }
-
-  saveBtn.addEventListener("click", handleSave);
-  cancelBtn.addEventListener("click", handleCancel);
-  closeBtn.addEventListener("click", handleCancel);
-}
-
-    // Mark entry as done
-    function markAsDone(entryId, buttonElement) {
-      showConfirmation(
-        'Mark as Complete',
-        'Are you sure you want to mark this user as served/completed?',
-        () => {
-          fetch('/update_queue_status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ entry_id: entryId, status: 'completed' })
-          })
-            .then(res => res.json())
-            .then(data => {
-              if (data.status === 'success') {
-                showAlert('User marked as completed!', 'success');
-                if (currentQRId) viewScans(currentQRId);
-              } else {
-                showAlert('Error: ' + data.message, 'error');
-              }
-            })
-            .catch(err => {
-              console.error('Error marking as done:', err);
-              showAlert('Failed to update status', 'error');
-            });
-        }
-      );
+      return String(Math.trunc(num)); // ✅ whole number only
     }
-
 
     // ===== Status Message Modal Controller =====
-let _statusOnSave = null;
+    let _statusOnSave = null;
 
-function openStatusMessageModal() {
-  document.getElementById("statusMessageModal").style.display = "flex";
-}
-
-function closeStatusMessageModal() {
-  document.getElementById("statusMessageModal").style.display = "none";
-  _statusOnSave = null;
-
-  // reset fields
-  document.getElementById("statusMessageInput").value = "";
-
-  const procInput = document.getElementById("statusProcessingInput");
-  const procWrap = document.getElementById("statusProcessingWrap");
-  if (procInput) procInput.value = "";
-  if (procWrap) procWrap.style.display = "none";
-}
-
-// options: { showProcessing: true/false, processingPlaceholder: "", defaultProcessing: "" }
-function requestStatusMessage(title, defaultMessage, onSave, options = {}) {
-  const showProcessing = !!options.showProcessing;
-
-  document.getElementById("statusMessageTitle").textContent = title;
-  document.getElementById("statusMessageInput").value = defaultMessage || "";
-
-  // Show/hide processing field based on Accept/Reject
-  const wrap = document.getElementById("statusProcessingWrap");
-  const input = document.getElementById("statusProcessingInput");
-
-  if (wrap && input) {
-    if (showProcessing) {
-      wrap.style.display = "block";
-      input.placeholder = options.processingPlaceholder || "e.g., 3 days / 5 business days";
-      input.value = options.defaultProcessing || "";
-    } else {
-      wrap.style.display = "none";
-      input.value = "";
+    function openStatusMessageModal() {
+      document.getElementById("statusMessageModal").style.display = "flex";
     }
-  }
 
-  _statusOnSave = () => {
-    const message = (document.getElementById("statusMessageInput").value || "").trim();
+    function closeStatusMessageModal() {
+      document.getElementById("statusMessageModal").style.display = "none";
+      _statusOnSave = null;
 
-    const processingTime =
-      showProcessing && input
-        ? (input.value || "").trim()
-        : "";
+      // reset fields
+      document.getElementById("statusMessageInput").value = "";
 
-    // ✅ Return both (message, processingTime)
-    onSave(message, processingTime);
-    closeStatusMessageModal();
-  };
+      const input = document.getElementById("statusProcessingInput");
+      const wrap = document.getElementById("statusProcessingWrap");
 
-  openStatusMessageModal();
-}
+      if (input) {
+        input.value = "";
+        input.oninput = null; // cleanup listener
+      }
+      if (wrap) wrap.style.display = "none";
+    }
 
-// ===== Wire modal buttons =====
-document.getElementById("statusMessageSave").addEventListener("click", () => {
-  if (typeof _statusOnSave === "function") _statusOnSave();
-});
+    /*
+    options:
+    {
+      showProcessing: true/false,
+      processingPlaceholder: "",
+      defaultProcessing: ""
+    }
+    */
+    function requestStatusMessage(title, defaultMessage, onSave, options = {}) {
+      const showProcessing = !!options.showProcessing;
 
-document.getElementById("statusMessageCancel").addEventListener("click", closeStatusMessageModal);
-document.getElementById("statusMessageClose").addEventListener("click", closeStatusMessageModal);
+      document.getElementById("statusMessageTitle").textContent = title;
+      document.getElementById("statusMessageInput").value = defaultMessage || "";
 
-// Optional: click outside modal closes it
-document.getElementById("statusMessageModal").addEventListener("click", (e) => {
-  if (e.target.id === "statusMessageModal") closeStatusMessageModal();
-});
+      const wrap = document.getElementById("statusProcessingWrap");
+      const input = document.getElementById("statusProcessingInput");
 
+      if (wrap && input) {
+        if (showProcessing) {
+          wrap.style.display = "block";
+          input.placeholder = options.processingPlaceholder || "e.g., 3";
+          input.value = formatProcessingTime(options.defaultProcessing || "");
+
+          // ✅ enforce whole number while typing
+          input.oninput = () => {
+            input.value = formatProcessingTime(input.value);
+          };
+        } else {
+          wrap.style.display = "none";
+          input.value = "";
+          input.oninput = null;
+        }
+      }
+
+      _statusOnSave = () => {
+        const message = (document.getElementById("statusMessageInput").value || "").trim();
+
+        // ✅ always normalize to whole number before returning
+        const processingTime =
+          showProcessing && input
+            ? formatProcessingTime(input.value || "")
+            : "";
+
+        onSave(message, processingTime);
+        closeStatusMessageModal();
+      };
+
+      openStatusMessageModal();
+    }
+
+    // ===== Wire modal buttons (bind ONCE) =====
+    document.getElementById("statusMessageSave").addEventListener("click", () => {
+      if (typeof _statusOnSave === "function") _statusOnSave();
+    });
+
+    document.getElementById("statusMessageCancel").addEventListener("click", closeStatusMessageModal);
+    document.getElementById("statusMessageClose").addEventListener("click", closeStatusMessageModal);
+
+    // Optional: click outside modal closes it
+    document.getElementById("statusMessageModal").addEventListener("click", (e) => {
+      if (e.target.id === "statusMessageModal") closeStatusMessageModal();
+    });
 
 async function acceptEntry(entryId) {
   const DEFAULT_MSG =
@@ -741,6 +701,34 @@ function rejectEntry(entryId) {
     { showProcessing: false } // ✅ REJECT: hidden
   );
 }
+
+    // Mark entry as done
+    function markAsDone(entryId, buttonElement) {
+      showConfirmation(
+        'Mark as Complete',
+        'Are you sure you want to mark this user as served/completed?',
+        () => {
+          fetch('/update_queue_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entry_id: entryId, status: 'completed' })
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.status === 'success') {
+                showAlert('User marked as completed!', 'success');
+                if (currentQRId) viewScans(currentQRId);
+              } else {
+                showAlert('Error: ' + data.message, 'error');
+              }
+            })
+            .catch(err => {
+              console.error('Error marking as done:', err);
+              showAlert('Failed to update status', 'error');
+            });
+        }
+      );
+    }
 
 
     // Fetch QR List - shows only ACTIVE queues
