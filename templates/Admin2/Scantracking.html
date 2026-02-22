@@ -632,6 +632,65 @@ function requestStatusMessage(title, defaultMessage, onSave, options = {}) {
   }
 })();
 
+function buildAcceptRejectParams(payload, statusOverride, messageOverride, processingOverride = "") {
+  const email = (payload.email || "").toString().trim();
+  const user_name = extractFirstName(payload.user_name || payload.fullname || payload.name || "Applicant");
+  const created_at =
+    (payload.created_at || "").toString().trim() ||
+    new Date().toLocaleString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  const application_status = (statusOverride || payload.application_status || "Accepted").toString().trim();
+
+  const status_message =
+    (messageOverride || payload.notification_message || payload.status_message || payload.user_message || "")
+      .toString()
+      .trim();
+
+  const processing_time = formatProcessingTime(
+    processingOverride || payload.processing_time || payload.processing_days || ""
+  );
+
+  const queue_type = (payload.queue_type || "Document").toString().trim();
+
+  // ✅ Send multiple recipient variable aliases (template may use any of these)
+  return {
+    title: "Application Update",
+    email,          // common
+    to_email: email, // common in EmailJS templates
+    recipient: email,
+    user_email: email,
+
+    user_name,
+    to_name: user_name,
+    name: user_name,
+
+    created_at,
+    application_status,
+    processing_time,
+
+    status_message,
+    user_message: status_message,
+
+    queue_type
+  };
+}
+
+async function sendAcceptRejectEmail(params) {
+  if (typeof emailjs === "undefined") {
+    throw new Error("EmailJS library not loaded.");
+  }
+
+  console.log("Sending Accept/Reject using:", EMAILJS_CONFIG_DOCUMENT.SERVICE_ID, EMAILJS_CONFIG_DOCUMENT.TEMPLATE_ACCEPT_NOTIF_ID);
+  console.log("Params:", params);
+
+  return emailjs.send(
+    EMAILJS_CONFIG_DOCUMENT.SERVICE_ID,
+    EMAILJS_CONFIG_DOCUMENT.TEMPLATE_ACCEPT_NOTIF_ID, // template_hnn5wpo
+    params,
+    EMAILJS_CONFIG_DOCUMENT.PUBLIC_KEY
+  );
+}
+
 async function acceptEntry(entryId) {
   const DEFAULT_MSG =
     "We are pleased to inform you that your application form has been approved by our administrator.\n\n" +
@@ -642,7 +701,7 @@ async function acceptEntry(entryId) {
     DEFAULT_MSG,
     async (message, processingTime) => {
       const notificationMessage = (message || DEFAULT_MSG).trim();
-      const processing_time = formatProcessingTime(processingTime || ""); // whole number only
+      const processing_time = formatProcessingTime(processingTime || "");
 
       showConfirmation("Accept Entry", "Are you sure you want to accept this entry?", async () => {
         try {
@@ -655,35 +714,27 @@ async function acceptEntry(entryId) {
 
           const recipientEmail = (data.email || "").trim();
           if (!isValidEmail(recipientEmail)) {
-            showAlert(
-              "Application accepted, but email was not sent because recipient email is missing/invalid.",
-              "warning"
-            );
+            showAlert("Accepted, but email not sent (missing/invalid recipient email).", "warning");
             if (currentQRId) viewScans(currentQRId);
             return;
           }
 
-          // 2) Send EmailJS (template_hnn5wpo)
-          const params = buildAcceptNotifEmailParams({
-            ...data,
-            email: recipientEmail,
-            application_status: "Accepted",
-            processing_time: data.processing_time || processing_time,
-            notification_message: data.notification_message || notificationMessage
-          });
-
-          await sendEmailJsWithTemplateFallback(
-            EMAILJS_CONFIG_DOCUMENT,            // ✅ correct service + public key
-            ACCEPT_REJECT_TEMPLATE_IDS,         // ✅ template_hnn5wpo (with fallbacks)
-            params
+          // 2) Send Email (template_hnn5wpo)
+          const params = buildAcceptRejectParams(
+            { ...data, email: recipientEmail },
+            "Accepted",
+            data.notification_message || notificationMessage,
+            data.processing_time || processing_time
           );
 
-          showAlert("Entry accepted and email sent successfully!", "success");
+          await sendAcceptRejectEmail(params);
+
+          showAlert("Entry accepted and email sent!", "success");
           if (currentQRId) viewScans(currentQRId);
 
         } catch (err) {
-          console.error(err);
-          showAlert(err.message || "Accept failed (server/email error).", "error");
+          console.error("ACCEPT EMAIL ERROR:", err);
+          showAlert(formatEmailSendError(err) || err.message || "Accept failed.", "error");
         }
       });
     },
@@ -713,42 +764,33 @@ function rejectEntry(entryId) {
 
           const recipientEmail = (data.email || "").trim();
           if (!isValidEmail(recipientEmail)) {
-            showAlert(
-              "Entry rejected, but email was not sent because recipient email is missing/invalid.",
-              "warning"
-            );
+            showAlert("Rejected, but email not sent (missing/invalid recipient email).", "warning");
             if (currentQRId) viewScans(currentQRId);
             return;
           }
 
-          // 2) Send EmailJS (same template_hnn5wpo)
-          const params = buildAcceptNotifEmailParams({
-            ...data,
-            email: recipientEmail,
-            application_status: "Rejected",
-            processing_time: "", // reject = no processing time
-            notification_message: data.notification_message || notificationMessage
-          });
-
-          await sendEmailJsWithTemplateFallback(
-            EMAILJS_CONFIG_DOCUMENT,
-            ACCEPT_REJECT_TEMPLATE_IDS,
-            params
+          // 2) Send Email (same template_hnn5wpo)
+          const params = buildAcceptRejectParams(
+            { ...data, email: recipientEmail },
+            "Rejected",
+            data.notification_message || notificationMessage,
+            "" // no processing time for reject
           );
 
-          showAlert("Entry rejected and email sent successfully!", "success");
+          await sendAcceptRejectEmail(params);
+
+          showAlert("Entry rejected and email sent!", "success");
           if (currentQRId) viewScans(currentQRId);
 
         } catch (err) {
-          console.error(err);
-          showAlert(err.message || "Reject failed (server/email error).", "error");
+          console.error("REJECT EMAIL ERROR:", err);
+          showAlert(formatEmailSendError(err) || err.message || "Reject failed.", "error");
         }
       });
     },
     { showProcessing: false }
   );
 }
-
     // Mark entry as done
     function markAsDone(entryId, buttonElement) {
       showConfirmation(
