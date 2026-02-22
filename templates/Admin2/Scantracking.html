@@ -265,18 +265,7 @@
     function isValidEmail(email) {
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || "").trim());
     }
-
-    function formatProcessingTime(value) {
-      const raw = (value ?? "").toString().trim();
-      if (!raw) return "";
-
-      const numeric = Number(raw);
-      if (Number.isFinite(numeric) && numeric > 0) {
-        return String(Math.trunc(numeric)); // whole number only
-      }
-
-      return raw;
-    }
+    
 
     function buildStatusEmailParams(payload, applicationStatus, statusMessage, palette = {}, titleOverride = "") {
       const resolvedName = extractFirstName(payload.user_name || payload.fullname || payload.name || "");

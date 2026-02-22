@@ -32,7 +32,7 @@ QUEUE_ENTRIES_SCHEMA_MIGRATED = False
 # uses the correct scheme/host (https and your subdomain)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
-
+import re
 def normalize_processing_time(value: str) -> str:
     raw = (value or "").strip()
     if not raw:
