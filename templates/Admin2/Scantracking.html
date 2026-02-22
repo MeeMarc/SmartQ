@@ -170,9 +170,9 @@
     <div id="statusProcessingWrap" style="display:none; margin-bottom: 12px;">
       <label for="statusProcessingInput">Document processing time (optional):</label>
       <input
-        id="statusProcessingInput"
+        id="statusProcessingTime"
         type="text"
-        placeholder="e.g., 3 / 5 business days"
+        placeholder="e.g., 2 / 3 business days"
         style="width:100%; padding:10px; border:1px solid #ccd6e0; border-radius:8px; font-size:0.95rem;"
       />
     </div>
@@ -520,106 +520,99 @@
     }
 
 
-    // ✅ Whole number only (extracts number even if user types "3 days")
-    function formatProcessingTime(value) {
-      const raw = (value ?? "").toString().trim();
-      if (!raw) return "";
+// ✅ Whole number only (also handles "3 days", "5 business days", "3.9")
+function formatProcessingTime(value) {
+  const raw = (value ?? "").toString().trim();
+  if (!raw) return "";
 
-      const match = raw.match(/(\d+(?:\.\d+)?)/);
-      if (!match) return "";
+  const match = raw.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return "";
 
-      const num = Number(match[1]);
-      if (!Number.isFinite(num) || num <= 0) return "";
+  const num = Number(match[1]);
+  if (!Number.isFinite(num) || num <= 0) return "";
 
-      return String(Math.trunc(num)); // ✅ whole number only
-    }
+  return String(Math.trunc(num)); // ✅ whole number only
+}
 
-    // ===== Status Message Modal Controller =====
-    let _statusOnSave = null;
+// ===== Status Message Modal Controller =====
+let _statusOnSave = null;
 
-    function openStatusMessageModal() {
-      document.getElementById("statusMessageModal").style.display = "flex";
-    }
+function openStatusMessageModal() {
+  document.getElementById("statusMessageModal").style.display = "flex";
+}
 
-    function closeStatusMessageModal() {
-      document.getElementById("statusMessageModal").style.display = "none";
-      _statusOnSave = null;
+function closeStatusMessageModal() {
+  document.getElementById("statusMessageModal").style.display = "none";
+  _statusOnSave = null;
 
-      // reset fields
-      document.getElementById("statusMessageInput").value = "";
+  document.getElementById("statusMessageInput").value = "";
 
-      const input = document.getElementById("statusProcessingTime");
-      const wrap = document.getElementById("statusProcessingWrap");
+  const procInput = document.getElementById("statusProcessingTime"); // ✅ correct id
+  const procWrap = document.getElementById("statusProcessingWrap");
 
-      if (input) {
-        input.value = "";
-        input.oninput = null; // cleanup listener
-      }
-      if (wrap) wrap.style.display = "none";
-    }
+  if (procInput) {
+    procInput.value = "";
+    procInput.oninput = null;
+  }
+  if (procWrap) procWrap.style.display = "none";
+}
 
-    /*
-    options:
-    {
-      showProcessing: true/false,
-      processingPlaceholder: "",
-      defaultProcessing: ""
-    }
-    */
-    function requestStatusMessage(title, defaultMessage, onSave, options = {}) {
-      const showProcessing = !!options.showProcessing;
+// options: { showProcessing: true/false, processingPlaceholder: "", defaultProcessing: "" }
+function requestStatusMessage(title, defaultMessage, onSave, options = {}) {
+  const showProcessing = !!options.showProcessing;
 
-      document.getElementById("statusMessageTitle").textContent = title;
-      document.getElementById("statusMessageInput").value = defaultMessage || "";
+  document.getElementById("statusMessageTitle").textContent = title;
+  document.getElementById("statusMessageInput").value = defaultMessage || "";
 
-      const wrap = document.getElementById("statusProcessingWrap");
-      const input = document.getElementById("statusProcessingTime");
+  const wrap = document.getElementById("statusProcessingWrap");
+  const input = document.getElementById("statusProcessingTime"); // ✅ correct id
 
-      if (wrap && input) {
-        if (showProcessing) {
-          wrap.style.display = "block";
-          input.placeholder = options.processingPlaceholder || "e.g., 3";
-          input.value = formatProcessingTime(options.defaultProcessing || "");
+  if (wrap && input) {
+    if (showProcessing) {
+      wrap.style.display = "block";
+      input.placeholder = options.processingPlaceholder || "e.g., 3";
+      input.value = formatProcessingTime(options.defaultProcessing || "");
 
-          // ✅ enforce whole number while typing
-          input.oninput = () => {
-            input.value = formatProcessingTime(input.value);
-          };
-        } else {
-          wrap.style.display = "none";
-          input.value = "";
-          input.oninput = null;
-        }
-      }
-
-      _statusOnSave = () => {
-        const message = (document.getElementById("statusMessageInput").value || "").trim();
-
-        // ✅ always normalize to whole number before returning
-        const processingTime =
-          showProcessing && input
-            ? formatProcessingTime(input.value || "")
-            : "";
-
-        onSave(message, processingTime);
-        closeStatusMessageModal();
+      // ✅ force whole number while typing
+      input.oninput = () => {
+        input.value = formatProcessingTime(input.value);
       };
-
-      openStatusMessageModal();
+    } else {
+      wrap.style.display = "none";
+      input.value = "";
+      input.oninput = null;
     }
+  }
 
-    // ===== Wire modal buttons (bind ONCE) =====
-    document.getElementById("statusMessageSave").addEventListener("click", () => {
-      if (typeof _statusOnSave === "function") _statusOnSave();
-    });
+  _statusOnSave = () => {
+    const message = (document.getElementById("statusMessageInput").value || "").trim();
 
-    document.getElementById("statusMessageCancel").addEventListener("click", closeStatusMessageModal);
-    document.getElementById("statusMessageClose").addEventListener("click", closeStatusMessageModal);
+    // ✅ always return whole number only
+    const processingTime =
+      showProcessing && input
+        ? formatProcessingTime(input.value || "")
+        : "";
 
-    // Optional: click outside modal closes it
-    document.getElementById("statusMessageModal").addEventListener("click", (e) => {
-      if (e.target.id === "statusMessageModal") closeStatusMessageModal();
-    });
+    onSave(message, processingTime);
+    closeStatusMessageModal();
+  };
+
+  openStatusMessageModal();
+}
+
+// ===== Wire modal buttons (bind once) =====
+document.getElementById("statusMessageSave").addEventListener("click", () => {
+  if (typeof _statusOnSave === "function") _statusOnSave();
+});
+
+document.getElementById("statusMessageCancel").addEventListener("click", closeStatusMessageModal);
+document.getElementById("statusMessageClose").addEventListener("click", closeStatusMessageModal);
+
+// Optional: click outside modal closes it
+document.getElementById("statusMessageModal").addEventListener("click", (e) => {
+  if (e.target.id === "statusMessageModal") closeStatusMessageModal();
+});
+
 
 async function acceptEntry(entryId) {
   const DEFAULT_MSG =
