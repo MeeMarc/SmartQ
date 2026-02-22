@@ -501,14 +501,14 @@
         return;
       }
 
-      // Create FormData object for proper form submission
+      const formData = new URLSearchParams();
       formData.append('type', type);
       formData.append('purpose', purpose);
-      formData.append('avg_service_time', processingDays);
 
-      formData.append('processingMethod', processingMethod); // ✅ ADD THIS
+      if (processingDays) formData.append('processingDays', processingDays);
+      formData.append('processingMethod', processingMethod);
+      
       formData.append('releaseType', releaseType);
-
       formData.append('studentId', studentId);
       formData.append('validId', validId);
       formData.append('supportingDoc', supportingDoc);
