@@ -3783,6 +3783,11 @@ IMPORTANT NOTES
         return "Error generating ticket", 500
 
 
+@app.route('/healthz')
+def healthz():
+    return "ok", 200
+
+
 @app.route('/')
 def home():
     return redirect(url_for('admin'))

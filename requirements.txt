@@ -1,7 +1,7 @@
 Flask==3.0.3
 psycopg2-binary
 qrcode[pil]
-gunicorn
+gunicorn>=22,<25
 werkzeug
 python-dotenv
 Pillow
