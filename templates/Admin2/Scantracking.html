@@ -158,7 +158,7 @@
     </div>
   </div>
 
-  
+
 <!-- Modal for Accept/Reject Notification Message -->
 <div class="modal" id="statusMessageModal">
   <div class="modal-content" style="max-width: 520px;">
@@ -520,9 +520,6 @@
       };
     }
 
-    function closeStatusMessageModal() {
-      statusMessageModal.style.display = "none";
-    }
 
 function requestStatusMessage(title, defaultMessage, onSave) {
   const modal = document.getElementById("statusMessageModal");
@@ -664,7 +661,7 @@ document.getElementById("statusMessageModal").addEventListener("click", (e) => {
 });
 
 
-function acceptEntry(entryId) {
+async function acceptEntry(entryId) {
   const DEFAULT_MSG =
     "We are pleased to inform you that your application form has been approved by our administrator.\n\n" +
     "Please check your email regularly for further instructions and updates regarding your requested document.";
@@ -672,78 +669,36 @@ function acceptEntry(entryId) {
   requestStatusMessage(
     "Accept Entry Message",
     DEFAULT_MSG,
-    (message, processingTime) => {
+    async (message, processingTime) => {
       const notificationMessage = (message || DEFAULT_MSG).trim();
-      const processing_time = (processingTime || "").trim(); // admin free input
+      const processing_time = (processingTime || "").trim();
 
-      showConfirmation(
-        "Accept Entry",
-        "Are you sure you want to accept this entry?",
-        () => {
-          fetch(`/accept_queue_entry/${entryId}`, {
+      showConfirmation("Accept Entry", "Are you sure you want to accept this entry?", async () => {
+        try {
+          const data = await fetchJsonSafe(`/accept_queue_entry/${entryId}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              notification_message: notificationMessage,
-              processing_time: processing_time
-            })
-          })
-            .then(res => res.json())
-            .then(data => {
-              if (data.status !== "success") {
-                showAlert("Error: " + (data.message || "Unknown error"), "error");
-                return;
-              }
+            body: JSON.stringify({ notification_message: notificationMessage, processing_time })
+          });
 
-              const recipientEmail = (data.email || "").trim();
+          const recipientEmail = (data.email || "").trim();
+          if (!isValidEmail(recipientEmail)) {
+            showAlert("Application accepted. Status email was not sent because the recipient email is missing or invalid.", "warning");
+            if (currentQRId) viewScans(currentQRId);
+            return;
+          }
 
-              if (!isValidEmail(recipientEmail)) {
-                showAlert(
-                  "Application accepted. Status email was not sent because the recipient email is missing or invalid.",
-                  "warning"
-                );
-                if (currentQRId) viewScans(currentQRId);
-                return;
-              }
+          // send email...
+          showAlert("Entry accepted successfully!", "success");
+          if (currentQRId) viewScans(currentQRId);
 
-              // ✅ final values returned by backend (best source)
-              const finalMessage = (data.notification_message || notificationMessage).trim();
-              const finalProcessing = (data.processing_time || processing_time || "").trim();
-
-              const ACCEPT_TEMPLATE_ID = EMAILJS_CONFIG_DOCUMENT.TEMPLATE_ACCEPT_NOTIF_ID;
-
-              const acceptEmailParams = buildAcceptNotifEmailParams({
-                ...data,
-                title: "Application Request",
-                application_status: "Accepted",
-                status_message: finalMessage,
-                processing_time: finalProcessing
-              });
-
-              sendEmailJsWithTemplateFallback(
-                [EMAILJS_CONFIG_DOCUMENT, EMAILJS_CONFIG_STATUS],
-                ACCEPT_TEMPLATE_ID,
-                acceptEmailParams
-              ).catch(err => {
-                console.error("Email failed", err);
-                showAlert(`Application accepted, but email sending failed: ${formatEmailSendError(err)}`, "warning");
-              });
-
-              showAlert("Entry accepted successfully!", "success");
-              if (currentQRId) viewScans(currentQRId);
-            })
-            .catch(err => {
-              console.error(err);
-              showAlert("Failed to accept entry", "error");
-            });
+        } catch (err) {
+          console.error(err);
+          showAlert(err.message || "Accept failed (server error).", "error");
         }
-      );
+      });
     },
-    {
-      showProcessing: true, // ✅ only Accept shows processing field
-      processingPlaceholder: "e.g., 3 days / 5 business days",
-      defaultProcessing: ""
-    }
+    { showProcessing: true }
   );
 }
 
