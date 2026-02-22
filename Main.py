@@ -2335,7 +2335,7 @@ def accept_queue_entry(entry_id):
         base_message = provided_notification_message or default_message
 
         # ✅ Insert processing line in the middle
-        processing_line = f"(Document processing time: {processing_time})" if processing_time else ""
+        processing_line = f"Estimated Document Processing Time: {processing_time}" if processing_time else ""
 
         if processing_line:
             if "\n\n" in base_message:
