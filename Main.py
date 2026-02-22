@@ -2292,6 +2292,9 @@ def accept_queue_entry(entry_id):
         data = request.get_json() or {}
         provided_notification_message = (data.get('notification_message') or '').strip()
 
+        # ✅ admin free input from modal (example: "3 days")
+        provided_processing_time = (data.get('processing_time') or '').strip()
+
         conn = get_db_connection()
         cur = conn.cursor()
 
@@ -2306,24 +2309,42 @@ def accept_queue_entry(entry_id):
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
         full_name, email, created_at, ticket_status, queue_type, applicant_id, phone, queue_slug, queue_number = row
+
         email = resolve_entry_email(
             cur,
             current_email=email,
             applicant_id=applicant_id,
             phone=phone
         )
+
         user_name = extract_first_name(full_name)
         application_status = "Accepted"
-        processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
-        processing_time = format_processing_time_label(processing_days)
 
+        # Optional fallback if admin didn't type processing time
+        processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
+        auto_processing_time = format_processing_time_label(processing_days)
+
+        processing_time = provided_processing_time or auto_processing_time or ""
+
+        # Default base message
         default_message = (
             "We are pleased to inform you that your application form has been approved by our administrator.\n\n"
             "Please check your email regularly for further instructions and updates regarding your requested document."
         )
-        if processing_time:
-            default_message += f"\n\nEstimated processing time: {processing_time}."
-        notification_message = provided_notification_message or default_message
+
+        base_message = provided_notification_message or default_message
+
+        # ✅ Insert processing line in the middle
+        processing_line = f"(Document processing time: {processing_time})" if processing_time else ""
+
+        if processing_line:
+            if "\n\n" in base_message:
+                first_part, rest = base_message.split("\n\n", 1)
+                notification_message = f"{first_part}\n\n{processing_line}\n\n{rest}"
+            else:
+                notification_message = f"{base_message}\n\n{processing_line}"
+        else:
+            notification_message = base_message
 
         cur.execute("""
             UPDATE queue_entries
@@ -2346,10 +2367,10 @@ def accept_queue_entry(entry_id):
             "queue_type": queue_type or "Document",
             "processing_days": processing_days,
             "processing_time": processing_time,
-            "notification_message": notification_message or "",
+            "notification_message": notification_message,
             "application_status": application_status,
             "ticket_status": application_status,
-            "admin_status": "accepted"   # ✅ lowercase + consistent
+            "admin_status": "accepted"
         })
 
     except Exception as e:

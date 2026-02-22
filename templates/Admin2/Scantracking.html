@@ -158,21 +158,35 @@
     </div>
   </div>
 
-  <!-- Modal for Accept/Reject Notification Message -->
-  <div class="modal" id="statusMessageModal">
-    <div class="modal-content" style="max-width: 520px;">
-      <!-- ✅ FIX: Ã— to × -->
-      <span class="close-modal" id="statusMessageClose">×</span>
-      <h3 id="statusMessageTitle">Enter Notification Message</h3>
-      <label for="statusMessageInput">Message (optional):</label>
-      <textarea id="statusMessageInput" rows="4"
-        style="width: 100%; padding: 10px; border: 1px solid #ccd6e0; border-radius: 8px; font-size: 0.95rem; resize: vertical;"></textarea>
-      <div style="display: flex; gap: 10px; margin-top: 15px;">
-        <button type="button" id="statusMessageSave">Continue</button>
-        <button type="button" id="statusMessageCancel" style="background: #6c757d;">Cancel</button>
-      </div>
+  
+<!-- Modal for Accept/Reject Notification Message -->
+<div class="modal" id="statusMessageModal">
+  <div class="modal-content" style="max-width: 520px;">
+    <span class="close-modal" id="statusMessageClose">×</span>
+
+    <h3 id="statusMessageTitle">Enter Notification Message</h3>
+
+    <!-- ✅ Processing time field (hidden by default; shown only for Accept) -->
+    <div id="statusProcessingWrap" style="display:none; margin-bottom: 12px;">
+      <label for="statusProcessingInput">Document processing time (optional):</label>
+      <input
+        id="statusProcessingInput"
+        type="text"
+        placeholder="e.g., 3 days / 5 business days"
+        style="width:100%; padding:10px; border:1px solid #ccd6e0; border-radius:8px; font-size:0.95rem;"
+      />
+    </div>
+
+    <label for="statusMessageInput">Message (optional):</label>
+    <textarea id="statusMessageInput" rows="4"
+      style="width: 100%; padding: 10px; border: 1px solid #ccd6e0; border-radius: 8px; font-size: 0.95rem; resize: vertical;"></textarea>
+
+    <div style="display: flex; gap: 10px; margin-top: 15px;">
+      <button type="button" id="statusMessageSave">Continue</button>
+      <button type="button" id="statusMessageCancel" style="background: #6c757d;">Cancel</button>
     </div>
   </div>
+</div>
 
   <script>
     const qrListContainer = document.getElementById("qrListContainer");
@@ -510,32 +524,44 @@
       statusMessageModal.style.display = "none";
     }
 
-    function requestStatusMessage(title, defaultMessage, onContinue) {
-      statusMessageTitle.textContent = title;
-      statusMessageInput.value = defaultMessage || "";
-      statusMessageModal.style.display = "flex";
-      statusMessageModal.style.alignItems = "center";
-      statusMessageModal.style.justifyContent = "center";
-      statusMessageInput.focus();
-      statusMessageInput.setSelectionRange(statusMessageInput.value.length, statusMessageInput.value.length);
+function requestStatusMessage(title, defaultMessage, onSave) {
+  const modal = document.getElementById("statusMessageModal");
+  const closeBtn = document.getElementById("statusMessageClose");
+  const saveBtn = document.getElementById("statusMessageSave");
+  const cancelBtn = document.getElementById("statusMessageCancel");
 
-      const saveBtn = document.getElementById("statusMessageSave");
-      const cancelBtn = document.getElementById("statusMessageCancel");
+  const titleEl = document.getElementById("statusMessageTitle");
+  const messageInput = document.getElementById("statusMessageInput");
+  const processingInput = document.getElementById("statusProcessingTime");
 
-      const newSaveBtn = saveBtn.cloneNode(true);
-      const newCancelBtn = cancelBtn.cloneNode(true);
-      saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-      cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+  titleEl.textContent = title;
+  messageInput.value = defaultMessage || "";
+  if (processingInput) processingInput.value = "";
 
-      newSaveBtn.onclick = () => {
-        const message = (statusMessageInput.value || "").trim();
-        closeStatusMessageModal();
-        onContinue(message);
-      };
+  modal.style.display = "flex";
 
-      newCancelBtn.onclick = closeStatusMessageModal;
-      statusMessageClose.onclick = closeStatusMessageModal;
-    }
+  function cleanup() {
+    modal.style.display = "none";
+    saveBtn.removeEventListener("click", handleSave);
+    cancelBtn.removeEventListener("click", handleCancel);
+    closeBtn.removeEventListener("click", handleCancel);
+  }
+
+  function handleSave() {
+    const msg = (messageInput.value || "").trim();
+    const processing_time = processingInput ? (processingInput.value || "").trim() : "";
+    cleanup();
+    onSave(msg, processing_time);
+  }
+
+  function handleCancel() {
+    cleanup();
+  }
+
+  saveBtn.addEventListener("click", handleSave);
+  cancelBtn.addEventListener("click", handleCancel);
+  closeBtn.addEventListener("click", handleCancel);
+}
 
     // Mark entry as done
     function markAsDone(entryId, buttonElement) {
@@ -565,139 +591,202 @@
       );
     }
 
-    function acceptEntry(entryId) {
-      requestStatusMessage(
-        'Accept Entry Message',
-        'We are pleased to inform you that your application form has been approved by our administrator.\n\nPlease check your email regularly for further instructions and updates regarding your requested document.',
-        (message) => {
-          const notificationMessage = (message || 'We are pleased to inform you that your application form has been approved by our administrator.\n\nPlease check your email regularly for further instructions and updates regarding your requested document.').trim();
-          showConfirmation(
-            'Accept Entry',
-            'Are you sure you want to accept this entry?',
-            () => {
-              fetch(`/accept_queue_entry/${entryId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ notification_message: notificationMessage })
-              })
-                .then(res => res.json())
-                .then(data => {
-                  if (data.status !== 'success') {
-                    showAlert('Error: ' + data.message, 'error');
-                    return;
-                  }
 
-                  const recipientEmail = (data.email || "").trim();
+    // ===== Status Message Modal Controller =====
+let _statusOnSave = null;
 
-                  if (!isValidEmail(recipientEmail)) {
-                    showAlert(
-                      'Application accepted. Status email was not sent because the recipient email is missing or invalid.',
-                      'warning'
-                    );
-                    if (currentQRId) viewScans(currentQRId);
-                    return;
-                  }
+function openStatusMessageModal() {
+  document.getElementById("statusMessageModal").style.display = "flex";
+}
 
-                  // Accept Entry Email Template
-                  // Template ID: EMAILJS_CONFIG_DOCUMENT.TEMPLATE_ACCEPT_NOTIF_ID (Accept_notif)
-                  // Variables: title, email, user_name, created_at, application_status, status_message, processing_time
-                  const ACCEPT_TEMPLATE_ID = EMAILJS_CONFIG_DOCUMENT.TEMPLATE_ACCEPT_NOTIF_ID;
-                  const acceptEmailParams = buildAcceptNotifEmailParams({
-                    ...data,
-                    title: "Application Request",
-                    application_status: "Accepted",
-                    status_message: notificationMessage
-                  });
+function closeStatusMessageModal() {
+  document.getElementById("statusMessageModal").style.display = "none";
+  _statusOnSave = null;
 
-                  sendEmailJsWithTemplateFallback(
-                    [EMAILJS_CONFIG_DOCUMENT, EMAILJS_CONFIG_STATUS],
-                    ACCEPT_TEMPLATE_ID,
-                    acceptEmailParams
-                  )
-                    .catch(err => {
-                      console.error("Email failed", err);
-                      showAlert(`Application accepted, but email sending failed: ${formatEmailSendError(err)}`, "warning");
-                    });
+  // reset fields
+  document.getElementById("statusMessageInput").value = "";
 
-                  showAlert('Entry accepted successfully!', 'success');
-                  if (currentQRId) viewScans(currentQRId);
-                })
-                .catch(err => {
-                  console.error(err);
-                  showAlert('Failed to accept entry', 'error');
-                });
-            }
-          );
+  const procInput = document.getElementById("statusProcessingInput");
+  const procWrap = document.getElementById("statusProcessingWrap");
+  if (procInput) procInput.value = "";
+  if (procWrap) procWrap.style.display = "none";
+}
+
+// options: { showProcessing: true/false, processingPlaceholder: "", defaultProcessing: "" }
+function requestStatusMessage(title, defaultMessage, onSave, options = {}) {
+  const showProcessing = !!options.showProcessing;
+
+  document.getElementById("statusMessageTitle").textContent = title;
+  document.getElementById("statusMessageInput").value = defaultMessage || "";
+
+  // Show/hide processing field based on Accept/Reject
+  const wrap = document.getElementById("statusProcessingWrap");
+  const input = document.getElementById("statusProcessingInput");
+
+  if (wrap && input) {
+    if (showProcessing) {
+      wrap.style.display = "block";
+      input.placeholder = options.processingPlaceholder || "e.g., 3 days / 5 business days";
+      input.value = options.defaultProcessing || "";
+    } else {
+      wrap.style.display = "none";
+      input.value = "";
+    }
+  }
+
+  _statusOnSave = () => {
+    const message = (document.getElementById("statusMessageInput").value || "").trim();
+
+    const processingTime =
+      showProcessing && input
+        ? (input.value || "").trim()
+        : "";
+
+    // ✅ Return both (message, processingTime)
+    onSave(message, processingTime);
+    closeStatusMessageModal();
+  };
+
+  openStatusMessageModal();
+}
+
+// ===== Wire modal buttons =====
+document.getElementById("statusMessageSave").addEventListener("click", () => {
+  if (typeof _statusOnSave === "function") _statusOnSave();
+});
+
+document.getElementById("statusMessageCancel").addEventListener("click", closeStatusMessageModal);
+document.getElementById("statusMessageClose").addEventListener("click", closeStatusMessageModal);
+
+// Optional: click outside modal closes it
+document.getElementById("statusMessageModal").addEventListener("click", (e) => {
+  if (e.target.id === "statusMessageModal") closeStatusMessageModal();
+});
+
+
+function acceptEntry(entryId) {
+  const DEFAULT_MSG =
+    "We are pleased to inform you that your application form has been approved by our administrator.\n\n" +
+    "Please check your email regularly for further instructions and updates regarding your requested document.";
+
+  requestStatusMessage(
+    "Accept Entry Message",
+    DEFAULT_MSG,
+    (message, processingTime) => {
+      const notificationMessage = (message || DEFAULT_MSG).trim();
+      const processing_time = (processingTime || "").trim(); // admin free input
+
+      showConfirmation(
+        "Accept Entry",
+        "Are you sure you want to accept this entry?",
+        () => {
+          fetch(`/accept_queue_entry/${entryId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              notification_message: notificationMessage,
+              processing_time: processing_time
+            })
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.status !== "success") {
+                showAlert("Error: " + (data.message || "Unknown error"), "error");
+                return;
+              }
+
+              const recipientEmail = (data.email || "").trim();
+
+              if (!isValidEmail(recipientEmail)) {
+                showAlert(
+                  "Application accepted. Status email was not sent because the recipient email is missing or invalid.",
+                  "warning"
+                );
+                if (currentQRId) viewScans(currentQRId);
+                return;
+              }
+
+              // ✅ final values returned by backend (best source)
+              const finalMessage = (data.notification_message || notificationMessage).trim();
+              const finalProcessing = (data.processing_time || processing_time || "").trim();
+
+              const ACCEPT_TEMPLATE_ID = EMAILJS_CONFIG_DOCUMENT.TEMPLATE_ACCEPT_NOTIF_ID;
+
+              const acceptEmailParams = buildAcceptNotifEmailParams({
+                ...data,
+                title: "Application Request",
+                application_status: "Accepted",
+                status_message: finalMessage,
+                processing_time: finalProcessing
+              });
+
+              sendEmailJsWithTemplateFallback(
+                [EMAILJS_CONFIG_DOCUMENT, EMAILJS_CONFIG_STATUS],
+                ACCEPT_TEMPLATE_ID,
+                acceptEmailParams
+              ).catch(err => {
+                console.error("Email failed", err);
+                showAlert(`Application accepted, but email sending failed: ${formatEmailSendError(err)}`, "warning");
+              });
+
+              showAlert("Entry accepted successfully!", "success");
+              if (currentQRId) viewScans(currentQRId);
+            })
+            .catch(err => {
+              console.error(err);
+              showAlert("Failed to accept entry", "error");
+            });
         }
       );
+    },
+    {
+      showProcessing: true, // ✅ only Accept shows processing field
+      processingPlaceholder: "e.g., 3 days / 5 business days",
+      defaultProcessing: ""
     }
+  );
+}
 
-    function rejectEntry(entryId) {
-      requestStatusMessage(
-        'Reject Entry Message',
-        'We regret to inform you that your application form has not been approved by our administrator at this time.\n\nPlease review your submitted information and ensure that all requirements are complete and accurate before submitting a new request.',
-        (message) => {
-          const notificationMessage = (message || 'We regret to inform you that your application form has not been approved by our administrator at this time.\n\nPlease review your submitted information and ensure that all requirements are complete and accurate before submitting a new request.').trim();
-          showConfirmation(
-            'Reject Entry',
-            'Are you sure you want to reject this entry?',
-            () => {
-              fetch(`/reject_queue_entry/${entryId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ notification_message: notificationMessage })
-              })
-                .then(res => res.json())
-                .then(data => {
-                  if (data.status !== 'success') {
-                    showAlert('Error: ' + data.message, 'error');
-                    return;
-                  }
+function rejectEntry(entryId) {
+  const defaultMsg =
+    "We regret to inform you that your application form has not been approved by our administrator at this time.\n\n" +
+    "Please review your submitted information and ensure that all requirements are complete and accurate before submitting a new request.";
 
-                  const recipientEmail = (data.email || "").trim();
+  requestStatusMessage(
+    "Reject Entry Message",
+    defaultMsg,
+    (message) => {
+      const notificationMessage = (message || defaultMsg).trim();
 
-                  if (!isValidEmail(recipientEmail)) {
-                    showAlert(
-                      'Application rejected. Status email was not sent because the recipient email is missing or invalid.',
-                      'warning'
-                    );
-                    if (currentQRId) viewScans(currentQRId);
-                    return;
-                  }
-
-                  // Reject Entry Email Template
-                  // Template ID: EMAILJS_CONFIG_DOCUMENT.TEMPLATE_ACCEPT_NOTIF_ID (Accept_notif)
-                  // Variables: title, email, user_name, created_at, application_status, status_message, processing_time
-                  const REJECT_TEMPLATE_ID = EMAILJS_CONFIG_DOCUMENT.TEMPLATE_ACCEPT_NOTIF_ID;
-                  const rejectEmailParams = buildAcceptNotifEmailParams({
-                    ...data,
-                    title: "Application Request",
-                    application_status: "Rejected",
-                    status_message: notificationMessage
-                  });
-
-                  sendEmailJsWithTemplateFallback(
-                    [EMAILJS_CONFIG_DOCUMENT, EMAILJS_CONFIG_STATUS],
-                    REJECT_TEMPLATE_ID,
-                    rejectEmailParams
-                  )
-                    .catch(err => {
-                      console.error("Email failed", err);
-                      showAlert(`Application rejected, but email sending failed: ${formatEmailSendError(err)}`, "warning");
-                    });
-
-                  showAlert('Entry rejected successfully!', 'success');
-                  if (currentQRId) viewScans(currentQRId);
-                })
-                .catch(err => {
-                  console.error(err);
-                  showAlert('Failed to reject entry', 'error');
-                });
-            }
-          );
+      showConfirmation(
+        "Reject Entry",
+        "Are you sure you want to reject this entry?",
+        () => {
+          fetch(`/reject_queue_entry/${entryId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ notification_message: notificationMessage })
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.status !== "success") {
+                showAlert("Error: " + (data.message || "Unknown error"), "error");
+                return;
+              }
+              showAlert("Entry rejected successfully!", "success");
+              if (currentQRId) viewScans(currentQRId);
+            })
+            .catch(err => {
+              console.error(err);
+              showAlert("Failed to reject entry", "error");
+            });
         }
       );
-    }
+    },
+    { showProcessing: false } // ✅ REJECT: hidden
+  );
+}
+
 
     // Fetch QR List - shows only ACTIVE queues
     function fetchQRList() {
