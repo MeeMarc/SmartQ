@@ -334,6 +334,27 @@
   transform: translateY(0);
 }
 
+.inline-notification {
+  margin-top: 10px;
+  padding: 10px;
+  background: #e7f3ff;
+  border-left: 3px solid #007bff;
+  border-radius: 4px;
+}
+
+.inline-notification[hidden] {
+  display: none !important;
+}
+
+.inline-notification-title {
+  color: #003366;
+}
+
+.inline-notification-text {
+  margin: 5px 0 0 0;
+  color: #004085;
+}
+
 /* =========================================================
    MODAL
 ========================================================= */

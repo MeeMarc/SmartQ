@@ -204,6 +204,7 @@
 
     let currentScans = [];
     let currentQRId = null;
+    let showAllNotifications = false;
 
     const EMAILJS_CONFIG_STATUS = {
       PUBLIC_KEY: "_HnVy7yjDQ0045QtF",
@@ -1272,6 +1273,7 @@ function rejectEntry(entryId) {
               : [];
 
           currentScans = scans;
+          showAllNotifications = false;
 
           const queueModeLabel = scans.length
             ? `${scans[0].queue_processing_method || "Online"} / ${scans[0].queue_release_type || "Digital Copy"}`
@@ -1322,6 +1324,46 @@ function rejectEntry(entryId) {
       if (!s || ["pending", "waiting", "none", "null"].includes(s)) return "pending";
 
       return s;
+    }
+
+    function updateNotificationToggleButton() {
+      const toggleBtns = document.querySelectorAll(".toggle-all-notifications-btn");
+      if (!toggleBtns.length) return;
+
+      const hasNotifications = document.querySelectorAll("#scanList .inline-notification").length > 0;
+      toggleBtns.forEach((toggleBtn) => {
+        if (!hasNotifications) {
+          toggleBtn.disabled = true;
+          toggleBtn.textContent = "No Notifications";
+          return;
+        }
+
+        toggleBtn.disabled = false;
+        toggleBtn.textContent = showAllNotifications ? "Hide Notifications" : "Show Notifications";
+      });
+    }
+
+    function applyNotificationVisibility() {
+      const panels = document.querySelectorAll("#scanList .inline-notification");
+      panels.forEach((panel) => {
+        if (showAllNotifications) {
+          panel.removeAttribute("hidden");
+        } else {
+          panel.setAttribute("hidden", "");
+        }
+      });
+      updateNotificationToggleButton();
+    }
+
+    function toggleAllNotifications() {
+      const hasNotifications = document.querySelectorAll("#scanList .inline-notification").length > 0;
+      if (!hasNotifications) {
+        showAllNotifications = false;
+        updateNotificationToggleButton();
+        return;
+      }
+      showAllNotifications = !showAllNotifications;
+      applyNotificationVisibility();
     }
 
     function renderScans(scans) {
@@ -1375,7 +1417,8 @@ function rejectEntry(entryId) {
         const hasRecipientEmail = isValidEmail(recipientEmail);
 
         const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
-        const hasNotification = !!((user.notification_message || "").toString().trim());
+        const notificationMessage = (user.notification_message || "").toString().trim();
+        const hasNotification = !!notificationMessage;
 
         const canMarkDone =
           decisionStatus !== "pending" &&
@@ -1415,6 +1458,10 @@ function rejectEntry(entryId) {
 
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ""}
 
+            <button class="send-doc-btn toggle-all-notifications-btn" type="button" onclick="toggleAllNotifications()">
+              Show Notifications
+            </button>
+
             ${canSendDocument ? `
                 <button class="send-doc-btn"
                         data-entry-id="${entryId}"
@@ -1435,9 +1482,9 @@ function rejectEntry(entryId) {
         </div>
 
         ${hasNotification ? `
-          <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
-            <strong style="color: #003366;">📢 Notification:</strong>
-            <p style="margin: 5px 0 0 0; color: #004085;">${user.notification_message}</p>
+          <div class="inline-notification" hidden>
+            <strong class="inline-notification-title">Notification:</strong>
+            <p class="inline-notification-text">${notificationMessage}</p>
           </div>
         ` : ""}
       </div>
@@ -1458,6 +1505,8 @@ function rejectEntry(entryId) {
           });
         }
       });
+
+      applyNotificationVisibility();
     }
 
     function filterScans() {
