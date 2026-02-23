@@ -141,6 +141,10 @@
               <input type="checkbox" id="selectAllCheckbox" style="margin-right: 6px;"> Select All
             </label>
           </div>
+          <div style="margin-bottom: 10px;">
+            <input type="text" id="entrySearchInput" placeholder="Find name..."
+              style="width: 100%; padding: 8px 10px; border: 1px solid #ccd6e0; border-radius: 6px;">
+          </div>
           <div id="entryCheckboxes"></div>
         </div>
 
@@ -204,7 +208,6 @@
 
     let currentScans = [];
     let currentQRId = null;
-    let showAllNotifications = false;
 
     const EMAILJS_CONFIG_STATUS = {
       PUBLIC_KEY: "_HnVy7yjDQ0045QtF",
@@ -1023,6 +1026,46 @@ function rejectEntry(entryId) {
       }
     }
 
+    function updateSelectAllState() {
+      const selectAllCb = document.getElementById('selectAllCheckbox');
+      if (!selectAllCb) return;
+
+      const visibleCheckboxes = Array.from(document.querySelectorAll('#entryCheckboxes .entry-option'))
+        .filter(option => option.style.display !== 'none')
+        .map(option => option.querySelector('.entry-checkbox'))
+        .filter(Boolean);
+
+      if (visibleCheckboxes.length === 0) {
+        selectAllCb.checked = false;
+        selectAllCb.indeterminate = false;
+        return;
+      }
+
+      const checkedCount = visibleCheckboxes.filter(cb => cb.checked).length;
+      if (checkedCount === 0) {
+        selectAllCb.checked = false;
+        selectAllCb.indeterminate = false;
+      } else if (checkedCount === visibleCheckboxes.length) {
+        selectAllCb.checked = true;
+        selectAllCb.indeterminate = false;
+      } else {
+        selectAllCb.checked = false;
+        selectAllCb.indeterminate = true;
+      }
+    }
+
+    function filterEntryCheckboxes() {
+      const searchInput = document.getElementById('entrySearchInput');
+      const query = (searchInput?.value || '').toLowerCase().trim();
+
+      document.querySelectorAll('#entryCheckboxes .entry-option').forEach(option => {
+        const text = option.dataset.search || '';
+        option.style.display = text.includes(query) ? 'block' : 'none';
+      });
+
+      updateSelectAllState();
+    }
+
     function populateEntryCheckboxes() {
       const container = document.getElementById("entryCheckboxes");
       container.innerHTML = "";
@@ -1032,12 +1075,25 @@ function rejectEntry(entryId) {
 
       if (currentScans.length === 0) {
         container.innerHTML = "<p style='color: #666;'>No entries available.</p>";
+        const searchInput = document.getElementById('entrySearchInput');
+        if (searchInput) {
+          searchInput.value = '';
+          searchInput.oninput = null;
+        }
+        const selectAllCb = document.getElementById('selectAllCheckbox');
+        if (selectAllCb) {
+          selectAllCb.checked = false;
+          selectAllCb.indeterminate = false;
+          selectAllCb.disabled = true;
+        }
         return;
       }
 
       currentScans.forEach(scan => {
         const div = document.createElement("div");
+        div.className = "entry-option";
         div.style.marginBottom = "8px";
+        div.dataset.search = `${scan.fullname || ''} ${scan.email || ''} ${scan.phone || ''}`.toLowerCase();
         div.innerHTML = `
       <label style="display: flex; align-items: center; cursor: pointer;">
         <input type="checkbox" class="entry-checkbox" value="${scan.id}" style="margin-right: 8px;">
@@ -1045,14 +1101,35 @@ function rejectEntry(entryId) {
       </label>
     `;
         container.appendChild(div);
+
+        const checkbox = div.querySelector('.entry-checkbox');
+        if (checkbox) {
+          checkbox.addEventListener('change', updateSelectAllState);
+        }
       });
+
+      const searchInput = document.getElementById('entrySearchInput');
+      if (searchInput) {
+        searchInput.value = '';
+        searchInput.oninput = filterEntryCheckboxes;
+      }
 
       // Select All checkbox handler
       const selectAllCb = document.getElementById('selectAllCheckbox');
+      selectAllCb.disabled = false;
       selectAllCb.checked = false;
+      selectAllCb.indeterminate = false;
       selectAllCb.onchange = function () {
-        document.querySelectorAll('.entry-checkbox').forEach(cb => cb.checked = selectAllCb.checked);
+        Array.from(document.querySelectorAll('#entryCheckboxes .entry-option'))
+          .filter(option => option.style.display !== 'none')
+          .forEach(option => {
+            const cb = option.querySelector('.entry-checkbox');
+            if (cb) cb.checked = selectAllCb.checked;
+          });
+        updateSelectAllState();
       };
+
+      filterEntryCheckboxes();
     }
 
     async function sendNotificationEmails(scansToNotify, message) {
@@ -1273,7 +1350,6 @@ function rejectEntry(entryId) {
               : [];
 
           currentScans = scans;
-          showAllNotifications = false;
 
           const queueModeLabel = scans.length
             ? `${scans[0].queue_processing_method || "Online"} / ${scans[0].queue_release_type || "Digital Copy"}`
@@ -1324,46 +1400,6 @@ function rejectEntry(entryId) {
       if (!s || ["pending", "waiting", "none", "null"].includes(s)) return "pending";
 
       return s;
-    }
-
-    function updateNotificationToggleButton() {
-      const toggleBtns = document.querySelectorAll(".toggle-all-notifications-btn");
-      if (!toggleBtns.length) return;
-
-      const hasNotifications = document.querySelectorAll("#scanList .inline-notification").length > 0;
-      toggleBtns.forEach((toggleBtn) => {
-        if (!hasNotifications) {
-          toggleBtn.disabled = true;
-          toggleBtn.textContent = "No Notifications";
-          return;
-        }
-
-        toggleBtn.disabled = false;
-        toggleBtn.textContent = showAllNotifications ? "Hide Notifications" : "Show Notifications";
-      });
-    }
-
-    function applyNotificationVisibility() {
-      const panels = document.querySelectorAll("#scanList .inline-notification");
-      panels.forEach((panel) => {
-        if (showAllNotifications) {
-          panel.removeAttribute("hidden");
-        } else {
-          panel.setAttribute("hidden", "");
-        }
-      });
-      updateNotificationToggleButton();
-    }
-
-    function toggleAllNotifications() {
-      const hasNotifications = document.querySelectorAll("#scanList .inline-notification").length > 0;
-      if (!hasNotifications) {
-        showAllNotifications = false;
-        updateNotificationToggleButton();
-        return;
-      }
-      showAllNotifications = !showAllNotifications;
-      applyNotificationVisibility();
     }
 
     function renderScans(scans) {
@@ -1458,9 +1494,11 @@ function rejectEntry(entryId) {
 
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ""}
 
-            <button class="send-doc-btn toggle-all-notifications-btn" type="button" onclick="toggleAllNotifications()">
-              Show Notifications
-            </button>
+            ${hasNotification ? `
+              <button class="send-doc-btn notification-toggle-btn" type="button" aria-expanded="false">
+                Show Notification
+              </button>
+            ` : ""}
 
             ${canSendDocument ? `
                 <button class="send-doc-btn"
@@ -1492,7 +1530,7 @@ function rejectEntry(entryId) {
 
         scanList.appendChild(card);
 
-        const sendBtn = card.querySelector(".send-doc-btn");
+        const sendBtn = card.querySelector(".send-doc-btn[data-entry-id]");
         if (sendBtn && !sendBtn.disabled) {
           sendBtn.addEventListener("click", function () {
             openSendDocumentModal(
@@ -1504,9 +1542,25 @@ function rejectEntry(entryId) {
             );
           });
         }
-      });
 
-      applyNotificationVisibility();
+        const notifToggleBtn = card.querySelector(".notification-toggle-btn");
+        const notifPanel = card.querySelector(".inline-notification");
+        if (notifToggleBtn && notifPanel) {
+          notifToggleBtn.addEventListener("click", function () {
+            const isHidden = notifPanel.hasAttribute("hidden");
+            if (isHidden) {
+              notifPanel.removeAttribute("hidden");
+              notifToggleBtn.textContent = "Hide Notification";
+              notifToggleBtn.setAttribute("aria-expanded", "true");
+              return;
+            }
+
+            notifPanel.setAttribute("hidden", "");
+            notifToggleBtn.textContent = "Show Notification";
+            notifToggleBtn.setAttribute("aria-expanded", "false");
+          });
+        }
+      });
     }
 
     function filterScans() {
