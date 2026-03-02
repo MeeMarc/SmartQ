@@ -563,17 +563,19 @@ def create_slug(text):
     return slug.strip('-')
 
 def get_next_queue_number(queue_type):
-    """Get the next queue number for a given queue type (exact match)."""
+    """Get the next queue number for a given normalized queue slug."""
     try:
         conn = get_db_connection()
         if conn is None:
             print("Database connection failed in get_next_queue_number")
             return 1
         cur = conn.cursor()
-        # Count existing queues of this exact type
+        queue_slug = create_slug(queue_type)
+        # Numbering must follow the URL key (/queue/<slug>/<number>) to avoid
+        # collisions where queue_type differs only by case (e.g., Test vs test).
         cur.execute(
-            "SELECT COUNT(*) FROM qr_history WHERE queue_type = %s",
-            (queue_type,)
+            "SELECT COUNT(*) FROM qr_history WHERE queue_link LIKE %s",
+            (f"%/queue/{queue_slug}/%",)
         )
         count = cur.fetchone()[0]
         cur.close()

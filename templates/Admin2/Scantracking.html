@@ -824,6 +824,24 @@ function rejectEntry(entryId) {
     }
 
 
+    function pinActiveQueueCard(qrId) {
+      const normalizedQrId = Number(qrId);
+      const allCards = qrListContainer.querySelectorAll(".qr-box");
+      allCards.forEach((card) => card.classList.remove("qr-box-active"));
+
+      if (!Number.isInteger(normalizedQrId) || normalizedQrId <= 0) return;
+
+      const activeCard = qrListContainer.querySelector(`.qr-box[data-qr-id="${normalizedQrId}"]`);
+      if (!activeCard) return;
+
+      activeCard.classList.add("qr-box-active");
+
+      const listHeading = qrListContainer.querySelector("h3");
+      if (listHeading && listHeading.nextElementSibling !== activeCard) {
+        qrListContainer.insertBefore(activeCard, listHeading.nextElementSibling);
+      }
+    }
+
     // Fetch QR List - shows only ACTIVE queues
     function fetchQRList() {
       fetch("/temp_qr_data")
@@ -836,9 +854,20 @@ function rejectEntry(entryId) {
             return;
           }
 
-          activeQRs.forEach(qr => {
+          const normalizedCurrentQRId = Number(currentQRId);
+          const orderedQRs = Array.isArray(activeQRs) ? [...activeQRs] : [];
+          if (Number.isInteger(normalizedCurrentQRId) && normalizedCurrentQRId > 0) {
+            orderedQRs.sort((a, b) => {
+              const aPriority = Number(a.id) === normalizedCurrentQRId ? 0 : 1;
+              const bPriority = Number(b.id) === normalizedCurrentQRId ? 0 : 1;
+              return aPriority - bPriority;
+            });
+          }
+
+          orderedQRs.forEach(qr => {
             const box = document.createElement("div");
             box.className = "qr-box";
+            box.dataset.qrId = String(qr.id);
 
             let formattedDate = 'N/A';
             if (qr.created_at && qr.created_at !== 'N/A') {
@@ -875,6 +904,8 @@ function rejectEntry(entryId) {
               height: 100
             });
           });
+
+          pinActiveQueueCard(currentQRId);
         })
         .catch(err => {
           console.error("Error fetching active QR list:", err);
@@ -1323,6 +1354,8 @@ function rejectEntry(entryId) {
       }
 
       currentQRId = normalizedQrId;
+      pinActiveQueueCard(normalizedQrId);
+      qrListContainer.scrollTo({ top: 0, behavior: "smooth" });
 
       fetch(`/get_qr_scans/${normalizedQrId}`, { credentials: "same-origin" })
         .then(async (res) => {
@@ -1370,6 +1403,7 @@ function rejectEntry(entryId) {
           document.getElementById("scanSearch").addEventListener("input", filterScans);
           renderScans(currentScans);
 
+          qrDetailContainer.scrollTo({ top: 0, behavior: "smooth" });
           qrDetailContainer.scrollIntoView({ behavior: "smooth", block: "start" });
         })
         .catch((err) => {

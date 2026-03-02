@@ -20,7 +20,9 @@
   display: grid;
   grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
   gap: 30px;
-  align-items: start;
+  align-items: stretch;
+  height: calc(100vh - 220px);
+  min-height: 560px;
 }
 
 .qr-list,
@@ -30,7 +32,9 @@
   box-shadow: 0 4px 10px rgba(0, 51, 102, 0.1);
   padding: 25px;
   overflow-y: auto;
-  min-height: 500px;
+  min-height: 0;
+  max-height: 100%;
+  scrollbar-gutter: stable;
 }
 
 /* =========================================================
@@ -45,6 +49,11 @@
   color: #003366;
   text-align: center;
   margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #fff;
+  padding-bottom: 8px;
 }
 
 .qr-box {
@@ -56,6 +65,19 @@
   margin-bottom: 20px;
   box-shadow: 0 2px 6px rgba(0, 51, 102, 0.05);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.qr-box-active {
+  position: sticky;
+  top: 52px;
+  z-index: 15;
+  border: 2px solid #2a72bd;
+  background: #edf5ff;
+  box-shadow: 0 8px 16px rgba(0, 51, 102, 0.18);
+}
+
+.qr-box-active:hover {
+  transform: none;
 }
 
 .qr-box:hover {
@@ -732,6 +754,8 @@
 @media (max-width: 992px) {
   .container-flex {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
   }
 
   .qr-list {
@@ -739,8 +763,11 @@
     max-width: none;
   }
 
+  .qr-list,
   .qr-detail {
     width: 100%;
+    max-height: 52vh;
+    min-height: 300px;
   }
 }
 
@@ -779,6 +806,7 @@
   .qr-detail {
     min-height: 300px;
     padding: 20px 18px;
+    max-height: 48vh;
   }
   
   .confirmation-modal,
