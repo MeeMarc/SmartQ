@@ -49,11 +49,6 @@
   color: #003366;
   text-align: center;
   margin-bottom: 20px;
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: #fff;
-  padding-bottom: 8px;
 }
 
 .qr-box {
@@ -65,19 +60,6 @@
   margin-bottom: 20px;
   box-shadow: 0 2px 6px rgba(0, 51, 102, 0.05);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.qr-box-active {
-  position: sticky;
-  top: 52px;
-  z-index: 15;
-  border: 2px solid #2a72bd;
-  background: #edf5ff;
-  box-shadow: 0 8px 16px rgba(0, 51, 102, 0.18);
-}
-
-.qr-box-active:hover {
-  transform: none;
 }
 
 .qr-box:hover {
