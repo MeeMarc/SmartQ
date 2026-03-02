@@ -38,8 +38,12 @@
     <div class="container-flex">
       <!-- LEFT: QR List -->
       <aside class="qr-list" id="qrListContainer">
-        <h3>Generated Queues</h3>
-        <!-- QR list injected dynamically -->
+        <div class="qr-list-header">
+          <h3>Active Queues</h3>
+        </div>
+        <div class="qr-list-body" id="qrListBody">
+          <!-- QR list injected dynamically -->
+        </div>
       </aside>
 
       <!-- RIGHT: Scan Details -->
@@ -193,7 +197,7 @@
 </div>
 
   <script>
-    const qrListContainer = document.getElementById("qrListContainer");
+    const qrListBody = document.getElementById("qrListBody");
     const qrDetailContainer = document.getElementById("qrDetailContainer");
     const modal = document.getElementById("candidateModal");
     const candidateForm = document.getElementById("candidateForm");
@@ -829,10 +833,10 @@ function rejectEntry(entryId) {
       fetch("/temp_qr_data")
         .then(res => res.json())
         .then(activeQRs => {
-          qrListContainer.innerHTML = "<h3>Active Queues</h3>";
+          qrListBody.innerHTML = "";
 
           if (activeQRs.length === 0) {
-            qrListContainer.innerHTML += "<p>No active queues found. Create one in Create Queue page.</p>";
+            qrListBody.innerHTML = "<p>No active queues found. Create one in Create Queue page.</p>";
             return;
           }
 
@@ -867,7 +871,7 @@ function rejectEntry(entryId) {
           <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>
           <button onclick="viewScans(${qr.id})">View Scans</button>
         `;
-            qrListContainer.appendChild(box);
+            qrListBody.appendChild(box);
 
             new QRCode(document.getElementById(`qr${qr.id}`), {
               text: qr.queue_link,
@@ -878,7 +882,7 @@ function rejectEntry(entryId) {
         })
         .catch(err => {
           console.error("Error fetching active QR list:", err);
-          qrListContainer.innerHTML = "<h3>Active Queues</h3><p>Error loading active queues.</p>";
+          qrListBody.innerHTML = "<p>Error loading active queues.</p>";
         });
     }
 
@@ -1356,21 +1360,30 @@ function rejectEntry(entryId) {
             : "";
 
           qrDetailContainer.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
-          <h3 style="margin:0;">Scans for QR #${normalizedQrId}${queueModeLabel ? ` <span style="font-size:0.9rem; color:#666; font-weight:500;">(${queueModeLabel})</span>` : ""}</h3>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button onclick="openNotificationModal(${normalizedQrId})" style="background:#17a2b8; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600;">Send Notification</button>
-            <button onclick="downloadScans(${normalizedQrId})" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600;">Download Scans</button>
+        <div class="scan-detail-shell">
+          <div class="scan-controls-panel">
+            <div class="scan-controls-row">
+              <h3 class="scan-controls-title">Scans for QR #${normalizedQrId}${queueModeLabel ? ` <span style="font-size:0.9rem; color:#666; font-weight:500;">(${queueModeLabel})</span>` : ""}</h3>
+              <div class="scan-controls-actions">
+                <button onclick="openNotificationModal(${normalizedQrId})" class="scan-action-btn scan-action-btn-notify">Send Notification</button>
+                <button onclick="downloadScans(${normalizedQrId})" class="scan-action-btn scan-action-btn-download">Download Scans</button>
+              </div>
+            </div>
+            <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, status, or admin status">
+          </div>
+          <div class="scan-results-panel" id="scanResultsPanel">
+            <div class="scan-list" id="scanList"></div>
           </div>
         </div>
-        <input type="text" id="scanSearch" placeholder="Search by name, phone, purpose, status, or admin status">
-        <div class="scan-list" id="scanList"></div>
       `;
 
           document.getElementById("scanSearch").addEventListener("input", filterScans);
           renderScans(currentScans);
 
-          qrDetailContainer.scrollTo({ top: 0, behavior: "smooth" });
+          const scanResultsPanel = document.getElementById("scanResultsPanel");
+          if (scanResultsPanel) {
+            scanResultsPanel.scrollTo({ top: 0, behavior: "smooth" });
+          }
           qrDetailContainer.scrollIntoView({ behavior: "smooth", block: "start" });
         })
         .catch((err) => {
@@ -1378,8 +1391,14 @@ function rejectEntry(entryId) {
           showAlert(err.message || "Failed to load scans. Please try again.", "error");
 
           qrDetailContainer.innerHTML = `
-        <h3>Scans for QR #${normalizedQrId}</h3>
-        <p style="color:#b00020;">${(err.message || "").replace(/</g, "&lt;").slice(0, 500)}</p>
+        <div class="scan-detail-shell">
+          <div class="scan-controls-panel">
+            <h3 class="scan-controls-title">Scans for QR #${normalizedQrId}</h3>
+          </div>
+          <div class="scan-results-panel">
+            <p style="color:#b00020;">${(err.message || "").replace(/</g, "&lt;").slice(0, 500)}</p>
+          </div>
+        </div>
       `;
         });
     }

@@ -43,12 +43,31 @@
 .qr-list {
   width: 100%;
   max-width: none;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.qr-list h3 {
+.qr-list-header {
+  flex: 0 0 auto;
+  padding: 22px 24px 12px;
+  border-bottom: 1px solid #e3ecf6;
+  background: #fff;
+}
+
+.qr-list-header h3 {
   color: #003366;
   text-align: center;
-  margin-bottom: 20px;
+  margin: 0;
+}
+
+.qr-list-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 24px 24px;
+  scrollbar-gutter: stable;
 }
 
 .qr-box {
@@ -118,6 +137,12 @@
   text-align: center;
 }
 
+.qr-detail {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .qr-detail input {
   width: 100%;
   padding: 10px;
@@ -131,6 +156,73 @@
 .qr-detail input:focus {
   border-color: #66b2ff;
   box-shadow: 0 0 5px rgba(102, 178, 255, 0.3);
+}
+
+.scan-detail-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  height: 100%;
+}
+
+.scan-controls-panel {
+  flex: 0 0 auto;
+  border: 1px solid #d8e3ef;
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 14px;
+}
+
+.scan-controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.scan-controls-title {
+  margin: 0;
+  text-align: left;
+}
+
+.scan-controls-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.scan-controls-panel input {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
+.scan-action-btn {
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.scan-action-btn-notify {
+  background: #17a2b8;
+}
+
+.scan-action-btn-download {
+  background: #28a745;
+}
+
+.scan-results-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid #d8e3ef;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
 }
 
 /* Scan list cards */
@@ -787,8 +879,19 @@
   .qr-list,
   .qr-detail {
     min-height: 300px;
-    padding: 20px 18px;
     max-height: 48vh;
+  }
+
+  .qr-detail {
+    padding: 20px 18px;
+  }
+
+  .qr-list-header {
+    padding: 16px 16px 10px;
+  }
+
+  .qr-list-body {
+    padding: 14px 16px 18px;
   }
   
   .confirmation-modal,
