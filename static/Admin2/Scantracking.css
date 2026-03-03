@@ -262,9 +262,9 @@
 }
 
 .status-waiting {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
+  background-color: #ffedd5;
+  color: #9a3412;
+  border: 1px solid #fdba74;
 }
 
 .status-completed {
@@ -286,9 +286,9 @@
 }
 
 .status-pending {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
+  background-color: #ffedd5;
+  color: #9a3412;
+  border: 1px solid #fdba74;
 }
 
 .status-accepted {
