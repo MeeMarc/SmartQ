@@ -387,6 +387,7 @@
     const customAlertText = document.getElementById('customAlertText');
     const customAlertOk = document.getElementById('customAlertOk');
     const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    let programmaticSubmitInProgress = false;
 
     function showCustomAlert(message, type = 'error') {
       if (!customAlertModal || !customAlertText || !customAlertOk || !customAlertIcon) {
@@ -458,11 +459,86 @@
       return true;
     }
 
+    function readFileBuffer(file) {
+      if (!file) {
+        return Promise.reject(new Error('Missing file.'));
+      }
+      if (typeof file.arrayBuffer === 'function') {
+        return file.arrayBuffer();
+      }
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error('Failed to read file.'));
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    async function cloneFileIntoInput(input, previewEl) {
+      const file = input && input.files && input.files[0];
+      if (!file) return true;
+
+      try {
+        const buffer = await readFileBuffer(file);
+        if (typeof DataTransfer === 'undefined' || typeof File === 'undefined') {
+          return true;
+        }
+        const safeName = (file.name || 'upload').toString().trim() || `upload_${Date.now()}`;
+        const stableFile = new File([buffer], safeName, {
+          type: file.type || 'application/octet-stream',
+          lastModified: Date.now()
+        });
+        const transfer = new DataTransfer();
+        transfer.items.add(stableFile);
+        try {
+          input.files = transfer.files;
+        } catch (assignErr) {
+          // Some browsers disallow setting input.files; keep original file in that case.
+          console.warn('input.files assignment not supported:', assignErr);
+          return true;
+        }
+        renderPreview(stableFile, previewEl);
+        return true;
+      } catch (err) {
+        console.warn('File stabilization failed:', err);
+        return false;
+      }
+    }
+
+    async function prepareFilesForSubmit() {
+      const fileTargets = [
+        { input: idInput, preview: idPreview },
+        { input: reqInput, preview: reqPreview }
+      ];
+
+      for (const target of fileTargets) {
+        if (!target.input) continue;
+        if (!validateFile(target.input, target.preview)) return false;
+        if (target.input.files && target.input.files.length > 0) {
+          const stabilized = await cloneFileIntoInput(target.input, target.preview);
+          if (!stabilized) {
+            showCustomAlert('Your selected file could not be accessed. Please reselect the file and submit again.');
+            return false;
+          }
+        }
+      }
+
+      return true;
+    }
+
     if (idInput) {
-      idInput.addEventListener('change', () => validateFile(idInput, idPreview));
+      idInput.addEventListener('change', async () => {
+        if (validateFile(idInput, idPreview)) {
+          await cloneFileIntoInput(idInput, idPreview);
+        }
+      });
     }
     if (reqInput) {
-      reqInput.addEventListener('change', () => validateFile(reqInput, reqPreview));
+      reqInput.addEventListener('change', async () => {
+        if (validateFile(reqInput, reqPreview)) {
+          await cloneFileIntoInput(reqInput, reqPreview);
+        }
+      });
     }
 
     // Signature pad
@@ -545,15 +621,22 @@
       }
 
       if (registrationForm) {
-        registrationForm.addEventListener('submit', (event) => {
+        registrationForm.addEventListener('submit', async (event) => {
+          if (programmaticSubmitInProgress) return;
+          event.preventDefault();
+          if (typeof registrationForm.reportValidity === 'function' && !registrationForm.reportValidity()) {
+            return false;
+          }
           if (declaration && !declaration.checked) {
-            event.preventDefault();
             showCustomAlert('Please certify that the information is true and correct.');
             return false;
           }
           if (!hasDrawn) {
-            event.preventDefault();
             showCustomAlert('Please provide your e-signature before submitting.');
+            return false;
+          }
+          const filesReady = await prepareFilesForSubmit();
+          if (!filesReady) {
             return false;
           }
           sigField.value = canvas.toDataURL('image/png');
@@ -561,15 +644,28 @@
             submitBtn.disabled = true;
             submitBtn.textContent = 'Submitting...';
           }
+          programmaticSubmitInProgress = true;
+          registrationForm.submit();
           return true;
         });
       }
     } else if (registrationForm) {
-      registrationForm.addEventListener('submit', () => {
+      registrationForm.addEventListener('submit', async (event) => {
+        if (programmaticSubmitInProgress) return;
+        event.preventDefault();
+        if (typeof registrationForm.reportValidity === 'function' && !registrationForm.reportValidity()) {
+          return false;
+        }
+        const filesReady = await prepareFilesForSubmit();
+        if (!filesReady) {
+          return false;
+        }
         if (submitBtn) {
           submitBtn.disabled = true;
           submitBtn.textContent = 'Submitting...';
         }
+        programmaticSubmitInProgress = true;
+        registrationForm.submit();
       });
     }
   })();

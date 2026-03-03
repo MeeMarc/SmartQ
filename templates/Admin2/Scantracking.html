@@ -1509,12 +1509,14 @@ function rejectEntry(entryId) {
         const hasDocuments = !!(user.has_documents || user.id_doc_url || user.req_doc_url || user.signature_url);
         const notificationMessage = (user.notification_message || "").toString().trim();
         const hasNotification = !!notificationMessage;
+        const isCompleted = statusLower === "completed";
+        const canShowNotification = hasNotification && !isCompleted;
 
         const canMarkDone =
           decisionStatus !== "pending" &&
           !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
-        const canSendDocument = (decisionStatus === "accepted") && !!entryId && hasRecipientEmail;
+        const canSendDocument = (decisionStatus === "accepted") && !!entryId && hasRecipientEmail && !isCompleted;
 
         card.innerHTML = `
       <div>
@@ -1535,7 +1537,7 @@ function rejectEntry(entryId) {
 
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ""}
 
-            ${hasNotification ? `
+            ${canShowNotification ? `
               <button class="send-doc-btn notification-toggle-btn" type="button" aria-expanded="false">
                 Show Notification
               </button>
@@ -1555,7 +1557,7 @@ function rejectEntry(entryId) {
           </div>
         </div>
 
-        ${hasNotification ? `
+        ${canShowNotification ? `
           <div class="inline-notification" hidden>
             <strong class="inline-notification-title">Notification:</strong>
             <p class="inline-notification-text">${notificationMessage}</p>
