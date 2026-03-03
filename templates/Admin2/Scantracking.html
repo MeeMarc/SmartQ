@@ -339,7 +339,15 @@
       if (!err) return "Unknown email service error.";
       const status = (err.status ?? err.statusCode ?? "").toString().trim();
       const text = (err.text ?? err.message ?? err.error ?? "").toString().trim();
-      if (status === "0") {
+      const raw = `${status} ${text} ${String(err ?? "")}`.toLowerCase();
+      if (
+        status === "0" ||
+        raw.includes("status 0") ||
+        raw.includes("failed to fetch") ||
+        raw.includes("networkerror") ||
+        raw.includes("err_connection_reset") ||
+        raw.includes("connection reset")
+      ) {
         return "Email service is currently unreachable (network error).";
       }
       const parts = [];
@@ -694,11 +702,10 @@ async function sendAcceptRejectEmail(params) {
   console.log("Sending Accept/Reject using:", EMAILJS_CONFIG_DOCUMENT.SERVICE_ID, EMAILJS_CONFIG_DOCUMENT.TEMPLATE_ACCEPT_NOTIF_ID);
   console.log("Params:", params);
 
-  return emailjs.send(
-    EMAILJS_CONFIG_DOCUMENT.SERVICE_ID,
+  return sendEmailJsWithTemplateFallback(
+    EMAILJS_CONFIG_DOCUMENT,
     EMAILJS_CONFIG_DOCUMENT.TEMPLATE_ACCEPT_NOTIF_ID, // template_hnn5wpo
-    params,
-    EMAILJS_CONFIG_DOCUMENT.PUBLIC_KEY
+    params
   );
 }
 
