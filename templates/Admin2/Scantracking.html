@@ -340,6 +340,9 @@
       const status = (err.status ?? err.statusCode ?? "").toString().trim();
       const text = (err.text ?? err.message ?? err.error ?? "").toString().trim();
       const raw = `${status} ${text} ${String(err ?? "")}`.toLowerCase();
+      if (raw.includes("template id not found") || raw.includes("the template id not found")) {
+        return "Email template ID was not found in EmailJS.";
+      }
       if (
         status === "0" ||
         raw.includes("status 0") ||
@@ -445,8 +448,11 @@
       const resolvedName = extractFirstName(payload.user_name || payload.fullname || payload.name || "");
       const resolvedEmail = (payload.email || "").toString().trim();
       const resolvedQueueType = (payload.queue_type || "Document").toString().trim() || "Document";
-      const resolvedMessage = (payload.user_message || "").toString().trim() || "Your requested document is ready for download.";
       const resolvedDownloadLink = (payload.download_link || "").toString().trim();
+      const baseMessage = (payload.user_message || "").toString().trim() || "Your requested document is ready for download.";
+      const resolvedMessage = resolvedDownloadLink
+        ? `${baseMessage}\n\nDownload Link: ${resolvedDownloadLink}`
+        : baseMessage;
 
       return {
         title: `Requested Document - ${resolvedQueueType}`,
@@ -1748,7 +1754,11 @@ function rejectEntry(entryId) {
         // Variables: title, email, user_name, queue_type, user_message, download_link
         const SEND_DOCS_TEMPLATE_IDS = [
           EMAILJS_CONFIG_DOCUMENT.TEMPLATE_DOCUMENT_ID,
-          ...(EMAILJS_CONFIG_DOCUMENT.TEMPLATE_DOCUMENT_FALLBACK_IDS || [])
+          ...(EMAILJS_CONFIG_DOCUMENT.TEMPLATE_DOCUMENT_FALLBACK_IDS || []),
+          // Fallback to known working templates if send-doc template is missing.
+          EMAILJS_CONFIG_STATUS.TEMPLATE_SEND_NOTIF_ID,
+          EMAILJS_CONFIG_STATUS.TEMPLATE_STATUS_ID,
+          EMAILJS_CONFIG_DOCUMENT.TEMPLATE_ACCEPT_NOTIF_ID
         ];
         const sendDocsEmailParams = buildSendDocsEmailParams({
           email: recipientEmail,
@@ -1758,11 +1768,20 @@ function rejectEntry(entryId) {
           download_link: resolvedDownloadUrl
         });
 
-        await sendEmailJsWithTemplateFallback(
-          [EMAILJS_CONFIG_DOCUMENT, EMAILJS_CONFIG_STATUS],
-          SEND_DOCS_TEMPLATE_IDS,
-          sendDocsEmailParams
-        );
+        try {
+          await sendEmailJsWithTemplateFallback(
+            [EMAILJS_CONFIG_DOCUMENT, EMAILJS_CONFIG_STATUS],
+            SEND_DOCS_TEMPLATE_IDS,
+            sendDocsEmailParams
+          );
+        } catch (emailErr) {
+          console.error("SEND DOCUMENT EMAIL ERROR:", emailErr);
+          const reason = formatEmailSendError(emailErr);
+          showAlert(`Document uploaded successfully, but email was not sent. ${reason}`, "warning");
+          closeSendDocumentModal();
+          document.getElementById("sendDocumentForm").reset();
+          return;
+        }
 
         showAlert("Document sent successfully!", "success");
         closeSendDocumentModal();
