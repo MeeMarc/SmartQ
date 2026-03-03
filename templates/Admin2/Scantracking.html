@@ -339,6 +339,9 @@
       if (!err) return "Unknown email service error.";
       const status = (err.status ?? err.statusCode ?? "").toString().trim();
       const text = (err.text ?? err.message ?? err.error ?? "").toString().trim();
+      if (status === "0") {
+        return "Email service is currently unreachable (network error).";
+      }
       const parts = [];
       if (status) parts.push(`status ${status}`);
       if (text) parts.push(text);
@@ -712,38 +715,42 @@ async function acceptEntry(entryId) {
       const processing_time = formatProcessingTime(processingTime || "");
 
       showConfirmation("Accept Entry", "Are you sure you want to accept this entry?", async () => {
+        let data;
         try {
-          // 1) Update DB
-          const data = await fetchJsonSafe(`/accept_queue_entry/${entryId}`, {
+          data = await fetchJsonSafe(`/accept_queue_entry/${entryId}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ notification_message: notificationMessage, processing_time })
           });
+        } catch (err) {
+          console.error("ACCEPT UPDATE ERROR:", err);
+          showAlert(err?.message || "Accept failed.", "error");
+          return;
+        }
 
-          const recipientEmail = (data.email || "").trim();
-          if (!isValidEmail(recipientEmail)) {
-            showAlert("Accepted, but email not sent (missing/invalid recipient email).", "warning");
-            if (currentQRId) viewScans(currentQRId);
-            return;
-          }
-
-          // 2) Send Email (template_hnn5wpo)
-          const params = buildAcceptRejectParams(
-            { ...data, email: recipientEmail },
-            "Accepted",
-            data.notification_message || notificationMessage,
-            data.processing_time || processing_time
-          );
-
-          await sendAcceptRejectEmail(params);
-
-          showAlert("Entry accepted and email sent!", "success");
+        const recipientEmail = (data.email || "").trim();
+        if (!isValidEmail(recipientEmail)) {
+          showAlert("Entry accepted, but email not sent (missing/invalid recipient email).", "warning");
           if (currentQRId) viewScans(currentQRId);
+          return;
+        }
 
+        const params = buildAcceptRejectParams(
+          { ...data, email: recipientEmail },
+          "Accepted",
+          data.notification_message || notificationMessage,
+          data.processing_time || processing_time
+        );
+
+        try {
+          await sendAcceptRejectEmail(params);
+          showAlert("Entry accepted and email sent!", "success");
         } catch (err) {
           console.error("ACCEPT EMAIL ERROR:", err);
-          showAlert(formatEmailSendError(err) || err.message || "Accept failed.", "error");
+          const reason = formatEmailSendError(err);
+          showAlert(`Entry accepted, but email was not sent. ${reason}`, "warning");
         }
+        if (currentQRId) viewScans(currentQRId);
       });
     },
     { showProcessing: true }
@@ -762,38 +769,42 @@ function rejectEntry(entryId) {
       const notificationMessage = (message || DEFAULT_MSG).trim();
 
       showConfirmation("Reject Entry", "Are you sure you want to reject this entry?", async () => {
+        let data;
         try {
-          // 1) Update DB
-          const data = await fetchJsonSafe(`/reject_queue_entry/${entryId}`, {
+          data = await fetchJsonSafe(`/reject_queue_entry/${entryId}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ notification_message: notificationMessage })
           });
+        } catch (err) {
+          console.error("REJECT UPDATE ERROR:", err);
+          showAlert(err?.message || "Reject failed.", "error");
+          return;
+        }
 
-          const recipientEmail = (data.email || "").trim();
-          if (!isValidEmail(recipientEmail)) {
-            showAlert("Rejected, but email not sent (missing/invalid recipient email).", "warning");
-            if (currentQRId) viewScans(currentQRId);
-            return;
-          }
-
-          // 2) Send Email (same template_hnn5wpo)
-          const params = buildAcceptRejectParams(
-            { ...data, email: recipientEmail },
-            "Rejected",
-            data.notification_message || notificationMessage,
-            "" // no processing time for reject
-          );
-
-          await sendAcceptRejectEmail(params);
-
-          showAlert("Entry rejected and email sent!", "success");
+        const recipientEmail = (data.email || "").trim();
+        if (!isValidEmail(recipientEmail)) {
+          showAlert("Entry rejected, but email not sent (missing/invalid recipient email).", "warning");
           if (currentQRId) viewScans(currentQRId);
+          return;
+        }
 
+        const params = buildAcceptRejectParams(
+          { ...data, email: recipientEmail },
+          "Rejected",
+          data.notification_message || notificationMessage,
+          "" // no processing time for reject
+        );
+
+        try {
+          await sendAcceptRejectEmail(params);
+          showAlert("Entry rejected and email sent!", "success");
         } catch (err) {
           console.error("REJECT EMAIL ERROR:", err);
-          showAlert(formatEmailSendError(err) || err.message || "Reject failed.", "error");
+          const reason = formatEmailSendError(err);
+          showAlert(`Entry rejected, but email was not sent. ${reason}`, "warning");
         }
+        if (currentQRId) viewScans(currentQRId);
       });
     },
     { showProcessing: false }
