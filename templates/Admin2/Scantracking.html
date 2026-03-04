@@ -450,9 +450,7 @@
       const resolvedQueueType = (payload.queue_type || "Document").toString().trim() || "Document";
       const resolvedDownloadLink = (payload.download_link || "").toString().trim();
       const baseMessage = (payload.user_message || "").toString().trim() || "Your requested document is ready for download.";
-      const resolvedMessage = resolvedDownloadLink
-        ? `${baseMessage}\n\nDownload Link: ${resolvedDownloadLink}`
-        : baseMessage;
+      const resolvedMessage = baseMessage;
 
       return {
         title: `Requested Document - ${resolvedQueueType}`,
