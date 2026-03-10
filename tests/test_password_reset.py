@@ -9,6 +9,43 @@ class PasswordResetRouteTests(unittest.TestCase):
         Main.app.config.update(TESTING=True, SECRET_KEY="test-secret")
         self.client = Main.app.test_client()
 
+    def test_password_reset_email_is_configured_with_emailjs(self):
+        with patch.dict(
+            Main.os.environ,
+            {
+                "EMAILJS_SERVICE_ID": "service_reset",
+                "EMAILJS_PASSWORD_RESET_TEMPLATE_ID": "template_reset",
+                "EMAILJS_PUBLIC_KEY": "public-key",
+                "EMAILJS_PRIVATE_KEY": "private-key",
+            },
+            clear=True,
+        ):
+            self.assertTrue(Main.password_reset_email_is_configured())
+
+    def test_send_password_reset_email_prefers_emailjs_when_configured(self):
+        with patch.dict(
+            Main.os.environ,
+            {
+                "EMAILJS_SERVICE_ID": "service_reset",
+                "EMAILJS_PASSWORD_RESET_TEMPLATE_ID": "template_reset",
+                "EMAILJS_PUBLIC_KEY": "public-key",
+                "EMAILJS_PRIVATE_KEY": "private-key",
+            },
+            clear=True,
+        ), patch.object(Main, "send_password_reset_email_via_emailjs", return_value=True) as send_emailjs:
+            email_sent = Main.send_password_reset_email(
+                "jane@example.com",
+                "Doe, Jane",
+                "https://smartq.example/reset-password/token-123",
+            )
+
+        self.assertTrue(email_sent)
+        send_emailjs.assert_called_once_with(
+            "jane@example.com",
+            "Doe, Jane",
+            "https://smartq.example/reset-password/token-123",
+        )
+
     def test_forgot_password_known_email_sends_reset_email(self):
         fake_conn = Mock()
 

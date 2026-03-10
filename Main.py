@@ -5,9 +5,12 @@ import smtplib
 import hashlib
 import secrets
 import glob
+import json
 from collections import OrderedDict
 from threading import Lock
 from email.mime.text import MIMEText
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response, send_from_directory
 from datetime import datetime, timedelta
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -161,19 +164,124 @@ def ensure_password_reset_tokens_table(conn):
 
 
 def password_reset_email_is_configured():
-    """Return True when the SMTP settings required for reset emails are present."""
+    """Return True when an email delivery method is configured for reset emails."""
+    if emailjs_password_reset_is_configured():
+        return True
+
     smtp_host = os.getenv("SMTP_HOST", "").strip()
     from_email = (os.getenv("SMTP_FROM_EMAIL") or os.getenv("SMTP_USERNAME") or "").strip()
     return bool(smtp_host and from_email)
 
 
+def emailjs_password_reset_is_configured():
+    """Return True when EmailJS is configured for password reset emails."""
+    service_id = os.getenv("EMAILJS_SERVICE_ID", "").strip()
+    template_id = os.getenv("EMAILJS_PASSWORD_RESET_TEMPLATE_ID", "").strip()
+    public_key = os.getenv("EMAILJS_PUBLIC_KEY", "").strip()
+    private_key = os.getenv("EMAILJS_PRIVATE_KEY", "").strip()
+    return bool(service_id and template_id and public_key and private_key)
+
+
+def build_password_reset_email_context(recipient_email, recipient_name, reset_link):
+    """Build common password reset email fields shared by all delivery providers."""
+    ttl_minutes = get_password_reset_token_ttl_minutes()
+    first_name = extract_first_name(recipient_name)
+    subject = "SmartQ password reset"
+    body = (
+        f"Hello {first_name},\n\n"
+        "We received a request to reset your SmartQ password.\n\n"
+        f"Use this link to set a new password:\n{reset_link}\n\n"
+        f"This link expires in {ttl_minutes} minutes and can only be used once.\n\n"
+        "If you did not request a password reset, you can ignore this email."
+    )
+    template_params = {
+        "subject": subject,
+        "email": recipient_email,
+        "to_email": recipient_email,
+        "recipient": recipient_email,
+        "user_email": recipient_email,
+        "name": first_name,
+        "to_name": first_name,
+        "user_name": first_name,
+        "first_name": first_name,
+        "full_name": (recipient_name or "").strip() or first_name,
+        "reset_link": reset_link,
+        "password_reset_link": reset_link,
+        "ttl_minutes": ttl_minutes,
+        "expiry_minutes": ttl_minutes,
+        "app_name": "SmartQ",
+        "message": body,
+    }
+    return {
+        "subject": subject,
+        "body": body,
+        "first_name": first_name,
+        "ttl_minutes": ttl_minutes,
+        "template_params": template_params,
+    }
+
+
+def send_password_reset_email_via_emailjs(recipient_email, recipient_name, reset_link):
+    """Send a password reset email using the EmailJS REST API over HTTPS."""
+    service_id = os.getenv("EMAILJS_SERVICE_ID", "").strip()
+    template_id = os.getenv("EMAILJS_PASSWORD_RESET_TEMPLATE_ID", "").strip()
+    public_key = os.getenv("EMAILJS_PUBLIC_KEY", "").strip()
+    private_key = os.getenv("EMAILJS_PRIVATE_KEY", "").strip()
+
+    if not all((service_id, template_id, public_key, private_key)):
+        print("Password reset email skipped: EmailJS is not fully configured.")
+        return False
+
+    context = build_password_reset_email_context(recipient_email, recipient_name, reset_link)
+    payload = {
+        "service_id": service_id,
+        "template_id": template_id,
+        "user_id": public_key,
+        "accessToken": private_key,
+        "template_params": context["template_params"],
+    }
+    request_body = json.dumps(payload).encode("utf-8")
+    request_obj = urllib_request.Request(
+        "https://api.emailjs.com/api/v1.0/email/send",
+        data=request_body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib_request.urlopen(request_obj, timeout=15) as response:
+            status_code = getattr(response, "status", response.getcode())
+            if 200 <= status_code < 300:
+                return True
+            response_body = response.read().decode("utf-8", errors="replace")
+            print(
+                f"EmailJS password reset email failed for {recipient_email}: "
+                f"HTTP {status_code} {response_body}"
+            )
+            return False
+    except urllib_error.HTTPError as e:
+        response_body = e.read().decode("utf-8", errors="replace")
+        print(
+            f"EmailJS password reset email failed for {recipient_email}: "
+            f"HTTP {e.code} {response_body}"
+        )
+    except Exception as e:
+        print(f"Error sending password reset email via EmailJS to {recipient_email}: {e}")
+    return False
+
+
 def send_password_reset_email(recipient_email, recipient_name, reset_link):
     """Send a password reset email to a user."""
+    if emailjs_password_reset_is_configured():
+        if send_password_reset_email_via_emailjs(recipient_email, recipient_name, reset_link):
+            return True
+        print("Password reset email via EmailJS failed; falling back to SMTP if configured.")
+
     smtp_host = os.getenv("SMTP_HOST", "").strip()
     from_email = (os.getenv("SMTP_FROM_EMAIL") or os.getenv("SMTP_USERNAME") or "").strip()
 
     if not smtp_host or not from_email:
-        print("Password reset email skipped: SMTP_HOST/SMTP_FROM_EMAIL is not configured.")
+        print("Password reset email skipped: neither EmailJS nor SMTP is fully configured.")
         return False
 
     try:
@@ -185,21 +293,14 @@ def send_password_reset_email(recipient_email, recipient_name, reset_link):
     smtp_password = os.getenv("SMTP_PASSWORD", "")
     smtp_use_tls = parse_env_flag("SMTP_USE_TLS", default=True)
     smtp_use_ssl = parse_env_flag("SMTP_USE_SSL", default=False)
-    ttl_minutes = get_password_reset_token_ttl_minutes()
-    first_name = extract_first_name(recipient_name)
+    context = build_password_reset_email_context(recipient_email, recipient_name, reset_link)
 
     message = MIMEText(
-        (
-            f"Hello {first_name},\n\n"
-            "We received a request to reset your SmartQ password.\n\n"
-            f"Use this link to set a new password:\n{reset_link}\n\n"
-            f"This link expires in {ttl_minutes} minutes and can only be used once.\n\n"
-            "If you did not request a password reset, you can ignore this email."
-        ),
+        context["body"],
         "plain",
         "utf-8",
     )
-    message["Subject"] = "SmartQ password reset"
+    message["Subject"] = context["subject"]
     message["From"] = from_email
     message["To"] = recipient_email
 
