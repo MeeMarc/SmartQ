@@ -3,13 +3,13 @@ import re
 import random
 import smtplib
 import hashlib
-import secrets
 import glob
 from collections import OrderedDict
 from threading import Lock
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response, send_from_directory
-from datetime import datetime, timedelta
+from datetime import timedelta
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 import psycopg2
@@ -108,226 +108,6 @@ def ensure_uploaded_documents_table(conn):
         conn.rollback()
 
 
-def get_password_reset_token_ttl_minutes():
-    """Return the password reset token lifetime in minutes."""
-    raw_value = os.getenv("PASSWORD_RESET_TOKEN_TTL_MINUTES", "30").strip()
-    try:
-        ttl_minutes = int(raw_value)
-    except ValueError:
-        ttl_minutes = 30
-    return max(ttl_minutes, 5)
-
-
-def parse_env_flag(name, default=False):
-    """Parse a boolean-like environment flag."""
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def hash_password_reset_token(raw_token):
-    """Return a stable hash for a raw password reset token."""
-    return hashlib.sha256((raw_token or "").encode("utf-8")).hexdigest()
-
-
-def ensure_password_reset_tokens_table(conn):
-    """Create the password reset token table if it does not exist."""
-    try:
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS password_reset_tokens (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                token_hash VARCHAR(64) NOT NULL UNIQUE,
-                expires_at TIMESTAMP NOT NULL,
-                used_at TIMESTAMP NULL,
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id
-            ON password_reset_tokens (user_id)
-        """)
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at
-            ON password_reset_tokens (expires_at)
-        """)
-        conn.commit()
-        cur.close()
-    except Exception as e:
-        print(f"Error creating password_reset_tokens table: {e}")
-        conn.rollback()
-
-
-def password_reset_email_is_configured():
-    """Return True when the SMTP settings required for reset emails are present."""
-    smtp_host = os.getenv("SMTP_HOST", "").strip()
-    from_email = (os.getenv("SMTP_FROM_EMAIL") or os.getenv("SMTP_USERNAME") or "").strip()
-    return bool(smtp_host and from_email)
-
-
-def send_password_reset_email(recipient_email, recipient_name, reset_link):
-    """Send a password reset email to a user."""
-    smtp_host = os.getenv("SMTP_HOST", "").strip()
-    from_email = (os.getenv("SMTP_FROM_EMAIL") or os.getenv("SMTP_USERNAME") or "").strip()
-
-    if not smtp_host or not from_email:
-        print("Password reset email skipped: SMTP_HOST/SMTP_FROM_EMAIL is not configured.")
-        return False
-
-    try:
-        smtp_port = int(os.getenv("SMTP_PORT", "587").strip())
-    except ValueError:
-        smtp_port = 587
-
-    smtp_username = os.getenv("SMTP_USERNAME", "").strip()
-    smtp_password = os.getenv("SMTP_PASSWORD", "")
-    smtp_use_tls = parse_env_flag("SMTP_USE_TLS", default=True)
-    smtp_use_ssl = parse_env_flag("SMTP_USE_SSL", default=False)
-    ttl_minutes = get_password_reset_token_ttl_minutes()
-    first_name = extract_first_name(recipient_name)
-
-    message = MIMEText(
-        (
-            f"Hello {first_name},\n\n"
-            "We received a request to reset your SmartQ password.\n\n"
-            f"Use this link to set a new password:\n{reset_link}\n\n"
-            f"This link expires in {ttl_minutes} minutes and can only be used once.\n\n"
-            "If you did not request a password reset, you can ignore this email."
-        ),
-        "plain",
-        "utf-8",
-    )
-    message["Subject"] = "SmartQ password reset"
-    message["From"] = from_email
-    message["To"] = recipient_email
-
-    try:
-        if smtp_use_ssl:
-            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15)
-        else:
-            server = smtplib.SMTP(smtp_host, smtp_port, timeout=15)
-
-        with server:
-            if not smtp_use_ssl and smtp_use_tls:
-                server.starttls()
-            if smtp_username and smtp_password:
-                server.login(smtp_username, smtp_password)
-            server.sendmail(from_email, [recipient_email], message.as_string())
-        return True
-    except Exception as e:
-        print(f"Error sending password reset email to {recipient_email}: {e}")
-        return False
-
-
-def find_user_by_email(conn, email):
-    """Fetch a user by normalized email for password reset flows."""
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, fullname, email FROM users WHERE LOWER(email) = %s",
-        (email,),
-    )
-    row = cur.fetchone()
-    cur.close()
-    if not row:
-        return None
-    return {
-        "id": row[0],
-        "fullname": row[1],
-        "email": row[2],
-    }
-
-
-def create_password_reset_token(conn, user_id):
-    """Create and persist a one-time password reset token."""
-    raw_token = secrets.token_urlsafe(32)
-    token_hash = hash_password_reset_token(raw_token)
-    expires_at = datetime.utcnow() + timedelta(minutes=get_password_reset_token_ttl_minutes())
-
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            "DELETE FROM password_reset_tokens WHERE user_id = %s OR expires_at < NOW()",
-            (user_id,),
-        )
-        cur.execute(
-            """
-            INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
-            VALUES (%s, %s, %s)
-            """,
-            (user_id, token_hash, expires_at),
-        )
-        conn.commit()
-        return raw_token, expires_at
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        cur.close()
-
-
-def get_password_reset_record(conn, raw_token):
-    """Return a valid password reset token record or None."""
-    token_hash = hash_password_reset_token(raw_token)
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT prt.id, prt.user_id, prt.expires_at, prt.used_at, u.email, u.fullname
-        FROM password_reset_tokens prt
-        JOIN users u ON u.id = prt.user_id
-        WHERE prt.token_hash = %s
-        """,
-        (token_hash,),
-    )
-    row = cur.fetchone()
-    cur.close()
-
-    if not row:
-        return None
-
-    expires_at = row[2]
-    used_at = row[3]
-    if used_at is not None or expires_at is None or expires_at <= datetime.utcnow():
-        return None
-
-    return {
-        "id": row[0],
-        "user_id": row[1],
-        "expires_at": expires_at,
-        "email": row[4],
-        "fullname": row[5],
-    }
-
-
-def set_user_password(conn, user_id, hashed_password):
-    """Update a user's stored password hash."""
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            "UPDATE users SET password = %s WHERE id = %s",
-            (hashed_password, user_id),
-        )
-    finally:
-        cur.close()
-
-
-def invalidate_password_reset_tokens(conn, user_id):
-    """Mark all active reset tokens for a user as used."""
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            """
-            UPDATE password_reset_tokens
-            SET used_at = NOW()
-            WHERE user_id = %s AND used_at IS NULL
-            """,
-            (user_id,),
-        )
-    finally:
-        cur.close()
-
-
 # ==============================================================  
 # AUTH ROUTES
 # ==============================================================
@@ -376,14 +156,14 @@ def signup():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = (request.form['email'] or '').strip().lower()
+        email = request.form['email']
         password = request.form['password']
         remember_me = request.form.get('remember') == 'on'  # Check if "Remember Me" is checked
 
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT id, fullname, email, password FROM users WHERE LOWER(email) = %s", (email,))
+            cur.execute("SELECT * FROM users WHERE email=%s", (email,))
             user = cur.fetchone()
             cur.close()
             conn.close()
@@ -397,7 +177,7 @@ def login():
                 return redirect(url_for('login'))
 
             # Store user info in session
-            session['user_email'] = user[2]
+            session['user_email'] = email
             session['user_fullname'] = user[1]
             
             # If "Remember Me" is checked, make session permanent (30 days)
@@ -413,87 +193,6 @@ def login():
             flash(f"Error: {str(e)}", "error")
 
     return render_template('Admin/login.html')
-
-
-@app.route('/forgot-password', methods=['GET', 'POST'])
-def forgot_password():
-    if request.method == 'POST':
-        email = (request.form.get('email') or '').strip().lower()
-
-        if not is_valid_email(email):
-            flash("Please enter a valid email address.", "error")
-            return render_template('Admin/forgot_password.html')
-
-        if not password_reset_email_is_configured():
-            flash("Password reset email is not configured yet. Please contact the administrator.", "error")
-            return render_template('Admin/forgot_password.html')
-
-        conn = get_db_connection()
-        if conn is None:
-            flash("Password reset is temporarily unavailable. Please try again later.", "error")
-            return render_template('Admin/forgot_password.html')
-
-        try:
-            ensure_password_reset_tokens_table(conn)
-            user = find_user_by_email(conn, email)
-            if user:
-                raw_token, _ = create_password_reset_token(conn, user['id'])
-                reset_link = f"{get_public_base_url()}{url_for('reset_password', token=raw_token)}"
-                email_sent = send_password_reset_email(user['email'], user['fullname'], reset_link)
-                if not email_sent:
-                    invalidate_password_reset_tokens(conn, user['id'])
-                    conn.commit()
-                    print(f"Password reset email delivery failed for user_id={user['id']}.")
-
-            flash("If an account exists for that email, a password reset link has been sent.", "success")
-            return redirect(url_for('login'))
-        except Exception as e:
-            print(f"Forgot password flow failed: {e}")
-            flash("Password reset is temporarily unavailable. Please try again later.", "error")
-        finally:
-            conn.close()
-
-    return render_template('Admin/forgot_password.html')
-
-
-@app.route('/reset-password/<token>', methods=['GET', 'POST'])
-def reset_password(token):
-    conn = get_db_connection()
-    if conn is None:
-        flash("Password reset is temporarily unavailable. Please try again later.", "error")
-        return redirect(url_for('forgot_password'))
-
-    try:
-        ensure_password_reset_tokens_table(conn)
-        token_record = get_password_reset_record(conn, token)
-        if not token_record:
-            flash("This password reset link is invalid or has expired.", "error")
-            return redirect(url_for('forgot_password'))
-
-        if request.method == 'POST':
-            new_password = request.form.get('password', '')
-            confirm_password = request.form.get('confirm_password', '')
-
-            if not new_password:
-                flash("Please enter a new password.", "error")
-            elif new_password != confirm_password:
-                flash("Passwords do not match.", "error")
-            else:
-                hashed_password = generate_password_hash(new_password)
-                set_user_password(conn, token_record['user_id'], hashed_password)
-                invalidate_password_reset_tokens(conn, token_record['user_id'])
-                conn.commit()
-                flash("Your password has been reset. You can now log in.", "success")
-                return redirect(url_for('login'))
-    except Exception as e:
-        conn.rollback()
-        print(f"Reset password flow failed: {e}")
-        flash("Password reset is temporarily unavailable. Please try again later.", "error")
-        return redirect(url_for('forgot_password'))
-    finally:
-        conn.close()
-
-    return render_template('Admin/reset_password.html', token=token)
 
 
 # ==============================================================  
@@ -558,17 +257,17 @@ def admin_settings():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # Fetch user id, fullname, email, and password for verification
-    cur.execute("SELECT id, fullname, email, password FROM users WHERE email = %s", (email,))
+    # Fetch fullname, email, and password for verification
+    cur.execute("SELECT fullname, email, password FROM users WHERE email = %s", (email,))
     admin = cur.fetchone()
 
     if request.method == 'POST':
-        fullname = request.form.get('fullname', admin[1])
+        fullname = request.form.get('fullname', admin[0])
         old_password = request.form.get('old_password', '')
         new_password = request.form.get('new_password', '')
         confirm_password = request.form.get('confirm_password', '')
 
-        current_hashed_pw = admin[3]  # stored hashed password
+        current_hashed_pw = admin[2]  # stored hashed password
 
         # If changing password
         if new_password:
@@ -582,8 +281,6 @@ def admin_settings():
                     "UPDATE users SET fullname = %s, password = %s WHERE email = %s",
                     (fullname, hashed_pw, email)
                 )
-                ensure_password_reset_tokens_table(conn)
-                invalidate_password_reset_tokens(conn, admin[0])
                 flash("Name and password updated successfully!")
         else:
             # Only update name if no new password

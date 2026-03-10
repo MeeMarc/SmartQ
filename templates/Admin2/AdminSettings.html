@@ -51,10 +51,10 @@
 
       <form method="POST" action="{{ url_for('admin_settings') }}">
         <label>Full Name:</label>
-        <p>{{ admin[1] if admin else '' }}</p> <!-- display as text -->
+        <p>{{ admin[0] if admin else '' }}</p> <!-- display as text -->
 
         <label>Email:</label>
-        <p>{{ admin[2] if admin else '' }}</p> <!-- display as text -->
+        <p>{{ admin[1] if admin else '' }}</p> <!-- display as text -->
 
         <!-- Added Old Password -->
         <label>Old Password:</label>

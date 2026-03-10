@@ -109,10 +109,9 @@ body {
   justify-content: center;
 }
 
-.right h1,
-.right h2 {
+.right h1 {
   font-size: 1.8rem;
-  margin-bottom: 18px;
+  margin-bottom: 40px;
   color: #3348A2;
   text-align: center;
 }
@@ -181,36 +180,6 @@ select:focus {
 .checkbox label {
   font-size: 0.9rem;
   color: #444;
-}
-
-.form-links {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: -8px;
-  margin-bottom: 20px;
-  font-size: 0.9rem;
-}
-
-.form-links-end {
-  justify-content: flex-end;
-}
-
-.form-links a {
-  color: #3348A2;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.form-links a:hover {
-  text-decoration: underline;
-}
-
-.form-copy {
-  margin-bottom: 20px;
-  color: #555;
-  line-height: 1.5;
-  text-align: center;
 }
 
 /* =============================
