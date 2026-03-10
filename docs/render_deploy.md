@@ -38,6 +38,7 @@ Preferred for Render free web services:
   - `EMAILJS_PASSWORD_RESET_TEMPLATE_ID`: EmailJS template ID for password reset emails
   - `EMAILJS_PUBLIC_KEY`: EmailJS public key
   - `EMAILJS_PRIVATE_KEY`: EmailJS private key / access token used by the backend
+- Because forgot-password calls EmailJS from Python on the server, enable EmailJS server-side or non-browser API access in your EmailJS account security settings. A `403` response with `error code: 1010` usually means that setting or the private-key permission is blocking the request.
 
 SMTP option for paid Render instances or other hosts:
 

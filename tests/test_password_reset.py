@@ -46,6 +46,13 @@ class PasswordResetRouteTests(unittest.TestCase):
             "https://smartq.example/reset-password/token-123",
         )
 
+    def test_format_emailjs_password_reset_error_mentions_backend_security_for_1010(self):
+        error_message = Main.format_emailjs_password_reset_error(403, "error code: 1010")
+
+        self.assertIn("HTTP 403", error_message)
+        self.assertIn("error code: 1010", error_message)
+        self.assertIn("non-browser/server-side API requests", error_message)
+
     def test_forgot_password_known_email_sends_reset_email(self):
         fake_conn = Mock()
 
