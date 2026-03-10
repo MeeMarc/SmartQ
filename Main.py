@@ -221,24 +221,6 @@ def build_password_reset_email_context(recipient_email, recipient_name, reset_li
     }
 
 
-def format_emailjs_password_reset_error(status_code, response_body):
-    """Return an actionable log message for EmailJS delivery failures."""
-    normalized_body = (response_body or "").strip()
-    body_lower = normalized_body.lower()
-    details = [f"HTTP {status_code}"]
-
-    if normalized_body:
-        details.append(normalized_body)
-
-    if status_code == 403 and "1010" in body_lower:
-        details.append(
-            "Check EmailJS account security: enable non-browser/server-side API requests "
-            "and verify the private key can access the configured service and template."
-        )
-
-    return " ".join(details)
-
-
 def send_password_reset_email_via_emailjs(recipient_email, recipient_name, reset_link):
     """Send a password reset email using the EmailJS REST API over HTTPS."""
     service_id = os.getenv("EMAILJS_SERVICE_ID", "").strip()
@@ -274,14 +256,14 @@ def send_password_reset_email_via_emailjs(recipient_email, recipient_name, reset
             response_body = response.read().decode("utf-8", errors="replace")
             print(
                 f"EmailJS password reset email failed for {recipient_email}: "
-                f"{format_emailjs_password_reset_error(status_code, response_body)}"
+                f"HTTP {status_code} {response_body}"
             )
             return False
     except urllib_error.HTTPError as e:
         response_body = e.read().decode("utf-8", errors="replace")
         print(
             f"EmailJS password reset email failed for {recipient_email}: "
-            f"{format_emailjs_password_reset_error(e.code, response_body)}"
+            f"HTTP {e.code} {response_body}"
         )
     except Exception as e:
         print(f"Error sending password reset email via EmailJS to {recipient_email}: {e}")
