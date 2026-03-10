@@ -29,18 +29,6 @@ If Render shows `No open HTTP ports detected`:
 
 Optional environment variables for forgot-password emails:
 
-Preferred for Render free web services:
-
-- Use EmailJS over HTTPS because Render free web services cannot send outbound SMTP traffic on ports `25`, `465`, or `587`.
-- Create an EmailJS password reset template that uses `{{first_name}}`, `{{reset_link}}`, and `{{ttl_minutes}}` (the backend also sends aliases such as `{{to_email}}`, `{{to_name}}`, `{{password_reset_link}}`, and `{{message}}`).
-- Set these environment variables in Render:
-  - `EMAILJS_SERVICE_ID`: EmailJS service ID tied to your sender mailbox
-  - `EMAILJS_PASSWORD_RESET_TEMPLATE_ID`: EmailJS template ID for password reset emails
-  - `EMAILJS_PUBLIC_KEY`: EmailJS public key
-  - `EMAILJS_PRIVATE_KEY`: EmailJS private key / access token used by the backend
-
-SMTP option for paid Render instances or other hosts:
-
 - `SMTP_HOST`: SMTP server hostname
 - `SMTP_PORT`: SMTP server port, defaults to `587`
 - `SMTP_USERNAME`: SMTP username if authentication is required
