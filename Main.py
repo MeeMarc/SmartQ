@@ -134,6 +134,7 @@ def ensure_app_settings_table(conn):
                 updated_at TIMESTAMP DEFAULT NOW()
             )
         """)
+        cur.execute("ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS logo_filename TEXT")
         cur.execute("""
             INSERT INTO app_settings (id, app_name, organization_name, office_name, office_tagline, office_description, logo_filename)
             VALUES (1, %s, %s, %s, %s, %s, %s)
@@ -146,7 +147,6 @@ def ensure_app_settings_table(conn):
             DEFAULT_APP_SETTINGS["office_description"],
             DEFAULT_APP_SETTINGS["logo_filename"],
         ))
-        cur.execute("ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS logo_filename TEXT")
         conn.commit()
         cur.close()
     except Exception as e:
