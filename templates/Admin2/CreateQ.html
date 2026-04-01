@@ -15,7 +15,7 @@
 
   <header>
     <nav class="HomeNavbar">
-      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>{{ app_settings.app_name }}</strong></a>
+      <a href="{{ url_for('homepage') }}" class="HomeLogo"><img src="{{ app_settings.logo_url }}" alt="{{ app_settings.app_name }} logo" class="nav-logo-img"><strong>{{ app_settings.app_name }}</strong></a>
       <ul class="HomeNavMenu">
         <li><a href="{{ url_for('homepage') }}">Home</a></li>
         <li><a href="{{ url_for('createq') }}" class="active">Create Queue</a></li>

@@ -11,7 +11,7 @@
   <!-- ======= HEADER / NAVBAR ======= -->
   <header>
     <nav class="navbar">
-      <a href="{{ url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number) }}" class="logo"><strong>{{ app_settings.app_name }}</strong></a>
+      <a href="{{ url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number) }}" class="logo"><img src="{{ app_settings.logo_url }}" alt="{{ app_settings.app_name }} logo" class="nav-logo-img"><strong>{{ app_settings.app_name }}</strong></a>
 
       <!-- Hamburger Menu -->
       <div class="menu-toggle" id="menu-toggle">

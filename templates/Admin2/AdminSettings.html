@@ -14,7 +14,7 @@
 
   <header>
     <nav class="HomeNavbar">
-      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>{{ app_settings.app_name }}</strong></a>
+      <a href="{{ url_for('homepage') }}" class="HomeLogo"><img src="{{ app_settings.logo_url }}" alt="{{ app_settings.app_name }} logo" class="nav-logo-img"><strong>{{ app_settings.app_name }}</strong></a>
       <ul class="HomeNavMenu">
         <li><a href="{{ url_for('homepage') }}">Home</a></li>
         <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
@@ -49,8 +49,13 @@
       {% endif %}
       {% endwith %}
 
-      <form method="POST" action="{{ url_for('admin_settings') }}">
+      <form method="POST" action="{{ url_for('admin_settings') }}" enctype="multipart/form-data">
         <input type="hidden" name="form_action" value="branding">
+
+        <div class="branding-preview">
+          <img src="{{ app_settings.logo_url }}" alt="{{ app_settings.app_name }} logo" class="branding-preview__logo">
+          <p class="branding-preview__text">Ito ang kasalukuyang logo na makikita sa users at admin pages.</p>
+        </div>
 
         <label>System Name:</label>
         <input type="text" name="app_name" value="{{ app_settings_row[0] if app_settings_row else app_settings.app_name }}" placeholder="e.g. SmartQ" required>
@@ -66,6 +71,10 @@
 
         <label>Office Description:</label>
         <textarea name="office_description" rows="4" placeholder="Describe the office or service desk." required>{{ app_settings_row[4] if app_settings_row else app_settings.office_description }}</textarea>
+
+        <label>Company Logo:</label>
+        <input type="file" name="logo_file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
+        <p>Optional. Upload a new logo to replace the current one. Max 2MB.</p>
 
         <button type="submit">Save Company Settings</button>
       </form>

@@ -87,6 +87,31 @@ form {
   gap: 18px;
 }
 
+.branding-preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid #ccd6e0;
+  border-radius: 10px;
+  background: #f7fbff;
+}
+
+.branding-preview__logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #ccd6e0;
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.branding-preview__text {
+  margin: 0;
+}
+
 label {
   font-weight: 600;
   color: #000000;

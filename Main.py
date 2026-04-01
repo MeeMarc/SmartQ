@@ -113,7 +113,8 @@ DEFAULT_APP_SETTINGS = {
     "organization_name": "Your Company",
     "office_name": "Your Office",
     "office_tagline": "Flexible virtual queueing for any company, office, or service desk.",
-    "office_description": "Use SmartQ to organize walk-in and online queue requests with a setup that fits your office."
+    "office_description": "Use SmartQ to organize walk-in and online queue requests with a setup that fits your office.",
+    "logo_filename": ""
 }
 
 
@@ -129,12 +130,13 @@ def ensure_app_settings_table(conn):
                 office_name TEXT NOT NULL DEFAULT 'Your Office',
                 office_tagline TEXT NOT NULL DEFAULT 'Flexible virtual queueing for any company, office, or service desk.',
                 office_description TEXT NOT NULL DEFAULT 'Use SmartQ to organize walk-in and online queue requests with a setup that fits your office.',
+                logo_filename TEXT,
                 updated_at TIMESTAMP DEFAULT NOW()
             )
         """)
         cur.execute("""
-            INSERT INTO app_settings (id, app_name, organization_name, office_name, office_tagline, office_description)
-            VALUES (1, %s, %s, %s, %s, %s)
+            INSERT INTO app_settings (id, app_name, organization_name, office_name, office_tagline, office_description, logo_filename)
+            VALUES (1, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO NOTHING
         """, (
             DEFAULT_APP_SETTINGS["app_name"],
@@ -142,7 +144,9 @@ def ensure_app_settings_table(conn):
             DEFAULT_APP_SETTINGS["office_name"],
             DEFAULT_APP_SETTINGS["office_tagline"],
             DEFAULT_APP_SETTINGS["office_description"],
+            DEFAULT_APP_SETTINGS["logo_filename"],
         ))
+        cur.execute("ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS logo_filename TEXT")
         conn.commit()
         cur.close()
     except Exception as e:
@@ -162,7 +166,7 @@ def get_app_settings():
         ensure_app_settings_table(conn)
         cur = conn.cursor()
         cur.execute("""
-            SELECT app_name, organization_name, office_name, office_tagline, office_description
+            SELECT app_name, organization_name, office_name, office_tagline, office_description, logo_filename
             FROM app_settings
             WHERE id = 1
         """)
@@ -176,6 +180,7 @@ def get_app_settings():
                 "office_name": row[2] or DEFAULT_APP_SETTINGS["office_name"],
                 "office_tagline": row[3] or DEFAULT_APP_SETTINGS["office_tagline"],
                 "office_description": row[4] or DEFAULT_APP_SETTINGS["office_description"],
+                "logo_filename": row[5] or DEFAULT_APP_SETTINGS["logo_filename"],
             })
     except Exception as e:
         print(f"Error loading app settings: {e}")
@@ -185,6 +190,10 @@ def get_app_settings():
     settings["office_display_name"] = " - ".join(
         part for part in [settings["organization_name"], settings["office_name"]] if part
     )
+    if settings.get("logo_filename"):
+        settings["logo_url"] = url_for('uploaded_file', filename=settings["logo_filename"])
+    else:
+        settings["logo_url"] = url_for('static', filename='images/logo.png')
     return settings
 
 
@@ -359,7 +368,7 @@ def admin_settings():
     cur.execute("SELECT fullname, email, password FROM users WHERE email = %s", (email,))
     admin = cur.fetchone()
     cur.execute("""
-        SELECT app_name, organization_name, office_name, office_tagline, office_description
+        SELECT app_name, organization_name, office_name, office_tagline, office_description, logo_filename
         FROM app_settings
         WHERE id = 1
     """)
@@ -374,6 +383,42 @@ def admin_settings():
             office_name = (request.form.get('office_name') or DEFAULT_APP_SETTINGS["office_name"]).strip()
             office_tagline = (request.form.get('office_tagline') or DEFAULT_APP_SETTINGS["office_tagline"]).strip()
             office_description = (request.form.get('office_description') or DEFAULT_APP_SETTINGS["office_description"]).strip()
+            logo_filename = app_settings[5] if app_settings and len(app_settings) > 5 else ""
+
+            logo_file = request.files.get('logo_file')
+            if logo_file and logo_file.filename:
+                if not allowed_logo_file(logo_file.filename):
+                    flash("Logo file must be PNG, JPG, JPEG, GIF, or WEBP.")
+                    conn.rollback()
+                    cur.close()
+                    conn.close()
+                    return redirect(url_for('admin_settings'))
+
+                logo_bytes = logo_file.read()
+                if not logo_bytes:
+                    flash("Uploaded logo is empty.")
+                    conn.rollback()
+                    cur.close()
+                    conn.close()
+                    return redirect(url_for('admin_settings'))
+
+                if len(logo_bytes) > 2 * 1024 * 1024:
+                    flash("Logo file is too large. Maximum size is 2MB.")
+                    conn.rollback()
+                    cur.close()
+                    conn.close()
+                    return redirect(url_for('admin_settings'))
+
+                logo_ext = secure_filename(logo_file.filename).rsplit('.', 1)[1].lower()
+                logo_filename = f"branding_logo_{secure_filename(email)}.{logo_ext}"
+                logo_content_type = get_content_type(logo_file.filename)
+
+                if not save_file_to_db(logo_filename, logo_bytes, logo_content_type):
+                    flash("Failed to save the uploaded logo.")
+                    conn.rollback()
+                    cur.close()
+                    conn.close()
+                    return redirect(url_for('admin_settings'))
 
             cur.execute("""
                 UPDATE app_settings
@@ -382,9 +427,10 @@ def admin_settings():
                     office_name = %s,
                     office_tagline = %s,
                     office_description = %s,
+                    logo_filename = %s,
                     updated_at = NOW()
                 WHERE id = 1
-            """, (app_name, organization_name, office_name, office_tagline, office_description))
+            """, (app_name, organization_name, office_name, office_tagline, office_description, logo_filename))
             flash("Company and office settings updated successfully!")
         else:
             fullname = request.form.get('fullname', admin[0])
@@ -455,6 +501,10 @@ def generate_qr():
 ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'jpg', 'png', 'zip'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def allowed_logo_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 # Content type mapping
 CONTENT_TYPE_MAP = {
@@ -537,6 +587,10 @@ def save_file_to_db(filename, file_data, content_type=None):
 # Upload document endpoint (entry_id-based + accepted-only)
 @app.route('/upload_document', methods=['POST'])
 def upload_document():
+    auth_error = require_admin_session_json()
+    if auth_error:
+        return auth_error
+
     if 'document' not in request.files:
         return jsonify({"error": "No file part"}), 400
 
@@ -565,8 +619,11 @@ def upload_document():
 
         ensure_queue_entries_table(conn)
         cur = conn.cursor()
+        owner_email = get_current_admin_email()
 
-        # ✅ Fetch admin_status + email for this specific entry
+        if not admin_owns_entry(cur, entry_id, owner_email):
+            return jsonify({"error": "You do not have permission to send documents for this entry."}), 403
+
         cur.execute("""
             SELECT applicant_id, email, admin_status, phone
             FROM queue_entries
@@ -2252,15 +2309,20 @@ def get_qr_scans(qr_id):
     conn = None
     cur = None
     try:
+        auth_error = require_admin_session_json()
+        if auth_error:
+            return auth_error
+
+        owner_email = get_current_admin_email()
         conn = get_db_connection()
         if conn is None:
             return jsonify({"status": "error", "message": "Database connection failed"}), 500
 
         cur = conn.cursor()
 
-        queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True)
+        queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True, owner_email=owner_email)
         if not queue_link:
-            return jsonify({"status": "success", "scans": []}), 200
+            return jsonify({"status": "error", "message": "QR not found or access denied."}), 404
 
         match = re.search(r'/queue/([^/]+)/(\d+)', queue_link)
         if not match:
@@ -2360,6 +2422,10 @@ def download_scans(qr_id):
     conn = None
     cur = None
     try:
+        if not get_current_admin_email():
+            return "Please log in first.", 401
+
+        owner_email = get_current_admin_email()
         conn = get_db_connection()
         if conn is None:
             return "Database connection failed", 500
@@ -2367,10 +2433,10 @@ def download_scans(qr_id):
         cur = conn.cursor()
 
         # Prefer active queue IDs from temp_qr to avoid ID collisions with history.
-        queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True)
+        queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True, owner_email=owner_email)
 
         if not queue_link:
-            return "QR not found", 404
+            return "QR not found or access denied", 404
 
         # Extract queue_slug and queue_number from the queue_link
         match = re.search(r'/queue/([^/]+)/(\d+)', queue_link)
@@ -2459,6 +2525,10 @@ def download_scans(qr_id):
 def update_queue_status():
     """Update the status of a queue entry."""
     try:
+        auth_error = require_admin_session_json()
+        if auth_error:
+            return auth_error
+
         data = request.get_json()
         entry_id = data.get('entry_id')
         new_status = data.get('status', 'completed')
@@ -2472,6 +2542,10 @@ def update_queue_status():
         
         ensure_queue_entries_table(conn)
         cur = conn.cursor()
+        owner_email = get_current_admin_email()
+
+        if not admin_owns_entry(cur, entry_id, owner_email):
+            return jsonify({"status": "error", "message": "You do not have permission to update this entry."}), 403
         
         cur.execute(
             "UPDATE queue_entries SET status = %s WHERE id = %s",
@@ -2514,6 +2588,10 @@ def normalize_processing_time(value) -> str:
 @app.route('/accept_queue_entry/<int:entry_id>', methods=['POST'])
 def accept_queue_entry(entry_id):
     try:
+        auth_error = require_admin_session_json()
+        if auth_error:
+            return auth_error
+
         data = request.get_json() or {}
         provided_notification_message = (data.get('notification_message') or '').strip()
 
@@ -2521,6 +2599,10 @@ def accept_queue_entry(entry_id):
 
         conn = get_db_connection()
         cur = conn.cursor()
+        owner_email = get_current_admin_email()
+
+        if not admin_owns_entry(cur, entry_id, owner_email):
+            return jsonify({"status": "error", "message": "You do not have permission to update this entry."}), 403
 
         cur.execute("""
             SELECT fullname, email, created_at, status, queue_type, applicant_id, phone, queue_slug, queue_number
@@ -2598,11 +2680,19 @@ def accept_queue_entry(entry_id):
 @app.route('/reject_queue_entry/<int:entry_id>', methods=['POST'])
 def reject_queue_entry(entry_id):
     try:
+        auth_error = require_admin_session_json()
+        if auth_error:
+            return auth_error
+
         data = request.get_json() or {}
         provided_notification_message = (data.get('notification_message') or '').strip()
 
         conn = get_db_connection()
         cur = conn.cursor()
+        owner_email = get_current_admin_email()
+
+        if not admin_owns_entry(cur, entry_id, owner_email):
+            return jsonify({"status": "error", "message": "You do not have permission to update this entry."}), 403
 
         cur.execute("""
             SELECT fullname, email, created_at, status, queue_type, applicant_id, phone, queue_slug, queue_number
@@ -2665,12 +2755,20 @@ def reject_queue_entry(entry_id):
 def view_entry_documents(entry_id):
     """Get document URLs for a specific queue entry."""
     try:
+        auth_error = require_admin_session_json()
+        if auth_error:
+            return auth_error
+
         conn = get_db_connection()
         if conn is None:
             return jsonify({"status": "error", "message": "Database connection failed"}), 500
         
         ensure_queue_entries_table(conn)
         cur = conn.cursor()
+        owner_email = get_current_admin_email()
+
+        if not admin_owns_entry(cur, entry_id, owner_email):
+            return jsonify({"status": "error", "message": "You do not have permission to view these documents."}), 403
         
         cur.execute(
             """
@@ -2716,10 +2814,15 @@ def view_entry_documents(entry_id):
 def send_notification():
     """Send notification to queue entries - all or specific ones."""
     try:
+        auth_error = require_admin_session_json()
+        if auth_error:
+            return auth_error
+
         data = request.get_json()
         qr_id = data.get('qr_id')
         entry_ids = data.get('entry_ids', [])  # Empty list means notify all
         notification_message = data.get('message', '').strip()
+        owner_email = get_current_admin_email()
         
         if not notification_message:
             return jsonify({"status": "error", "message": "Notification message is required"}), 400
@@ -2735,12 +2838,12 @@ def send_notification():
         cur = conn.cursor()
         
         # Get queue link to find queue_slug and queue_number.
-        queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True)
+        queue_link = resolve_queue_link_for_qr(cur, qr_id, prefer_active=True, owner_email=owner_email)
 
         if not queue_link:
             cur.close()
             conn.close()
-            return jsonify({"status": "error", "message": "QR not found"}), 404
+            return jsonify({"status": "error", "message": "QR not found or access denied"}), 404
 
         # Extract queue_slug and queue_number from queue_link
         match = re.search(r'/queue/([^/]+)/(\d+)', queue_link)
