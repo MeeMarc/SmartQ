@@ -20,6 +20,13 @@
   text-align: center;
 }
 
+.settings-intro {
+  margin-bottom: 24px;
+  background: #eef6ff;
+  border: 1px solid #c9def5;
+  color: #1d3d63;
+}
+
 /* =============================
    FLASH MESSAGES (CENTERED MODAL)
 ============================= */
@@ -87,6 +94,41 @@ form {
   gap: 18px;
 }
 
+.settings-card {
+  border: 1px solid #d9e4ef;
+  border-radius: 14px;
+  padding: 22px 20px;
+  background: #fbfdff;
+}
+
+.settings-card + .settings-card {
+  margin-top: 18px;
+}
+
+.settings-card__header {
+  margin-bottom: 18px;
+}
+
+.settings-card__header h3 {
+  margin: 0 0 6px;
+  color: #003366;
+  font-size: 1.2rem;
+}
+
+.settings-card__header p {
+  margin: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: #5a6f85;
+}
+
+.settings-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, #ccd6e0, transparent);
+  margin: 22px 0;
+}
+
 .branding-preview {
   display: flex;
   align-items: center;
@@ -110,6 +152,10 @@ form {
 
 .branding-preview__text {
   margin: 0;
+}
+
+.field-help {
+  margin-top: -8px;
 }
 
 label {
