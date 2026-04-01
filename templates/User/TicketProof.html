@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ticket Proof | SmartQ</title>
+  <title>Ticket Proof | {{ app_settings.app_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='Waiting.css') }}">
 </head>
 <body>
 
   <header>
     <nav class="navbar">
-      <a href="{{ url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number) }}" class="logo"><strong>SmartQ</strong></a>
+      <a href="{{ url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number) }}" class="logo"><strong>{{ app_settings.app_name }}</strong></a>
     </nav>
   </header>
 
@@ -50,7 +50,7 @@
       {% if queue_flow_hint %}
       {{ queue_flow_hint }}
       {% else %}
-      This page confirms the registration was submitted in SmartQ.
+      This page confirms the registration was submitted in {{ app_settings.app_name }} for {{ app_settings.office_name }}.
       {% endif %}
     </p>
   </section>

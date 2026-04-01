@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SmartQ</title>
+  <title>{{ app_settings.app_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/common.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/Homepage.css') }}">
 </head>
@@ -12,7 +12,7 @@
 
   <header>
     <nav class="HomeNavbar">
-      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>SmartQ</strong></a>
+      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>{{ app_settings.app_name }}</strong></a>
       <ul class="HomeNavMenu">
         <li><a href="{{ url_for('homepage') }}" class="active">Home</a></li>
         <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
@@ -21,7 +21,7 @@
           <details class="settings-details">
             <summary class="settings-trigger">Settings</summary>
             <div class="settings-menu">
-              <a href="{{ url_for('admin_settings') }}">Account</a>
+              <a href="{{ url_for('admin_settings') }}">Account & Branding</a>
               <a href="{{ url_for('logout') }}" class="logout-link">Log out</a>
             </div>
           </details>
@@ -49,10 +49,9 @@
       <div class="HomeRow">
         <!-- Left side: Text -->
         <div class="HomeTextContent">
-          <h2>Virtual Queue System to make it efficient than traditional Queue Method</h2>
+          <h2>{{ app_settings.office_display_name }} Virtual Queue System</h2>
           <p>
-            SmartQ makes it easy for them and staff to access services efficiently,
-            ensuring smooth management.
+            {{ app_settings.office_description }}
           </p>
         </div>
 
@@ -76,7 +75,7 @@
 
       <!-- Right side: Text -->
       <div class="HomeTextContent">
-        <h3>How SmartQ Works?</h3>
+        <h3>How {{ app_settings.app_name }} Works for {{ app_settings.office_name }}?</h3>
         <ul>
           <li>Users simply scan a QR code on their mobile devices to join the queue.</li>
           <li>A webpage will open displaying the required fields (Name, Mobile Number) for the student to fill out and submit.</li>
@@ -92,7 +91,7 @@
 <!-- Section 3 -->
 <section class="HomeFeaturesSection">
   <div class="HomeContainer">
-    <h2>How will SmartQ benefit the students and staff members?</h2>
+    <h2>How will {{ app_settings.office_name }} benefit clients and staff members?</h2>
     <p><strong>Features Highlights</strong></p>
 
     <ul>

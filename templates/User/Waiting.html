@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ queue_type|default('Queue Status', true) }} | SmartQ</title>
+  <title>{{ queue_type|default('Queue Status', true) }} | {{ app_settings.app_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='Waiting.css') }}">
 </head>
 <body data-queue-slug="{{ queue_slug|default('', true) }}">
@@ -11,7 +11,7 @@
   <!-- ======= HEADER / NAVBAR ======= -->
   <header>
     <nav class="navbar">
-      <a href="{{ url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number) }}" class="logo"><strong>SmartQ</strong></a>
+      <a href="{{ url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number) }}" class="logo"><strong>{{ app_settings.app_name }}</strong></a>
 
       <!-- Hamburger Menu -->
       <div class="menu-toggle" id="menu-toggle">
@@ -93,7 +93,7 @@
       {% if queue_flow_hint %}
       {{ queue_flow_hint }}
       {% else %}
-      Present this reference, your filled-out form, and documents at the registrar desk. Ticket holders may proceed in any order.
+      Present this reference, your filled-out form, and documents at {{ app_settings.office_name }}. Ticket holders may proceed in any order.
       {% endif %}
     </p>
     {% endif %}

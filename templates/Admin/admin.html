@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SmartQ</title>
+  <title>{{ app_settings.app_name }}</title>
 
   <!-- Correct path to CSS file ...-->
   <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
@@ -12,7 +12,7 @@
 
 <header>
   <nav class="navbar">
-    <a href="{{ url_for('admin') }}" class="logo"><strong>SmartQ</strong></a>
+    <a href="{{ url_for('admin') }}" class="logo"><strong>{{ app_settings.app_name }}</strong></a>
 
     <ul class="navmenu">
       <li><a href="{{ url_for('admin') }}">Home</a></li>
@@ -33,7 +33,7 @@
         <div class="text-content">
           <h2>Virtual Queue System to make it efficient than traditional Queue Method</h2>
           <p>
-            SmartQ makes it easy for them and staff to access services efficiently,
+            {{ app_settings.app_name }} makes it easy for clients and staff to access services efficiently,
             ensuring smooth management.
           </p>
         </div>
@@ -58,7 +58,7 @@
 
       <!-- Right side: Text -->
       <div class="text-content">
-        <h3>How SmartQ Works?</h3>
+        <h3>How {{ app_settings.app_name }} Works?</h3>
         <ul>
           <li>Users simply scan a QR code on their mobile devices to join the queue.</li>
           <li>A webpage will open displaying the required fields (Name, Mobile Number) for the student to fill out and submit.</li>
@@ -75,7 +75,7 @@
 <!-- Section 3 -->
 <section class="features-section">
   <div class="container">
-    <h2>How will SmartQ benefit the students and staff members?</h2>
+    <h2>How will {{ app_settings.office_name }} benefit clients and staff members?</h2>
     <p><strong>Features Highlights</strong></p>
         <ul>
           <li><img src="{{ url_for('static', filename='images/better.svg') }}" alt="better"> Better administration</li>

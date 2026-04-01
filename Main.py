@@ -108,6 +108,103 @@ def ensure_uploaded_documents_table(conn):
         conn.rollback()
 
 
+DEFAULT_APP_SETTINGS = {
+    "app_name": "SmartQ",
+    "organization_name": "Your Company",
+    "office_name": "Your Office",
+    "office_tagline": "Flexible virtual queueing for any company, office, or service desk.",
+    "office_description": "Use SmartQ to organize walk-in and online queue requests with a setup that fits your office."
+}
+
+
+def ensure_app_settings_table(conn):
+    """Create the app_settings table and seed a single default row when missing."""
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                id SMALLINT PRIMARY KEY DEFAULT 1,
+                app_name TEXT NOT NULL DEFAULT 'SmartQ',
+                organization_name TEXT NOT NULL DEFAULT 'Your Company',
+                office_name TEXT NOT NULL DEFAULT 'Your Office',
+                office_tagline TEXT NOT NULL DEFAULT 'Flexible virtual queueing for any company, office, or service desk.',
+                office_description TEXT NOT NULL DEFAULT 'Use SmartQ to organize walk-in and online queue requests with a setup that fits your office.',
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            INSERT INTO app_settings (id, app_name, organization_name, office_name, office_tagline, office_description)
+            VALUES (1, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
+        """, (
+            DEFAULT_APP_SETTINGS["app_name"],
+            DEFAULT_APP_SETTINGS["organization_name"],
+            DEFAULT_APP_SETTINGS["office_name"],
+            DEFAULT_APP_SETTINGS["office_tagline"],
+            DEFAULT_APP_SETTINGS["office_description"],
+        ))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        print(f"Error creating app_settings table: {e}")
+        conn.rollback()
+
+
+def get_app_settings():
+    """Return branding and office settings with safe defaults."""
+    settings = DEFAULT_APP_SETTINGS.copy()
+
+    conn = get_db_connection()
+    if conn is None:
+        return settings
+
+    try:
+        ensure_app_settings_table(conn)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT app_name, organization_name, office_name, office_tagline, office_description
+            FROM app_settings
+            WHERE id = 1
+        """)
+        row = cur.fetchone()
+        cur.close()
+
+        if row:
+            settings.update({
+                "app_name": row[0] or DEFAULT_APP_SETTINGS["app_name"],
+                "organization_name": row[1] or DEFAULT_APP_SETTINGS["organization_name"],
+                "office_name": row[2] or DEFAULT_APP_SETTINGS["office_name"],
+                "office_tagline": row[3] or DEFAULT_APP_SETTINGS["office_tagline"],
+                "office_description": row[4] or DEFAULT_APP_SETTINGS["office_description"],
+            })
+    except Exception as e:
+        print(f"Error loading app settings: {e}")
+    finally:
+        conn.close()
+
+    settings["office_display_name"] = " - ".join(
+        part for part in [settings["organization_name"], settings["office_name"]] if part
+    )
+    return settings
+
+
+@app.context_processor
+def inject_app_settings():
+    return {"app_settings": get_app_settings()}
+
+
+def get_current_admin_email():
+    """Return the normalized logged-in admin email, if any."""
+    return (session.get('user_email') or "").strip()
+
+
+def require_admin_session_json():
+    """Return a JSON error response when no admin session exists, else None."""
+    if not get_current_admin_email():
+        return jsonify({"status": "error", "message": "Please log in first."}), 401
+    return None
+
+
 # ==============================================================  
 # AUTH ROUTES
 # ==============================================================
@@ -256,36 +353,66 @@ def admin_settings():
     email = session['user_email']
     conn = get_db_connection()
     cur = conn.cursor()
+    ensure_app_settings_table(conn)
 
     # Fetch fullname, email, and password for verification
     cur.execute("SELECT fullname, email, password FROM users WHERE email = %s", (email,))
     admin = cur.fetchone()
+    cur.execute("""
+        SELECT app_name, organization_name, office_name, office_tagline, office_description
+        FROM app_settings
+        WHERE id = 1
+    """)
+    app_settings = cur.fetchone()
 
     if request.method == 'POST':
-        fullname = request.form.get('fullname', admin[0])
-        old_password = request.form.get('old_password', '')
-        new_password = request.form.get('new_password', '')
-        confirm_password = request.form.get('confirm_password', '')
+        form_action = request.form.get('form_action', 'account')
 
-        current_hashed_pw = admin[2]  # stored hashed password
+        if form_action == 'branding':
+            app_name = (request.form.get('app_name') or DEFAULT_APP_SETTINGS["app_name"]).strip()
+            organization_name = (request.form.get('organization_name') or DEFAULT_APP_SETTINGS["organization_name"]).strip()
+            office_name = (request.form.get('office_name') or DEFAULT_APP_SETTINGS["office_name"]).strip()
+            office_tagline = (request.form.get('office_tagline') or DEFAULT_APP_SETTINGS["office_tagline"]).strip()
+            office_description = (request.form.get('office_description') or DEFAULT_APP_SETTINGS["office_description"]).strip()
 
-        # If changing password
-        if new_password:
-            if not check_password_hash(current_hashed_pw, old_password):
-                flash("Old password is incorrect.")
-            elif new_password != confirm_password:
-                flash("New passwords do not match.")
-            else:
-                hashed_pw = generate_password_hash(new_password)
-                cur.execute(
-                    "UPDATE users SET fullname = %s, password = %s WHERE email = %s",
-                    (fullname, hashed_pw, email)
-                )
-                flash("Name and password updated successfully!")
+            cur.execute("""
+                UPDATE app_settings
+                SET app_name = %s,
+                    organization_name = %s,
+                    office_name = %s,
+                    office_tagline = %s,
+                    office_description = %s,
+                    updated_at = NOW()
+                WHERE id = 1
+            """, (app_name, organization_name, office_name, office_tagline, office_description))
+            flash("Company and office settings updated successfully!")
         else:
-            # Only update name if no new password
-            cur.execute("UPDATE users SET fullname = %s WHERE email = %s", (fullname, email))
-            flash("Name updated successfully!")
+            fullname = request.form.get('fullname', admin[0])
+            old_password = request.form.get('old_password', '')
+            new_password = request.form.get('new_password', '')
+            confirm_password = request.form.get('confirm_password', '')
+
+            current_hashed_pw = admin[2]  # stored hashed password
+
+            # If changing password
+            if new_password:
+                if not old_password:
+                    flash("Please enter your old password to change it.")
+                elif not check_password_hash(current_hashed_pw, old_password):
+                    flash("Old password is incorrect.")
+                elif new_password != confirm_password:
+                    flash("New passwords do not match.")
+                else:
+                    hashed_pw = generate_password_hash(new_password)
+                    cur.execute(
+                        "UPDATE users SET fullname = %s, password = %s WHERE email = %s",
+                        (fullname, hashed_pw, email)
+                    )
+                    flash("Name and password updated successfully!")
+            else:
+                # Only update name if no new password
+                cur.execute("UPDATE users SET fullname = %s WHERE email = %s", (fullname, email))
+                flash("Name updated successfully!")
 
         conn.commit()
         cur.close()
@@ -294,7 +421,7 @@ def admin_settings():
 
     cur.close()
     conn.close()
-    return render_template('Admin2/AdminSettings.html', admin=admin)
+    return render_template('Admin2/AdminSettings.html', admin=admin, app_settings_row=app_settings)
 
 
 
@@ -1332,6 +1459,10 @@ def save_qr(queue_type, queue_purpose, queue_link, created_by, queue_number=None
 @app.route('/generate_qr_db', methods=['POST'])
 def generate_qr_db():
     try:
+        auth_error = require_admin_session_json()
+        if auth_error:
+            return auth_error
+
         print("=== QR Generation Started ===")
         print(f"Form data: {dict(request.form)}")
         print(f"Session: {dict(session)}")
@@ -1491,9 +1622,14 @@ def generate_site_qr():
 @app.route('/delete_qr', methods=['POST'])
 def delete_qr():
     """Delete a QR from temp_qr only. qr_history is kept for permanent history."""
+    auth_error = require_admin_session_json()
+    if auth_error:
+        return auth_error
+
     data = request.get_json() if request.is_json else request.form
     qr_id = data.get('id') or data.get('qr_id')
     force = str(data.get('force', '')).lower() == 'true'
+    owner_email = get_current_admin_email()
 
     if not qr_id:
         return jsonify({"status": "error", "message": "QR ID is required"}), 400
@@ -1507,18 +1643,22 @@ def delete_qr():
         
         # Only delete from temp_qr (active/temporary QRs)
         # Keep qr_history intact for permanent history
-        cur.execute("DELETE FROM temp_qr WHERE id = %s", (qr_id,))
+        cur.execute("DELETE FROM temp_qr WHERE id = %s AND created_by = %s", (qr_id, owner_email))
         deleted_count = cur.rowcount
         
         if deleted_count == 0:
-            # Check if QR exists in qr_history (for reference)
-            cur.execute("SELECT id FROM qr_history WHERE id = %s", (qr_id,))
-            exists = cur.fetchone()
+            cur.execute("SELECT id FROM temp_qr WHERE id = %s", (qr_id,))
+            temp_exists = cur.fetchone()
+            cur.execute("SELECT id FROM qr_history WHERE id = %s AND created_by = %s", (qr_id, owner_email))
+            history_exists = cur.fetchone()
             conn.commit()
             cur.close()
             conn.close()
 
-            if exists:
+            if temp_exists and not history_exists:
+                return jsonify({"status": "error", "message": "You do not have permission to remove this QR."}), 403
+
+            if history_exists:
                 print(f"Note: QR {qr_id} not in temp_qr (already deleted or never was), but exists in history")
                 return jsonify({"status": "success", "message": "QR removed from active list (history preserved)"})
 
@@ -1564,6 +1704,11 @@ def delete_temp_qr():
 def temp_qr_data():
     """Get all active QRs from temp_qr table."""
     try:
+        auth_error = require_admin_session_json()
+        if auth_error:
+            return auth_error
+
+        owner_email = get_current_admin_email()
         conn = get_db_connection()
         if conn is None:
             return jsonify([])
@@ -1588,8 +1733,9 @@ def temp_qr_data():
             SELECT id, queue_type, queue_purpose, queue_link, created_by, created_at,
                    processing_method, release_type
             FROM temp_qr
+            WHERE created_by = %s
             ORDER BY created_at DESC
-        """)
+        """, (owner_email,))
         rows = cur.fetchall()
         cur.close()
         conn.close()
@@ -1618,6 +1764,11 @@ def qr_history_data():
     conn = None
     cur = None
     try:
+        auth_error = require_admin_session_json()
+        if auth_error:
+            return auth_error
+
+        owner_email = get_current_admin_email()
         conn = get_db_connection()
         if conn is None:
             print("ERROR: Database connection failed")
@@ -1664,8 +1815,9 @@ def qr_history_data():
             SELECT id, queue_type, queue_purpose, queue_link, created_by, created_at,
                    {optional_select_sql}
             FROM qr_history
+            WHERE created_by = %s
             ORDER BY created_at DESC
-        """)
+        """, (owner_email,))
 
         rows = cur.fetchall()
         print(f"Found {len(rows)} QR codes in history")
@@ -1721,9 +1873,14 @@ def qr_history_data():
 @app.route('/clear_temp_qr', methods=['POST'])
 def clear_temp_qr():
     try:
+        auth_error = require_admin_session_json()
+        if auth_error:
+            return auth_error
+
+        owner_email = get_current_admin_email()
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM temp_qr")  # empty the table
+        cur.execute("DELETE FROM temp_qr WHERE created_by = %s", (owner_email,))
         conn.commit()
         cur.close()
         conn.close()
@@ -1732,22 +1889,22 @@ def clear_temp_qr():
         return jsonify({"status": "error", "message": str(e)})
 
 
-def resolve_queue_link_for_qr(cur, qr_id, prefer_active=True):
-    """Resolve queue_link from QR tables.
-
-    `prefer_active=True` checks `temp_qr` first because Scan Tracking buttons
-    are rendered from active queue IDs.
-    """
+def resolve_queue_link_for_qr(cur, qr_id, prefer_active=True, owner_email=None):
+    """Resolve queue_link from QR tables, optionally limited to the owner."""
     lookup_order = ("temp_qr", "qr_history") if prefer_active else ("qr_history", "temp_qr")
 
     for table in lookup_order:
         try:
-            cur.execute(f"SELECT queue_link FROM {table} WHERE id = %s", (qr_id,))
+            if owner_email:
+                cur.execute(
+                    f"SELECT queue_link FROM {table} WHERE id = %s AND created_by = %s",
+                    (qr_id, owner_email),
+                )
+            else:
+                cur.execute(f"SELECT queue_link FROM {table} WHERE id = %s", (qr_id,))
             row = cur.fetchone()
         except Exception:
-            # Table may be missing in older deployments; try next source.
             try:
-                # Reset transaction state so fallback queries can still run.
                 cur.connection.rollback()
             except Exception:
                 pass
@@ -1757,6 +1914,56 @@ def resolve_queue_link_for_qr(cur, qr_id, prefer_active=True):
             return row[0]
 
     return None
+
+
+def admin_owns_entry(cur, entry_id, owner_email):
+    """Return True when the queue entry belongs to a queue created by this admin."""
+    if not owner_email:
+        return False
+
+    try:
+        cur.execute(
+            """
+            SELECT queue_slug, queue_number
+            FROM queue_entries
+            WHERE id = %s
+            """,
+            (entry_id,),
+        )
+        entry_row = cur.fetchone()
+        if not entry_row:
+            return False
+
+        queue_slug, queue_number = entry_row
+        queue_path = f"/queue/{queue_slug}/{queue_number}"
+
+        for table_name in ("temp_qr", "qr_history"):
+            try:
+                cur.execute(
+                    f"""
+                    SELECT 1
+                    FROM {table_name}
+                    WHERE created_by = %s
+                      AND queue_link LIKE %s
+                    LIMIT 1
+                    """,
+                    (owner_email, f"%{queue_path}"),
+                )
+                if cur.fetchone():
+                    return True
+            except Exception:
+                try:
+                    cur.connection.rollback()
+                except Exception:
+                    pass
+
+        return False
+    except Exception:
+        try:
+            cur.connection.rollback()
+        except Exception:
+            pass
+        return False
 
 
 def convert_doc_path_to_url(path_value):

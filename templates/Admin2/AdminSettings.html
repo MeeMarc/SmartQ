@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Settings - SmartQ</title>
+  <title>Admin Settings - {{ app_settings.app_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/common.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/Profile.css') }}" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
@@ -14,7 +14,7 @@
 
   <header>
     <nav class="HomeNavbar">
-      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>SmartQ</strong></a>
+      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>{{ app_settings.app_name }}</strong></a>
       <ul class="HomeNavMenu">
         <li><a href="{{ url_for('homepage') }}">Home</a></li>
         <li><a href="{{ url_for('createq') }}">Create Queue</a></li>
@@ -23,7 +23,7 @@
           <details class="settings-details" open>
             <summary class="settings-trigger active">Settings</summary>
             <div class="settings-menu">
-              <a href="{{ url_for('admin_settings') }}" class="active">Account</a>
+              <a href="{{ url_for('admin_settings') }}" class="active">Account & Branding</a>
               <a href="{{ url_for('logout') }}" class="logout-link">Log out</a>
             </div>
           </details>
@@ -35,7 +35,7 @@
 
   <main>
     <section class="settings-section">
-      <h2>Account</h2>
+      <h2>Account & Branding</h2>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -50,16 +50,37 @@
       {% endwith %}
 
       <form method="POST" action="{{ url_for('admin_settings') }}">
+        <input type="hidden" name="form_action" value="branding">
+
+        <label>System Name:</label>
+        <input type="text" name="app_name" value="{{ app_settings_row[0] if app_settings_row else app_settings.app_name }}" placeholder="e.g. SmartQ" required>
+
+        <label>Company / Organization Name:</label>
+        <input type="text" name="organization_name" value="{{ app_settings_row[1] if app_settings_row else app_settings.organization_name }}" placeholder="e.g. ABC Corporation" required>
+
+        <label>Office / Department Name:</label>
+        <input type="text" name="office_name" value="{{ app_settings_row[2] if app_settings_row else app_settings.office_name }}" placeholder="e.g. HR Office" required>
+
+        <label>Short Tagline:</label>
+        <input type="text" name="office_tagline" value="{{ app_settings_row[3] if app_settings_row else app_settings.office_tagline }}" placeholder="Short label for your homepage" required>
+
+        <label>Office Description:</label>
+        <textarea name="office_description" rows="4" placeholder="Describe the office or service desk." required>{{ app_settings_row[4] if app_settings_row else app_settings.office_description }}</textarea>
+
+        <button type="submit">Save Company Settings</button>
+      </form>
+
+      <form method="POST" action="{{ url_for('admin_settings') }}">
+        <input type="hidden" name="form_action" value="account">
         <label>Full Name:</label>
-        <p>{{ admin[0] if admin else '' }}</p> <!-- display as text -->
+        <input type="text" name="fullname" value="{{ admin[0] if admin else '' }}" placeholder="Enter your full name" required>
 
         <label>Email:</label>
         <p>{{ admin[1] if admin else '' }}</p> <!-- display as text -->
 
-        <!-- Added Old Password -->
         <label>Old Password:</label>
         <div class="input-group">
-          <input type="password" id="old_password" name="old_password" placeholder="Enter old password" required>
+          <input type="password" id="old_password" name="old_password" placeholder="Required only when changing password">
           <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('old_password', this)"></i>
         </div>
 
@@ -74,10 +95,7 @@
           <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm new password" />
           <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('confirm_password', this)"></i>
         </div>
-
-
-
-        <button type="submit">Save Changes</button>
+        <button type="submit">Save Account Changes</button>
       </form>
 
     </section>

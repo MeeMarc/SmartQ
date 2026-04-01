@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SmartQ</title>
+  <title>{{ app_settings.app_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='User.css') }}">
 </head>
 <body id="top"
@@ -15,7 +15,7 @@
 
 <header>
   <nav class="navbar">
-    <a href="#top" class="logo"><strong>SmartQ</strong></a>
+    <a href="#top" class="logo"><strong>{{ app_settings.app_name }}</strong></a>
 
     <div class="menu-wrapper">
       <div class="menu-toggle" id="menu-toggle">
@@ -53,8 +53,8 @@
 <section class="queue-hero">
   <div class="hero-content">
     <div class="hero-text">
-      <span class="hero-label">Document Queue</span>
-      <h1>{{ queue_type|default('SmartQ Queue Registration', true) }}</h1>
+      <span class="hero-label">{{ app_settings.office_name }}</span>
+      <h1>{{ queue_type|default(app_settings.app_name ~ ' Queue Registration', true) }}</h1>
       <p>{{ queue_purpose|default('Please complete the form below so we can start processing your documents.', true) }}</p>
       
       <!-- Queue Status Display -->
@@ -89,7 +89,7 @@
 
   <div class="hero-chip">Service Channel: {{ queue_processing_method|default('Online', true) }}</div>
   <div class="hero-chip">Release Format: {{ queue_release_type|default('Digital Copy', true) }}</div>
-  <div class="hero-chip">Secure &amp; prioritized processing</div>
+  <div class="hero-chip">{{ app_settings.organization_name }} service queue</div>
 </div>
 
   </div>

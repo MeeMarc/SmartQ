@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Queue | SmartQ</title>
+  <title>Create Queue | {{ app_settings.app_name }}</title>
   <!-- Updated 2025-01-10: Service time, schedule, staff management, and auto-calculated queue limit -->
   <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/common.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/CreateQ.css') }}" />
@@ -15,7 +15,7 @@
 
   <header>
     <nav class="HomeNavbar">
-      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>SmartQ</strong></a>
+      <a href="{{ url_for('homepage') }}" class="HomeLogo"><strong>{{ app_settings.app_name }}</strong></a>
       <ul class="HomeNavMenu">
         <li><a href="{{ url_for('homepage') }}">Home</a></li>
         <li><a href="{{ url_for('createq') }}" class="active">Create Queue</a></li>
@@ -24,7 +24,7 @@
           <details class="settings-details">
             <summary class="settings-trigger">Settings</summary>
             <div class="settings-menu">
-              <a href="{{ url_for('admin_settings') }}">Account</a>
+              <a href="{{ url_for('admin_settings') }}">Account & Branding</a>
               <a href="{{ url_for('logout') }}" class="logout-link">Log out</a>
             </div>
           </details>
@@ -35,7 +35,7 @@
 
   <!-- ================= MAIN CONTENT ================= -->
   <main class="HomeMainContent">
-    <h2>Create Queue and Generate QR Codes</h2>
+    <h2>Create Queue and Generate QR Codes for {{ app_settings.office_name }}</h2>
 
     <div class="HomeTwoContainer">
       <!-- LEFT: Form -->

@@ -69,6 +69,7 @@ mmdc -i docs\flowchart.md -o docs\flowchart.svg
 ## Notes & next steps
 
 - I included the major routes and where they render templates found in `templates/`.
+- `/admin_settings` now covers both account security and organization branding, so admins can change the system name, company name, and office name without editing code.
 - Queue numbering for `/queue/:slug/:number` is based on normalized slug matching, so names that only differ by case (like `Test` and `test`) get different queue numbers.
 - If you'd like a different layout or a more detailed flow (e.g., database interactions, form fields, or modal flows), tell me which area to expand.
 - I can also export an SVG/PNG for you and add it to `docs/flowchart.svg`.

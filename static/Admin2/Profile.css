@@ -101,6 +101,31 @@ p {
   border: 1px solid #ccd6e0;
 }
 
+form > input,
+form > textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ccd6e0;
+  border-radius: 6px;
+  font-size: 1rem;
+  color: #333;
+  background-color: #f9fbfd;
+  transition: border-color 0.3s ease;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+form > textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+form > input:focus,
+form > textarea:focus {
+  border-color: #66B2FF;
+  outline: none;
+}
+
 .input-group {
   position: relative;
   display: flex;
