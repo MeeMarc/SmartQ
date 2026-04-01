@@ -214,6 +214,19 @@ def require_admin_session_json():
     return None
 
 
+def ensure_user_profile_columns(conn):
+    """Ensure company and office fields exist on the users table."""
+    try:
+        cur = conn.cursor()
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_name TEXT")
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS office_name TEXT")
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        print(f"Error ensuring user profile columns: {e}")
+        conn.rollback()
+
+
 # ==============================================================  
 # AUTH ROUTES
 # ==============================================================
@@ -223,9 +236,15 @@ def signup():
     if request.method == 'POST':
         fullname = request.form['fullname']
         email = request.form['email']
+        organization_name = (request.form.get('organization_name') or '').strip()
+        office_name = (request.form.get('office_name') or '').strip()
         password = request.form['password']
         confirm = request.form['confirm_password']
         terms_accepted = request.form.get('terms') == 'on'
+
+        if not organization_name or not office_name:
+            flash("Company name and office name are required.", "error")
+            return redirect(url_for('signup'))
 
         # Validate terms and conditions acceptance
         if not terms_accepted:
@@ -240,10 +259,14 @@ def signup():
 
         try:
             conn = get_db_connection()
+            ensure_user_profile_columns(conn)
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO users (fullname, email, password) VALUES (%s, %s, %s)",
-                (fullname, email, hashed_password)
+                """
+                INSERT INTO users (fullname, email, password, organization_name, office_name)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (fullname, email, hashed_password, organization_name, office_name)
             )
             conn.commit()
             cur.close()
@@ -268,8 +291,16 @@ def login():
 
         try:
             conn = get_db_connection()
+            ensure_user_profile_columns(conn)
             cur = conn.cursor()
-            cur.execute("SELECT * FROM users WHERE email=%s", (email,))
+            cur.execute(
+                """
+                SELECT id, fullname, email, password, organization_name, office_name
+                FROM users
+                WHERE email=%s
+                """,
+                (email,)
+            )
             user = cur.fetchone()
             cur.close()
             conn.close()
@@ -285,6 +316,8 @@ def login():
             # Store user info in session
             session['user_email'] = email
             session['user_fullname'] = user[1]
+            session['organization_name'] = user[4] or ""
+            session['office_name'] = user[5] or ""
             
             # If "Remember Me" is checked, make session permanent (30 days)
             if remember_me:
