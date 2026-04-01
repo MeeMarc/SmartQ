@@ -396,9 +396,14 @@ def admin_settings():
     conn = get_db_connection()
     cur = conn.cursor()
     ensure_app_settings_table(conn)
+    ensure_user_profile_columns(conn)
 
-    # Fetch fullname, email, and password for verification
-    cur.execute("SELECT fullname, email, password FROM users WHERE email = %s", (email,))
+    # Fetch fullname, email, password, company, and office for verification
+    cur.execute("""
+        SELECT fullname, email, password, organization_name, office_name
+        FROM users
+        WHERE email = %s
+    """, (email,))
     admin = cur.fetchone()
     cur.execute("""
         SELECT app_name, organization_name, office_name, office_tagline, office_description, logo_filename
@@ -467,6 +472,8 @@ def admin_settings():
             flash("Company and office settings updated successfully!")
         else:
             fullname = request.form.get('fullname', admin[0])
+            organization_name = (request.form.get('account_organization_name') or admin[3] or '').strip()
+            office_name = (request.form.get('account_office_name') or admin[4] or '').strip()
             old_password = request.form.get('old_password', '')
             new_password = request.form.get('new_password', '')
             confirm_password = request.form.get('confirm_password', '')
@@ -484,14 +491,36 @@ def admin_settings():
                 else:
                     hashed_pw = generate_password_hash(new_password)
                     cur.execute(
-                        "UPDATE users SET fullname = %s, password = %s WHERE email = %s",
-                        (fullname, hashed_pw, email)
+                        """
+                        UPDATE users
+                        SET fullname = %s,
+                            password = %s,
+                            organization_name = %s,
+                            office_name = %s
+                        WHERE email = %s
+                        """,
+                        (fullname, hashed_pw, organization_name, office_name, email)
                     )
+                    session['user_fullname'] = fullname
+                    session['organization_name'] = organization_name
+                    session['office_name'] = office_name
                     flash("Name and password updated successfully!")
             else:
-                # Only update name if no new password
-                cur.execute("UPDATE users SET fullname = %s WHERE email = %s", (fullname, email))
-                flash("Name updated successfully!")
+                # Update account profile without changing password
+                cur.execute(
+                    """
+                    UPDATE users
+                    SET fullname = %s,
+                        organization_name = %s,
+                        office_name = %s
+                    WHERE email = %s
+                    """,
+                    (fullname, organization_name, office_name, email)
+                )
+                session['user_fullname'] = fullname
+                session['organization_name'] = organization_name
+                session['office_name'] = office_name
+                flash("Account details updated successfully!")
 
         conn.commit()
         cur.close()

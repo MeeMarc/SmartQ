@@ -84,6 +84,12 @@
         <label>Full Name:</label>
         <input type="text" name="fullname" value="{{ admin[0] if admin else '' }}" placeholder="Enter your full name" required>
 
+        <label>Company / Organization Name:</label>
+        <input type="text" name="account_organization_name" value="{{ admin[3] if admin else '' }}" placeholder="Enter your company or organization name" required>
+
+        <label>Office / Department Name:</label>
+        <input type="text" name="account_office_name" value="{{ admin[4] if admin else '' }}" placeholder="Enter your office or department name" required>
+
         <label>Email:</label>
         <p>{{ admin[1] if admin else '' }}</p> <!-- display as text -->
 
