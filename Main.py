@@ -9,7 +9,7 @@ from threading import Lock
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response, send_from_directory
-from datetime import timedelta
+from datetime import datetime, timedelta
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 import psycopg2
@@ -543,9 +543,43 @@ def logout():
 # ==============================================================  
 # QR CODE GENERATION
 # ==============================================================
+def ensure_qr_generate_limit_table(conn):
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS qr_generate_limit (
+            id SERIAL PRIMARY KEY,
+            created_by VARCHAR(255) NOT NULL,
+            candidate VARCHAR(255) NOT NULL,
+            purpose TEXT NOT NULL,
+            last_generated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            UNIQUE (created_by, candidate, purpose)
+        )
+    """)
+    conn.commit()
+    cur.close()
+    
+from datetime import datetime, timedelta
 
 @app.route('/generate_qr', methods=['POST'])
 def generate_qr():
+    last_generated = session.get('last_qr_generated')
+
+    if last_generated:
+        elapsed = datetime.now() - datetime.fromisoformat(last_generated)
+
+        if elapsed < timedelta(hours=1):
+            remaining = timedelta(hours=1) - elapsed
+            total_seconds = int(remaining.total_seconds())
+            minutes, seconds = divmod(total_seconds, 60)
+
+            return jsonify({
+                "success": False,
+                "error": f"You can only generate 1 QR code every 1 hour. Please wait {minutes}m {seconds}s before generating again.",
+                "qr_image": None,
+                "cooldown": True,
+                "remaining_seconds": total_seconds
+            }), 429
+
     purpose = request.form.get('purpose', 'General')
     candidate = request.form.get('candidate', 'Anonymous')
 
@@ -555,6 +589,9 @@ def generate_qr():
     buffer = io.BytesIO()
     qr_img.save(buffer, format="PNG")
     qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    session['last_qr_generated'] = datetime.now().isoformat()
+    session.modified = True
 
     return jsonify({"qr_image": qr_base64})
 
@@ -645,7 +682,7 @@ def save_file_to_db(filename, file_data, content_type=None):
             cur.close()
         if conn:
             conn.close()
-
+            
 # Upload document endpoint (entry_id-based + accepted-only)
 @app.route('/upload_document', methods=['POST'])
 def upload_document():

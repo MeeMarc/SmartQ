@@ -558,6 +558,38 @@
         });
     });
 
+
+    const btn = document.getElementById("generateQrBtn");
+
+btn.disabled = true;
+btn.innerText = "Generating...";
+
+fetch("/generate_qr", {
+    method: "POST",
+    body: formData
+})
+.then(res => res.json().then(data => ({ status: res.status, data })))
+.then(({ status, data }) => {
+    if (status === 429) {
+        alert(data.message);
+        return;
+    }
+
+    if (data.success) {
+        // show QR image here
+    } else {
+        alert(data.message || "Failed to generate QR.");
+    }
+})
+.catch(err => {
+    console.error(err);
+    alert("Something went wrong.");
+})
+.finally(() => {
+    btn.disabled = false;
+    btn.innerText = "Generate QR";
+});
+
     /* ================= DELETE QR ================= */
     async function deleteQR(index) {
       const qr = qrList[index];
