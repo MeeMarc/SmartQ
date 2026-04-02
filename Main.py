@@ -543,67 +543,29 @@ def logout():
 # ==============================================================  
 # QR CODE GENERATION
 # ==============================================================
-def ensure_qr_generate_limit_table(conn):
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS qr_generate_limit (
-            id SERIAL PRIMARY KEY,
-            created_by VARCHAR(255) NOT NULL,
-            candidate VARCHAR(255) NOT NULL,
-            purpose TEXT NOT NULL,
-            last_generated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-            UNIQUE (created_by, candidate, purpose)
-        )
-    """)
-    conn.commit()
-    cur.close()
-    
-from datetime import datetime, timedelta
-
 @app.route('/generate_qr', methods=['POST'])
 def generate_qr():
-    last_generated = session.get('last_qr_generated')
-
-    if last_generated:
-        elapsed = datetime.now() - datetime.fromisoformat(last_generated)
-
-        if elapsed < timedelta(hours=1):
-            remaining = timedelta(hours=1) - elapsed
-            total_seconds = int(remaining.total_seconds())
-            minutes, seconds = divmod(total_seconds, 60)
-
-            return jsonify({
-                "success": False,
-                "error": f"You can only generate 1 QR code every 1 hour. Please wait {minutes}m {seconds}s before generating again.",
-                "qr_image": None,
-                "cooldown": True,
-                "remaining_seconds": total_seconds
-            }), 429
-
     purpose = request.form.get('purpose', 'General')
     candidate = request.form.get('candidate', 'Anonymous')
-
     qr_data = f"{candidate} - Purpose: {purpose}"
     qr_img = qrcode.make(qr_data)
-
     buffer = io.BytesIO()
     qr_img.save(buffer, format="PNG")
     qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-
-    session['last_qr_generated'] = datetime.now().isoformat()
-    session.modified = True
-
     return jsonify({"qr_image": qr_base64})
 
 
 # Allowed file types
 ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'jpg', 'png', 'zip'}
+
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def allowed_logo_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
 
 # Content type mapping
 CONTENT_TYPE_MAP = {
@@ -616,9 +578,11 @@ CONTENT_TYPE_MAP = {
     'zip': 'application/zip',
 }
 
+
 def get_content_type(filename):
     ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
     return CONTENT_TYPE_MAP.get(ext, 'application/octet-stream')
+
 
 # Hot in-process cache to reduce repeat DB fetches for uploaded files.
 DOCUMENT_CACHE_MAX_ITEMS = max(1, int(os.getenv("DOCUMENT_CACHE_MAX_ITEMS", "200")))
@@ -626,63 +590,85 @@ DOCUMENT_CACHE_TTL_SECONDS = max(0, int(os.getenv("DOCUMENT_CACHE_TTL_SECONDS", 
 _document_cache = OrderedDict()
 _document_cache_lock = Lock()
 
+
 def _cache_document(filename, data_bytes, content_type):
     if not filename:
         return
+
     expires_at = (time.time() + DOCUMENT_CACHE_TTL_SECONDS) if DOCUMENT_CACHE_TTL_SECONDS > 0 else 0
+
     with _document_cache_lock:
         _document_cache[filename] = (data_bytes, content_type, expires_at)
         _document_cache.move_to_end(filename)
+
         while len(_document_cache) > DOCUMENT_CACHE_MAX_ITEMS:
             _document_cache.popitem(last=False)
+
 
 def _get_cached_document(filename):
     if not filename:
         return None
+
     now = time.time()
+
     with _document_cache_lock:
         cached = _document_cache.get(filename)
         if not cached:
             return None
+
         data_bytes, content_type, expires_at = cached
+
         if expires_at and expires_at <= now:
             _document_cache.pop(filename, None)
             return None
+
         _document_cache.move_to_end(filename)
         return data_bytes, content_type
+
 
 def save_file_to_db(filename, file_data, content_type=None):
     """Save a file to the uploaded_documents table in the database."""
     if content_type is None:
         content_type = get_content_type(filename)
+
     data_bytes = file_data if isinstance(file_data, bytes) else bytes(file_data)
     conn = None
     cur = None
+
     try:
         conn = get_db_connection()
         if conn is None:
             return False
+
         ensure_uploaded_documents_table(conn)
         cur = conn.cursor()
+
         cur.execute("""
             INSERT INTO uploaded_documents (filename, content_type, data)
             VALUES (%s, %s, %s)
-            ON CONFLICT (filename) DO UPDATE SET data = EXCLUDED.data, content_type = EXCLUDED.content_type, created_at = NOW()
+            ON CONFLICT (filename)
+            DO UPDATE SET
+                data = EXCLUDED.data,
+                content_type = EXCLUDED.content_type,
+                created_at = NOW()
         """, (filename, content_type, psycopg2.Binary(data_bytes)))
+
         conn.commit()
         _cache_document(filename, data_bytes, content_type)
         return True
+
     except Exception as e:
         print(f"Error saving file to DB: {e}")
         if conn:
             conn.rollback()
         return False
+
     finally:
         if cur:
             cur.close()
         if conn:
             conn.close()
-            
+                   
 # Upload document endpoint (entry_id-based + accepted-only)
 @app.route('/upload_document', methods=['POST'])
 def upload_document():
