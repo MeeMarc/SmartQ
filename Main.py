@@ -1873,7 +1873,7 @@ def temp_qr_data():
         
         cur.execute("""
             SELECT id, queue_type, queue_purpose, queue_link, created_by, created_at,
-                   processing_method, release_type
+                   avg_service_time, processing_method, release_type
             FROM temp_qr
             WHERE created_by = %s
             ORDER BY created_at DESC
@@ -1891,8 +1891,9 @@ def temp_qr_data():
                 "queue_link": row[3],
                 "created_by": row[4],
                 "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S") if row[5] else "N/A",
-                "processing_method": normalize_processing_method(row[6]) or "Online",
-                "release_type": normalize_release_type(row[7]) or "Digital Copy"
+                "avg_service_time": row[6],
+                "processing_method": normalize_processing_method(row[7]) or "Online",
+                "release_type": normalize_release_type(row[8]) or "Digital Copy"
             })
         return jsonify(active_qrs)
     except Exception as e:
