@@ -2420,6 +2420,7 @@ def get_qr_scans(qr_id):
         queue_mode = get_queue_mode(queue_slug, queue_number, cur=cur, ensure_columns=False)
         queue_processing_method = queue_mode.get("processing_method", "Online")
         queue_release_type = queue_mode.get("release_type", "Digital Copy")
+        queue_processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
 
         ensure_queue_entries_table(conn, include_column_migrations=False)
 
@@ -2481,6 +2482,7 @@ def get_qr_scans(qr_id):
                 "applicant_id": row[12] or "",
                 "notification_message": row[13] or "",
                 "queue_type": row[14] or "Document",
+                "processing_days": queue_processing_days,
                 "queue_processing_method": queue_processing_method,
                 "queue_release_type": queue_release_type
             })

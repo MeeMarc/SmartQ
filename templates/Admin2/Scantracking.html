@@ -718,8 +718,11 @@ async function acceptEntry(entryId) {
   const DEFAULT_MSG =
     "We are pleased to inform you that your application form has been approved by our administrator.\n\n" +
     "Please check your email regularly for further instructions and updates regarding your requested document.";
+  const selectedEntry = currentScans.find(user => Number(user.id) === Number(entryId)) || {};
   const activeQrMeta = qrMetaById[currentQRId] || {};
-  const defaultProcessingTime = formatProcessingTime(activeQrMeta.avg_service_time || "");
+  const defaultProcessingTime = formatProcessingTime(
+    selectedEntry.processing_days || activeQrMeta.avg_service_time || "3"
+  );
 
   requestStatusMessage(
     "Accept Entry Message",
