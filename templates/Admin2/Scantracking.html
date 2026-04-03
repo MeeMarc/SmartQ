@@ -212,6 +212,7 @@
 
     let currentScans = [];
     let currentQRId = null;
+    let qrMetaById = {};
 
     const EMAILJS_CONFIG_STATUS = {
       PUBLIC_KEY: "QsaI8dnLcJOo1epYB",
@@ -717,6 +718,8 @@ async function acceptEntry(entryId) {
   const DEFAULT_MSG =
     "We are pleased to inform you that your application form has been approved by our administrator.\n\n" +
     "Please check your email regularly for further instructions and updates regarding your requested document.";
+  const activeQrMeta = qrMetaById[currentQRId] || {};
+  const defaultProcessingTime = formatProcessingTime(activeQrMeta.avg_service_time || "");
 
   requestStatusMessage(
     "Accept Entry Message",
@@ -764,7 +767,11 @@ async function acceptEntry(entryId) {
         if (currentQRId) viewScans(currentQRId);
       });
     },
-    { showProcessing: true }
+    {
+      showProcessing: true,
+      processingPlaceholder: "e.g., 3",
+      defaultProcessing: defaultProcessingTime
+    }
   );
 }
 
@@ -856,6 +863,7 @@ function rejectEntry(entryId) {
         .then(res => res.json())
         .then(activeQRs => {
           qrListBody.innerHTML = "";
+          qrMetaById = {};
 
           if (activeQRs.length === 0) {
             qrListBody.innerHTML = "<p>No active queues found. Create one in Create Queue page.</p>";
@@ -863,6 +871,7 @@ function rejectEntry(entryId) {
           }
 
           activeQRs.forEach(qr => {
+            qrMetaById[Number(qr.id)] = qr;
             const box = document.createElement("div");
             box.className = "qr-box";
 
