@@ -208,6 +208,22 @@ select:focus {
   color: #444;
 }
 
+.checkbox-terms {
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.checkbox-terms input[type="checkbox"] {
+  margin-top: 4px;
+  flex: 0 0 auto;
+}
+
+.checkbox-terms label {
+  margin-bottom: 0;
+  line-height: 1.4;
+}
+
 /* =============================
    BUTTONS
 ============================= */

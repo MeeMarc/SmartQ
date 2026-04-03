@@ -160,10 +160,11 @@
     const viewHistoryBtn = document.getElementById("viewHistoryBtn");
     const loadPreviousBtn = document.getElementById("loadPreviousBtn");
     const generateQrBtn = document.getElementById("generateQrBtn");
+    const queueStorageKey = `queues_${String({{ (session.get('user_email') or 'guest')|tojson }}).toLowerCase()}`;
 
     const GENERATED_TITLE = "Generated Queues";
     const HISTORY_TITLE = "QR History";
-    let qrList = JSON.parse(localStorage.getItem("queues")) || [];
+    let qrList = JSON.parse(localStorage.getItem(queueStorageKey)) || [];
     let qrHistoryList = [];
     let isHistoryView = false;
     let isGenerating = false;
@@ -597,7 +598,7 @@
           };
 
           qrList.push(newQR);
-          localStorage.setItem("queues", JSON.stringify(qrList));
+          localStorage.setItem(queueStorageKey, JSON.stringify(qrList));
 
           showGeneratedQueueView();
           form.reset();
@@ -638,7 +639,7 @@
 
             // Remove from local storage / UI list
             qrList.splice(index, 1);
-            localStorage.setItem("queues", JSON.stringify(qrList));
+            localStorage.setItem(queueStorageKey, JSON.stringify(qrList));
             showGeneratedQueueView();
             showAlert("Queue removed from active list.", "success");
           } catch (err) {
