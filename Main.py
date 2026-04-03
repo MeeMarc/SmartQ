@@ -3821,22 +3821,45 @@ def queue_waiting(queue_slug, queue_number, entry_id):
 
 @app.route('/queue/<queue_slug>/<int:queue_number>', methods=['GET', 'POST'])
 def queue_page(queue_slug, queue_number):
-    import os  # ✅ FIX 1: REQUIRED
+    import os  # FIX 1: REQUIRED
     from werkzeug.utils import secure_filename
     import base64
     from datetime import datetime
 
-    queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
-    queue_config = get_queue_config(queue_slug, queue_number)
-    queue_mode = get_queue_mode(queue_slug, queue_number)
-    queue_mode_hints = get_queue_mode_hints(
-        queue_mode.get("processing_method"),
-        queue_mode.get("release_type")
-    )
+    try:
+        queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
+        queue_config = get_queue_config(queue_slug, queue_number)
+        queue_mode = get_queue_mode(queue_slug, queue_number)
+        queue_mode_hints = get_queue_mode_hints(
+            queue_mode.get("processing_method"),
+            queue_mode.get("release_type")
+        )
 
-    queue_limit = get_queue_limit(queue_slug, queue_number)
-    current_count = get_queue_entry_count(queue_slug, queue_number)
-    queue_full = queue_limit is not None and queue_limit > 0 and current_count >= queue_limit
+        queue_limit = get_queue_limit(queue_slug, queue_number)
+        current_count = get_queue_entry_count(queue_slug, queue_number)
+        queue_full = queue_limit is not None and queue_limit > 0 and current_count >= queue_limit
+    except Exception as e:
+        print(f"Error preparing queue page for /queue/{queue_slug}/{queue_number}: {e}")
+        import traceback
+        traceback.print_exc()
+        flash("We couldn't load this queue right now. Please try again shortly.", "error")
+        return render_template(
+            "User/User.html",
+            queue_type=queue_slug.replace('-', ' ').title(),
+            queue_purpose="Queue Registration",
+            queue_number=queue_number,
+            queue_slug=queue_slug,
+            queue_processing_method="Online",
+            queue_release_type="Digital Copy",
+            queue_flow_hint="Please refresh the page or try again shortly.",
+            queue_full=False,
+            queue_limit=None,
+            current_count=0,
+            queue_require_student_id=True,
+            queue_require_valid_id=True,
+            queue_require_supporting_doc=True,
+            queue_esign_required=True,
+        )
 
     if request.method == 'POST':
         ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "pdf"}
