@@ -20,7 +20,7 @@
   <!-- Right Panel -->
   <div class="right">
           {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
+        {% if messages%}
               <div id="flashMessage" class="flash-messages" style="transition: opacity 0.5s ease-out;">
          {% for category, message in messages %}
         <p class="{% if category == 'logout' or category == 'success' %}success{% else %}error{% endif %}">{{ message }}</p>
