@@ -173,8 +173,34 @@ select:focus {
 .checkbox {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 20px;
   gap: 8px;
+}
+
+.forgot-password-link {
+  font-size: 0.9rem;
+  color: #3348A2;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.forgot-password-link:hover {
+  text-decoration: underline;
+}
+
+.remember-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.remember-wrap input[type="checkbox"] {
+  margin: 0;
+}
+
+.remember-wrap label {
+  margin-bottom: 0;
 }
 
 .checkbox label {
@@ -245,6 +271,11 @@ button:hover {
 
   .right {
     padding: 30px 20px;
+  }
+
+  .checkbox {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   button {

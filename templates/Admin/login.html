@@ -40,8 +40,11 @@
       </div>
 
       <div class="checkbox">
-        <input type="checkbox" id="remember" name="remember">
-        <label for="remember">Remember Me</label>
+        <a href="#" class="forgot-password-link" onclick="showForgotPasswordMessage(event)">Forgot Password?</a>
+        <div class="remember-wrap">
+          <input type="checkbox" id="remember" name="remember">
+          <label for="remember">Remember Me</label>
+        </div>
       </div>
 
       <button type="submit">Log in</button>
@@ -57,6 +60,11 @@
 
   <!-- JS for toggle password -->
   <script>
+    function showForgotPasswordMessage(event) {
+      event.preventDefault();
+      window.alert("Please contact the administrator to reset your password.");
+    }
+
     function togglePassword(id, el) {
       const input = document.getElementById(id);
       if(input.type === "password") {
