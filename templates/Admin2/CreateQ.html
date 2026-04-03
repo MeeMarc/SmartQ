@@ -245,20 +245,30 @@
       generateQrBtn.innerText = label;
     }
 
-    function startGenerateCooldown(seconds = 5) {
+    function startGenerateCooldown(seconds = 10) {
       generateCooldownUntil = Date.now() + (seconds * 1000);
 
       if (generateCooldownTimer) {
         clearInterval(generateCooldownTimer);
       }
 
-      setGenerateButtonState(true, "Please wait a minute, queue is being created...");
+      const updateCooldownLabel = () => {
+        const remainingMs = generateCooldownUntil - Date.now();
 
-      generateCooldownTimer = setTimeout(() => {
-        generateCooldownTimer = null;
-        generateCooldownUntil = 0;
-        setGenerateButtonState(false, "Generate QR");
-      }, seconds * 1000);
+        if (remainingMs <= 0) {
+          clearInterval(generateCooldownTimer);
+          generateCooldownTimer = null;
+          generateCooldownUntil = 0;
+          setGenerateButtonState(false, "Generate QR");
+          return;
+        }
+
+        const remainingSeconds = Math.ceil(remainingMs / 1000);
+        setGenerateButtonState(true, `Please wait, generating queue... ${remainingSeconds}s`);
+      };
+
+      updateCooldownLabel();
+      generateCooldownTimer = setInterval(updateCooldownLabel, 250);
     }
 
     function escapeHtml(value) {
@@ -508,12 +518,13 @@
       e.preventDefault();
 
       if (isGenerating) {
-        showAlert("Please wait a minute, queue is being created...", "warning");
+        showAlert("Please wait, generating queue...", "warning");
         return;
       }
 
       if (Date.now() < generateCooldownUntil) {
-        showAlert("Please wait before generating another queue.", "warning");
+        const remainingSeconds = Math.ceil((generateCooldownUntil - Date.now()) / 1000);
+        showAlert(`Please wait ${remainingSeconds} second(s) before generating another queue.`, "warning");
         return;
       }
 
@@ -552,7 +563,7 @@
       formData.append('esignRequired', esignRequired);
 
       isGenerating = true;
-      setGenerateButtonState(true, "Please wait a minute, queue is being created...");
+      setGenerateButtonState(true, "Please wait, generating queue...");
 
       fetch("/generate_qr_db", {
         method: "POST",
@@ -591,7 +602,7 @@
           showGeneratedQueueView();
           form.reset();
           showAlert("Queue created successfully!", "success");
-          startGenerateCooldown(5);
+          startGenerateCooldown(10);
         })
         .catch(err => {
           console.error(err);
