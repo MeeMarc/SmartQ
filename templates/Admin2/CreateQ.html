@@ -159,12 +159,16 @@
     const qrContainerTitle = document.getElementById("qrContainerTitle");
     const viewHistoryBtn = document.getElementById("viewHistoryBtn");
     const loadPreviousBtn = document.getElementById("loadPreviousBtn");
+    const generateQrBtn = document.getElementById("generateQrBtn");
 
     const GENERATED_TITLE = "Generated Queues";
     const HISTORY_TITLE = "QR History";
     let qrList = JSON.parse(localStorage.getItem("queues")) || [];
     let qrHistoryList = [];
     let isHistoryView = false;
+    let isGenerating = false;
+    let generateCooldownUntil = 0;
+    let generateCooldownTimer = null;
 
     function getMissingConfigFields() {
       const configFields = [
@@ -221,15 +225,49 @@
       messageEl.textContent = message;
 
       if (type === 'success') {
-        iconEl.textContent = '✓';
+        iconEl.textContent = 'OK';
         iconEl.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
+      } else if (type === 'warning') {
+        iconEl.textContent = '!';
+        iconEl.style.background = 'linear-gradient(135deg, #ffc107, #ff9800)';
       } else {
-        iconEl.textContent = '✕';
+        iconEl.textContent = 'X';
         iconEl.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
       }
 
       modal.style.display = 'flex';
       okBtn.onclick = () => modal.style.display = 'none';
+    }
+
+    function setGenerateButtonState(disabled, label) {
+      if (!generateQrBtn) return;
+      generateQrBtn.disabled = disabled;
+      generateQrBtn.innerText = label;
+    }
+
+    function startGenerateCooldown(seconds = 10) {
+      generateCooldownUntil = Date.now() + (seconds * 1000);
+
+      if (generateCooldownTimer) {
+        clearInterval(generateCooldownTimer);
+      }
+
+      const updateCooldownLabel = () => {
+        const remainingMs = generateCooldownUntil - Date.now();
+
+        if (remainingMs <= 0) {
+          clearInterval(generateCooldownTimer);
+          generateCooldownTimer = null;
+          setGenerateButtonState(false, "Generate QR");
+          return;
+        }
+
+        const remainingSeconds = Math.ceil(remainingMs / 1000);
+        setGenerateButtonState(true, `Please wait... ${remainingSeconds}s`);
+      };
+
+      updateCooldownLabel();
+      generateCooldownTimer = setInterval(updateCooldownLabel, 250);
     }
 
     function escapeHtml(value) {
@@ -478,6 +516,17 @@
   form.addEventListener("submit", (e) => {
       e.preventDefault();
 
+      if (isGenerating) {
+        showAlert("Please wait, generating queue...", "warning");
+        return;
+      }
+
+      if (Date.now() < generateCooldownUntil) {
+        const remainingSeconds = Math.ceil((generateCooldownUntil - Date.now()) / 1000);
+        showAlert(`Please wait ${remainingSeconds} second(s) before generating another queue.`, "warning");
+        return;
+      }
+
       const type = document.getElementById("queueType").value.trim();
       const purpose = document.getElementById("queuePurpose").value.trim();
       const processingDays = document.getElementById("processingDays").value.trim();
@@ -495,7 +544,6 @@
         return;
       }
 
-      // Validate required fields
       if (!type || !purpose) {
         showAlert("Please fill in Queue Type and Purpose fields.", "error");
         return;
@@ -507,12 +555,14 @@
 
       if (processingDays) formData.append('processingDays', processingDays);
       formData.append('processingMethod', processingMethod);
-      
       formData.append('releaseType', releaseType);
       formData.append('studentId', studentId);
       formData.append('validId', validId);
       formData.append('supportingDoc', supportingDoc);
       formData.append('esignRequired', esignRequired);
+
+      isGenerating = true;
+      setGenerateButtonState(true, "Please wait, generating queue...");
 
       fetch("/generate_qr_db", {
         method: "POST",
@@ -551,10 +601,18 @@
           showGeneratedQueueView();
           form.reset();
           showAlert("Queue created successfully!", "success");
+          startGenerateCooldown(10);
         })
         .catch(err => {
           console.error(err);
           showAlert(`Error generating QR: ${err.message}`, "error");
+          setGenerateButtonState(false, "Generate QR");
+        })
+        .finally(() => {
+          isGenerating = false;
+          if (Date.now() >= generateCooldownUntil) {
+            setGenerateButtonState(false, "Generate QR");
+          }
         });
     });
 
