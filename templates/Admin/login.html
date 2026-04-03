@@ -7,6 +7,51 @@
   <link rel="stylesheet" href="../static/login.css" />
   <!-- Font Awesome for eye icon -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    .forgot-password-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 1000;
+      padding: 1.5rem;
+    }
+
+    .forgot-password-modal-backdrop.is-open {
+      display: flex;
+    }
+
+    .forgot-password-modal {
+      width: min(100%, 420px);
+      background: #fff;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.18);
+      text-align: center;
+    }
+
+    .forgot-password-modal h3 {
+      margin: 0 0 0.75rem;
+    }
+
+    .forgot-password-modal p {
+      margin: 0 0 1.25rem;
+      line-height: 1.5;
+      color: #444;
+    }
+
+    .forgot-password-modal button {
+      border: none;
+      border-radius: 999px;
+      padding: 0.75rem 1.5rem;
+      background: #1f6feb;
+      color: #fff;
+      font: inherit;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
 
@@ -58,11 +103,27 @@
   </div>
 </div>
 
+<div id="forgotPasswordModal" class="forgot-password-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="forgotPasswordTitle" aria-hidden="true">
+  <div class="forgot-password-modal">
+    <h3 id="forgotPasswordTitle">Forgot your password?</h3>
+    <p>Please contact the administrator to reset your password.</p>
+    <button type="button" onclick="hideForgotPasswordMessage()">Close</button>
+  </div>
+</div>
+
   <!-- JS for toggle password -->
   <script>
     function showForgotPasswordMessage(event) {
       event.preventDefault();
-      window.alert("Please contact the administrator to reset your password.");
+      const modal = document.getElementById("forgotPasswordModal");
+      modal.classList.add("is-open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+
+    function hideForgotPasswordMessage() {
+      const modal = document.getElementById("forgotPasswordModal");
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden", "true");
     }
 
     function togglePassword(id, el) {
@@ -116,6 +177,21 @@
           flashMessages.style.opacity = '0';
           flashMessages.style.transform = 'translate(-50%, -45%)';
           setTimeout(() => flashMessages.remove(), 500);
+        });
+      }
+
+      const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+      if (forgotPasswordModal) {
+        forgotPasswordModal.addEventListener('click', function(event) {
+          if (event.target === forgotPasswordModal) {
+            hideForgotPasswordMessage();
+          }
+        });
+
+        document.addEventListener('keydown', function(event) {
+          if (event.key === 'Escape' && forgotPasswordModal.classList.contains('is-open')) {
+            hideForgotPasswordMessage();
+          }
         });
       }
     });
