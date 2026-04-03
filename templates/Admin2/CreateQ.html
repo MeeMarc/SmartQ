@@ -117,9 +117,6 @@
               📋 Load Queue
             </button>
           </div>
-          <p id="generateQueueStatus" style="display:none; margin-top: 10px; color: #856404; font-weight: 600;">
-            Please wait, generating queue...
-          </p>
 
         </form>
       </div>
@@ -163,7 +160,6 @@
     const viewHistoryBtn = document.getElementById("viewHistoryBtn");
     const loadPreviousBtn = document.getElementById("loadPreviousBtn");
     const generateQrBtn = document.getElementById("generateQrBtn");
-    const generateQueueStatus = document.getElementById("generateQueueStatus");
 
     const GENERATED_TITLE = "Generated Queues";
     const HISTORY_TITLE = "QR History";
@@ -249,38 +245,20 @@
       generateQrBtn.innerText = label;
     }
 
-    function setGenerateStatus(message, visible = true) {
-      if (!generateQueueStatus) return;
-      generateQueueStatus.textContent = message || "";
-      generateQueueStatus.style.display = visible ? "block" : "none";
-    }
-
-    function startGenerateCooldown(seconds = 10) {
-      setGenerateStatus("Generating QR, please wait...");
+    function startGenerateCooldown(seconds = 5) {
       generateCooldownUntil = Date.now() + (seconds * 1000);
 
       if (generateCooldownTimer) {
         clearInterval(generateCooldownTimer);
       }
 
-      const updateCooldownLabel = () => {
-        const remainingMs = generateCooldownUntil - Date.now();
+      setGenerateButtonState(true, "Please wait a minute, queue is being created...");
 
-        if (remainingMs <= 0) {
-          clearInterval(generateCooldownTimer);
-          generateCooldownTimer = null;
-          setGenerateButtonState(false, "Generate QR");
-          setGenerateStatus("", false);
-          return;
-        }
-
-        const remainingSeconds = Math.ceil(remainingMs / 1000);
-        setGenerateButtonState(true, `Generating QR, please wait... ${remainingSeconds}s`);
-        setGenerateStatus(`Generating QR, please wait... ${remainingSeconds}s`);
-      };
-
-      updateCooldownLabel();
-      generateCooldownTimer = setInterval(updateCooldownLabel, 250);
+      generateCooldownTimer = setTimeout(() => {
+        generateCooldownTimer = null;
+        generateCooldownUntil = 0;
+        setGenerateButtonState(false, "Generate QR");
+      }, seconds * 1000);
     }
 
     function escapeHtml(value) {
@@ -530,13 +508,12 @@
       e.preventDefault();
 
       if (isGenerating) {
-        showAlert("Generating QR, please wait...", "warning");
+        showAlert("Please wait a minute, queue is being created...", "warning");
         return;
       }
 
       if (Date.now() < generateCooldownUntil) {
-        const remainingSeconds = Math.ceil((generateCooldownUntil - Date.now()) / 1000);
-        showAlert(`Please wait ${remainingSeconds} second(s) before generating another queue.`, "warning");
+        showAlert("Please wait before generating another queue.", "warning");
         return;
       }
 
@@ -575,9 +552,7 @@
       formData.append('esignRequired', esignRequired);
 
       isGenerating = true;
-      startGenerateCooldown(10);
-      setGenerateButtonState(true, "Generating QR, please wait...");
-      setGenerateStatus("Generating QR, please wait...");
+      setGenerateButtonState(true, "Please wait a minute, queue is being created...");
 
       fetch("/generate_qr_db", {
         method: "POST",
@@ -616,10 +591,12 @@
           showGeneratedQueueView();
           form.reset();
           showAlert("Queue created successfully!", "success");
+          startGenerateCooldown(5);
         })
         .catch(err => {
           console.error(err);
           showAlert(`Error generating QR: ${err.message}`, "error");
+          setGenerateButtonState(false, "Generate QR");
         })
         .finally(() => {
           isGenerating = false;
