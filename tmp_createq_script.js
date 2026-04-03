@@ -1,169 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Queue | {{ app_settings.app_name }}</title>
-  <!-- Updated 2025-01-10: Service time, schedule, staff management, and auto-calculated queue limit -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/common.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='Admin2/CreateQ.css') }}" />
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
-</head>
-
-<body>
-
-  <header>
-    <nav class="HomeNavbar">
-      <a href="{{ url_for('homepage') }}" class="HomeLogo"><img src="{{ app_settings.logo_url }}" alt="{{ app_settings.app_name }} logo" class="nav-logo-img"><strong>{{ app_settings.app_name }}</strong></a>
-      <ul class="HomeNavMenu">
-        <li><a href="{{ url_for('homepage') }}">Home</a></li>
-        <li><a href="{{ url_for('createq') }}" class="active">Create Queue</a></li>
-        <li><a href="{{ url_for('scantracking') }}">Scan Tracking</a></li>
-        <li class="settings-dropdown">
-          <details class="settings-details">
-            <summary class="settings-trigger">Settings</summary>
-            <div class="settings-menu">
-              <a href="{{ url_for('admin_settings') }}">Account & Branding</a>
-              <a href="{{ url_for('logout') }}" class="logout-link">Log out</a>
-            </div>
-          </details>
-        </li>
-      </ul>
-    </nav>
-  </header>
-
-  <!-- ================= MAIN CONTENT ================= -->
-  <main class="HomeMainContent">
-    <h2>Create Queue and Generate QR Codes for {{ app_settings.office_name }}</h2>
-
-    <div class="HomeTwoContainer">
-      <!-- LEFT: Form -->
-      <div class="HomeRightContainer">
-        <form id="qrForm">
-
-          <!-- ========== SECTION 1: Basic Information ========== -->
-          <div class="form-section" style="background: #f8f9fa; border: 2px solid #007bff;">
-            <h3 style="border-bottom-color: #007bff;">📋 Basic Information</h3>
-
-            <label for="queueType">Queue Type:</label>
-            <input type="text" id="queueType" placeholder="e.g. Requirements Submission" required>
-
-            <label for="queuePurpose">Queue Purpose / Description:</label>
-            <input type="text" id="queuePurpose" placeholder="e.g. Submit documents or claim ID" required>
-
-            <label for="processingDays">Processing Time (Days):</label>
-            <input type="number" id="processingDays" value="3" placeholder="e.g. 3" min="1" required>
-
-            <p style="color: #666; font-style: italic;">
-              ✓ URL will be automatically generated based on Queue Type
-            </p>
-          </div>
-
-          <!-- ========== SECTION 2: Queue Configuration ========== -->
-          <div class="form-section">
-            <h3>⚙️ Queue Configuration</h3>
-
-            <label for="processingMethod">Service Channel:</label>
-            <select id="processingMethod" required>
-              <option value="">-- Select --</option>
-              <option value="Walk-in">Walk-in (In-Person)</option>
-              <option value="Online">Online</option>
-            </select>
-
-            <label for="releaseType">Release Format:</label>
-            <select id="releaseType" required>
-              <option value="">-- Select --</option>
-              <option value="Physical Claim">Physical Claim (Onsite Pickup)</option>
-              <option value="Digital Copy">Digital Copy (Online Release)</option>
-            </select>
-
-            <label for="studentId">Require Applicant ID (Student/Client Number)?</label>
-            <select id="studentId" required>
-              <option value="">-- Select --</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
-
-            <label for="validId">Require Valid ID Uploads (JPG, PNG, PDF, max 5MB each)?</label>
-            <select id="validId" required>
-              <option value="">-- Select --</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
-
-            <label for="supportingDoc">Require Supporting Document Uploads (JPG, PNG, PDF, max 5MB each)?</label>
-            <select id="supportingDoc" required>
-              <option value="">-- Select --</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
-
-            <label for="esignRequired">Require E-Signature?</label>
-            <select id="esignRequired" required>
-              <option value="">-- Select --</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
-            <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">Set to "No" to hide that field from the
-              registration form.</p>
-          </div>
-
-          <!-- ========== ACTION BUTTONS ========== -->
-          <div class="button-container">
-            <button type="submit" id="generateQrBtn">Generate QR</button>
-            <button type="button" id="viewHistoryBtn">View QR History</button>
-            <button type="button" id="loadPreviousBtn" style="background: #6c757d; display: none;">
-              📋 Load Queue
-            </button>
-          </div>
-          <p id="generateQueueStatus" style="display:none; margin-top: 10px; color: #856404; font-weight: 600;">
-            Please wait, generating queue...
-          </p>
-
-        </form>
-      </div>
-
-      <!-- RIGHT: Generated QRs -->
-      <div class="HomeLeftContainer">
-        <h3 id="qrContainerTitle">Generated Queues</h3>
-        <div class="qr-container" id="qrContainer"></div>
-      </div>
-    </div>
-  </main>
-
-  <!-- Confirmation Modal -->
-  <div class="confirmation-overlay" id="confirmationModal" style="display: none;">
-    <div class="confirmation-modal">
-      <div class="confirmation-icon">⚠️</div>
-      <h3 id="confirmationTitle">Confirm Action</h3>
-      <p id="confirmationMessage">Are you sure you want to proceed?</p>
-      <div class="confirmation-buttons">
-        <button class="confirm-btn-yes" id="confirmYes">Yes, Proceed</button>
-        <button class="confirm-btn-no" id="confirmNo">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Success/Error Modal -->
-  <div class="alert-overlay" id="alertModal" style="display: none;">
-    <div class="alert-modal">
-      <div class="alert-icon" id="alertIcon">✓</div>
-      <p id="alertMessage">Success!</p>
-      <button class="alert-btn" id="alertOk">Done</button>
-    </div>
-  </div>
-
-
-  <!-- ================= JAVASCRIPT ================= -->
-  <script>
     const form = document.getElementById("qrForm");
     const container = document.getElementById("qrContainer");
     const qrContainerTitle = document.getElementById("qrContainerTitle");
     const viewHistoryBtn = document.getElementById("viewHistoryBtn");
     const loadPreviousBtn = document.getElementById("loadPreviousBtn");
     const generateQrBtn = document.getElementById("generateQrBtn");
-    const generateQueueStatus = document.getElementById("generateQueueStatus");
 
     const GENERATED_TITLE = "Generated Queues";
     const HISTORY_TITLE = "QR History";
@@ -229,7 +70,7 @@
       messageEl.textContent = message;
 
       if (type === 'success') {
-        iconEl.textContent = 'Success';
+        iconEl.textContent = 'OK';
         iconEl.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
       } else if (type === 'warning') {
         iconEl.textContent = '!';
@@ -249,15 +90,8 @@
       generateQrBtn.innerText = label;
     }
 
-    function setGenerateStatus(message, visible = true) {
-      if (!generateQueueStatus) return;
-      generateQueueStatus.textContent = message || "";
-      generateQueueStatus.style.display = visible ? "block" : "none";
-    }
-
-    function startGenerateCooldown(seconds = 20) {
-      setGenerateStatus("Please wait, generating queue...");
-      generateCooldownUntil = Date.now() + (seconds * 2000);
+    function startGenerateCooldown(seconds = 10) {
+      generateCooldownUntil = Date.now() + (seconds * 1000);
 
       if (generateCooldownTimer) {
         clearInterval(generateCooldownTimer);
@@ -270,13 +104,11 @@
           clearInterval(generateCooldownTimer);
           generateCooldownTimer = null;
           setGenerateButtonState(false, "Generate QR");
-          setGenerateStatus("", false);
           return;
         }
 
-        const remainingSeconds = Math.ceil(remainingMs / 2000);
+        const remainingSeconds = Math.ceil(remainingMs / 1000);
         setGenerateButtonState(true, `Please wait... ${remainingSeconds}s`);
-        setGenerateStatus(`Please wait... ${remainingSeconds}s before generating another queue.`);
       };
 
       updateCooldownLabel();
@@ -575,9 +407,7 @@
       formData.append('esignRequired', esignRequired);
 
       isGenerating = true;
-      startGenerateCooldown(20);
       setGenerateButtonState(true, "Please wait, generating queue...");
-      setGenerateStatus("Please wait, generating queue...");
 
       fetch("/generate_qr_db", {
         method: "POST",
@@ -616,10 +446,12 @@
           showGeneratedQueueView();
           form.reset();
           showAlert("Queue created successfully!", "success");
+          startGenerateCooldown(10);
         })
         .catch(err => {
           console.error(err);
           showAlert(`Error generating QR: ${err.message}`, "error");
+          setGenerateButtonState(false, "Generate QR");
         })
         .finally(() => {
           isGenerating = false;
@@ -671,8 +503,4 @@
       link.download = `QR_${qrList[index].type}.png`;
       link.click();
     }
-  </script>
-
-</body>
-
-</html>
+  
