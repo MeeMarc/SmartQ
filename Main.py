@@ -549,7 +549,7 @@ def forgot_password_send_code():
             print(f"Password reset email send failed for {email}: {send_detail}")
             return jsonify({
                 "status": "error",
-                "message": "We could not send the verification code right now. Please try again."
+                "message": f"We could not send the verification code right now. {send_detail or 'Please check the EmailJS template and service settings.'}"
             }), 502
 
         cur.close()
