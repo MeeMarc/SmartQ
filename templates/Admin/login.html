@@ -7,52 +7,6 @@
   <link rel="stylesheet" href="../static/login.css" />
   <!-- Font Awesome for eye icon -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-  <style>
-    .forgot-password-modal-backdrop {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 0, 0, 0.45);
-      z-index: 1000;
-      padding: 1.5rem;
-    }
-
-    .forgot-password-modal-backdrop.is-open {
-      display: flex;
-    }
-
-    .forgot-password-modal {
-      width: min(100%, 420px);
-      background: #fff;
-      border-radius: 16px;
-      padding: 1.5rem;
-      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.18);
-      text-align: center;
-    }
-
-    .forgot-password-modal h3 {
-      margin: 0 0 0.75rem;
-    }
-
-    .forgot-password-modal p {
-      margin: 0 0 1.25rem;
-      line-height: 1.5;
-      color: #444;
-    }
-
-    .forgot-password-modal button {
-      border: none;
-      border-radius: 999px;
-      padding: 0.75rem 1.5rem;
-      background: #1f6feb;
-      color: #fff;
-      font: inherit;
-      cursor: pointer;
-    }
-
-  </style>
 </head>
 <body>
 
@@ -106,17 +60,116 @@
 
 <div id="forgotPasswordModal" class="forgot-password-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="forgotPasswordTitle" aria-hidden="true">
   <div class="forgot-password-modal">
-    <h3 id="forgotPasswordTitle">Forgot your password?</h3>
-    <p>Please contact the administrator to reset your password.</p>
-    <button type="button" onclick="hideForgotPasswordMessage()">Close</button>
+    <h3 id="forgotPasswordTitle">Forgot Password</h3>
+    <p id="forgotPasswordSubtitle">Enter the email address connected to your admin account.</p>
+
+    <div class="forgot-password-progress" aria-hidden="true">
+      <span class="forgot-password-progress-dot active" data-step-dot="email"></span>
+      <span class="forgot-password-progress-dot" data-step-dot="verify"></span>
+      <span class="forgot-password-progress-dot" data-step-dot="reset"></span>
+      <span class="forgot-password-progress-dot" data-step-dot="success"></span>
+    </div>
+
+    <div id="forgotPasswordEmailStep" class="forgot-password-step is-active">
+      <label class="forgot-password-label" for="forgotPasswordEmail">Email Address</label>
+      <input class="forgot-password-input" type="email" id="forgotPasswordEmail" placeholder="Enter your admin email">
+      <div class="forgot-password-actions">
+        <button type="button" onclick="goToForgotPasswordStep('verify')">Send Code</button>
+        <button type="button" class="secondary-button" onclick="hideForgotPasswordMessage()">Cancel</button>
+      </div>
+    </div>
+
+    <div id="forgotPasswordVerifyStep" class="forgot-password-step">
+      <div class="forgot-password-note">Design preview only: this step will verify the code sent to the admin email.</div>
+      <label class="forgot-password-label" for="forgotPasswordCode">Verification Code</label>
+      <input class="forgot-password-input" type="text" id="forgotPasswordCode" placeholder="Enter the verification code">
+      <div class="forgot-password-actions">
+        <button type="button" onclick="goToForgotPasswordStep('reset')">Verify Code</button>
+        <button type="button" class="secondary-button" onclick="goToForgotPasswordStep('email')">Back</button>
+      </div>
+    </div>
+
+    <div id="forgotPasswordResetStep" class="forgot-password-step">
+      <label class="forgot-password-label" for="forgotPasswordNewPassword">New Password</label>
+      <input class="forgot-password-input" type="password" id="forgotPasswordNewPassword" placeholder="Enter your new password">
+      <label class="forgot-password-label" for="forgotPasswordConfirmPassword">Confirm New Password</label>
+      <input class="forgot-password-input" type="password" id="forgotPasswordConfirmPassword" placeholder="Confirm your new password">
+      <div class="forgot-password-actions">
+        <button type="button" onclick="goToForgotPasswordStep('success')">Change Password</button>
+        <button type="button" class="secondary-button" onclick="goToForgotPasswordStep('verify')">Back</button>
+      </div>
+    </div>
+
+    <div id="forgotPasswordSuccessStep" class="forgot-password-step">
+      <div class="forgot-password-success">
+        Your password has been changed successfully. You can now log in using your new password.
+      </div>
+      <div class="forgot-password-actions">
+        <button type="button" onclick="hideForgotPasswordMessage()">Back to Login</button>
+      </div>
+    </div>
   </div>
 </div>
 
   <!-- JS for toggle password -->
   <script>
+    const forgotPasswordStepConfig = {
+      email: {
+        title: "Forgot Password",
+        subtitle: "Enter the email address connected to your admin account."
+      },
+      verify: {
+        title: "Verify Code",
+        subtitle: "Enter the verification code sent to your email."
+      },
+      reset: {
+        title: "Reset Password",
+        subtitle: "Enter your new password below."
+      },
+      success: {
+        title: "Password Updated",
+        subtitle: "This is the design preview before backend integration."
+      }
+    };
+
+    function goToForgotPasswordStep(step) {
+      const stepMap = {
+        email: "forgotPasswordEmailStep",
+        verify: "forgotPasswordVerifyStep",
+        reset: "forgotPasswordResetStep",
+        success: "forgotPasswordSuccessStep"
+      };
+
+      const config = forgotPasswordStepConfig[step] || forgotPasswordStepConfig.email;
+      const title = document.getElementById("forgotPasswordTitle");
+      const subtitle = document.getElementById("forgotPasswordSubtitle");
+      if (title) title.textContent = config.title;
+      if (subtitle) subtitle.textContent = config.subtitle;
+
+      Object.values(stepMap).forEach(function(id) {
+        const section = document.getElementById(id);
+        if (section) {
+          section.classList.remove("is-active");
+        }
+      });
+
+      const activeSection = document.getElementById(stepMap[step] || stepMap.email);
+      if (activeSection) {
+        activeSection.classList.add("is-active");
+      }
+
+      const dotOrder = ["email", "verify", "reset", "success"];
+      const activeIndex = dotOrder.indexOf(step);
+      document.querySelectorAll("[data-step-dot]").forEach(function(dot) {
+        const dotIndex = dotOrder.indexOf(dot.getAttribute("data-step-dot"));
+        dot.classList.toggle("active", dotIndex <= activeIndex && activeIndex >= 0);
+      });
+    }
+
     function showForgotPasswordMessage(event) {
       event.preventDefault();
       const modal = document.getElementById("forgotPasswordModal");
+      goToForgotPasswordStep("email");
       modal.classList.add("is-open");
       modal.setAttribute("aria-hidden", "false");
     }
@@ -125,6 +178,7 @@
       const modal = document.getElementById("forgotPasswordModal");
       modal.classList.remove("is-open");
       modal.setAttribute("aria-hidden", "true");
+      goToForgotPasswordStep("email");
     }
 
     function togglePassword(id, el) {

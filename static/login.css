@@ -525,3 +525,134 @@ button:hover {
   }
 }
 
+/* =============================
+   FORGOT PASSWORD MODAL
+============================= */
+.forgot-password-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  padding: 1.5rem;
+}
+
+.forgot-password-modal-backdrop.is-open {
+  display: flex;
+}
+
+.forgot-password-modal {
+  width: min(100%, 420px);
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.18);
+  text-align: center;
+}
+
+.forgot-password-modal h3 {
+  margin: 0 0 0.75rem;
+}
+
+.forgot-password-modal p {
+  margin: 0 0 1.25rem;
+  line-height: 1.5;
+  color: #444;
+}
+
+.forgot-password-modal button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.75rem 1.5rem;
+  background: #1f6feb;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.forgot-password-modal .secondary-button {
+  background: #edf2f8;
+  color: #294866;
+}
+
+.forgot-password-progress {
+  display: flex;
+  justify-content: center;
+  gap: 0.55rem;
+  margin: 0 0 1.25rem;
+}
+
+.forgot-password-progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #d4ddeb;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.forgot-password-progress-dot.active {
+  background: #1f6feb;
+  transform: scale(1.15);
+}
+
+.forgot-password-step {
+  display: none;
+  text-align: left;
+}
+
+.forgot-password-step.is-active {
+  display: block;
+}
+
+.forgot-password-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  color: #24415f;
+}
+
+.forgot-password-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d0d8e5;
+  border-radius: 12px;
+  padding: 0.85rem 0.95rem;
+  margin-bottom: 1rem;
+  font: inherit;
+  outline: none;
+}
+
+.forgot-password-input:focus {
+  border-color: #1f6feb;
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.12);
+}
+
+.forgot-password-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.25rem;
+}
+
+.forgot-password-note {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: #f4f8fc;
+  color: #35516f;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.forgot-password-success {
+  padding: 1rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #edf8ef 0%, #e2f4e7 100%);
+  color: #1c5a32;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
