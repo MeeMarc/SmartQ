@@ -38,7 +38,7 @@ PASSWORD_RESET_MAX_SENDS_PER_WINDOW = 3
 PASSWORD_RESET_SEND_WINDOW_MINUTES = 10
 PASSWORD_RESET_TEMPLATE_ID = os.getenv("EMAILJS_RESET_TEMPLATE_ID", "template_yirej0o")
 PASSWORD_RESET_PUBLIC_KEY = os.getenv("EMAILJS_RESET_PUBLIC_KEY", "QsaI8dnLcJOo1epYB")
-PASSWORD_RESET_SERVICE_ID = os.getenv("EMAILJS_RESET_SERVICE_ID") or os.getenv("EMAILJS_SERVICE_ID") or "default_service"
+PASSWORD_RESET_SERVICE_ID = os.getenv("EMAILJS_RESET_SERVICE_ID") or os.getenv("EMAILJS_SERVICE_ID") or "service_icakblw"
 PASSWORD_RESET_EMAIL_API_URL = "https://api.emailjs.com/api/v1.0/email/send"
 
 # Make Flask respect X-Forwarded-* headers on Render so url_for(..., _external=True)
