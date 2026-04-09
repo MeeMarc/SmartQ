@@ -656,3 +656,23 @@ button:hover {
   margin-bottom: 1rem;
 }
 
+.forgot-password-status {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  text-align: center;
+  background: #f4f8fc;
+  color: #35516f;
+}
+
+.forgot-password-status.error {
+  background: #fdecec;
+  color: #a12626;
+}
+
+.forgot-password-status.success {
+  background: #e8f7ec;
+  color: #156c2f;
+}
+

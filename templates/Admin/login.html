@@ -65,44 +65,23 @@
 
     <div class="forgot-password-progress" aria-hidden="true">
       <span class="forgot-password-progress-dot active" data-step-dot="email"></span>
-      <span class="forgot-password-progress-dot" data-step-dot="verify"></span>
-      <span class="forgot-password-progress-dot" data-step-dot="reset"></span>
       <span class="forgot-password-progress-dot" data-step-dot="success"></span>
     </div>
+
+    <div id="forgotPasswordStatus" class="forgot-password-status" role="status" aria-live="polite" style="display:none;"></div>
 
     <div id="forgotPasswordEmailStep" class="forgot-password-step is-active">
       <label class="forgot-password-label" for="forgotPasswordEmail">Email Address</label>
       <input class="forgot-password-input" type="email" id="forgotPasswordEmail" placeholder="Enter your admin email">
       <div class="forgot-password-actions">
-        <button type="button" onclick="goToForgotPasswordStep('verify')">Send Code</button>
+        <button type="button" id="forgotPasswordSendButton">Send Reset Link</button>
         <button type="button" class="secondary-button" onclick="hideForgotPasswordMessage()">Cancel</button>
-      </div>
-    </div>
-
-    <div id="forgotPasswordVerifyStep" class="forgot-password-step">
-      <div class="forgot-password-note">Design preview only: this step will verify the code sent to the admin email.</div>
-      <label class="forgot-password-label" for="forgotPasswordCode">Verification Code</label>
-      <input class="forgot-password-input" type="text" id="forgotPasswordCode" placeholder="Enter the verification code">
-      <div class="forgot-password-actions">
-        <button type="button" onclick="goToForgotPasswordStep('reset')">Verify Code</button>
-        <button type="button" class="secondary-button" onclick="goToForgotPasswordStep('email')">Back</button>
-      </div>
-    </div>
-
-    <div id="forgotPasswordResetStep" class="forgot-password-step">
-      <label class="forgot-password-label" for="forgotPasswordNewPassword">New Password</label>
-      <input class="forgot-password-input" type="password" id="forgotPasswordNewPassword" placeholder="Enter your new password">
-      <label class="forgot-password-label" for="forgotPasswordConfirmPassword">Confirm New Password</label>
-      <input class="forgot-password-input" type="password" id="forgotPasswordConfirmPassword" placeholder="Confirm your new password">
-      <div class="forgot-password-actions">
-        <button type="button" onclick="goToForgotPasswordStep('success')">Change Password</button>
-        <button type="button" class="secondary-button" onclick="goToForgotPasswordStep('verify')">Back</button>
       </div>
     </div>
 
     <div id="forgotPasswordSuccessStep" class="forgot-password-step">
       <div class="forgot-password-success">
-        Your password has been changed successfully. You can now log in using your new password.
+        If that email exists, a reset link has been sent. Check your inbox and follow the link to set a new password.
       </div>
       <div class="forgot-password-actions">
         <button type="button" onclick="hideForgotPasswordMessage()">Back to Login</button>
@@ -118,25 +97,15 @@
         title: "Forgot Password",
         subtitle: "Enter the email address connected to your admin account."
       },
-      verify: {
-        title: "Verify Code",
-        subtitle: "Enter the verification code sent to your email."
-      },
-      reset: {
-        title: "Reset Password",
-        subtitle: "Enter your new password below."
-      },
       success: {
-        title: "Password Updated",
-        subtitle: "This is the design preview before backend integration."
+        title: "Reset Link Sent",
+        subtitle: "If that email exists, you’ll receive a reset link shortly."
       }
     };
 
     function goToForgotPasswordStep(step) {
       const stepMap = {
         email: "forgotPasswordEmailStep",
-        verify: "forgotPasswordVerifyStep",
-        reset: "forgotPasswordResetStep",
         success: "forgotPasswordSuccessStep"
       };
 
@@ -158,7 +127,7 @@
         activeSection.classList.add("is-active");
       }
 
-      const dotOrder = ["email", "verify", "reset", "success"];
+      const dotOrder = ["email", "success"];
       const activeIndex = dotOrder.indexOf(step);
       document.querySelectorAll("[data-step-dot]").forEach(function(dot) {
         const dotIndex = dotOrder.indexOf(dot.getAttribute("data-step-dot"));
@@ -236,6 +205,50 @@
       }
 
       const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+      const forgotPasswordSendButton = document.getElementById('forgotPasswordSendButton');
+      const forgotPasswordEmailInput = document.getElementById('forgotPasswordEmail');
+      const forgotPasswordStatus = document.getElementById('forgotPasswordStatus');
+
+      function setForgotPasswordStatus(message, type = "") {
+        if (!forgotPasswordStatus) return;
+        forgotPasswordStatus.style.display = message ? 'block' : 'none';
+        forgotPasswordStatus.textContent = message || '';
+        forgotPasswordStatus.className = 'forgot-password-status';
+        if (message && type) {
+          forgotPasswordStatus.classList.add(type);
+        }
+      }
+
+      async function sendForgotPasswordRequest() {
+        const email = (forgotPasswordEmailInput?.value || "").trim();
+        if (!email) {
+          setForgotPasswordStatus("Please enter your admin email address.", "error");
+          return;
+        }
+        setForgotPasswordStatus("Sending reset link...", "success");
+        forgotPasswordSendButton.disabled = true;
+        try {
+          const res = await fetch("/forgot-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.status !== "success") {
+            throw new Error(data.message || "Unable to send reset link right now.");
+          }
+          setForgotPasswordStatus("");
+          goToForgotPasswordStep("success");
+        } catch (err) {
+          setForgotPasswordStatus(err.message || "Unable to send reset link right now.", "error");
+        } finally {
+          forgotPasswordSendButton.disabled = false;
+        }
+      }
+
+      if (forgotPasswordSendButton) {
+        forgotPasswordSendButton.addEventListener('click', sendForgotPasswordRequest);
+      }
       if (forgotPasswordModal) {
         forgotPasswordModal.addEventListener('click', function(event) {
           if (event.target === forgotPasswordModal) {
