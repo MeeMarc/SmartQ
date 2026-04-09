@@ -3,8 +3,10 @@ import re
 import random
 import smtplib
 import hashlib
-import secrets
+import hmac
 import glob
+import json
+import secrets
 from collections import OrderedDict
 from threading import Lock
 from email.mime.text import MIMEText
@@ -20,6 +22,8 @@ import qrcode
 import io
 import base64
 import time
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 from werkzeug.utils import secure_filename
 
 load_dotenv()  # Load variables from .env if present (local dev)
@@ -28,7 +32,14 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-insecure-secret")  # for flash messages
 app.permanent_session_lifetime = timedelta(days=30)  # 30 days for "Remember Me"
 QUEUE_ENTRIES_SCHEMA_MIGRATED = False
-PASSWORD_RESET_TOKEN_TTL_MINUTES = 60
+PASSWORD_RESET_CODE_TTL_MINUTES = 10
+PASSWORD_RESET_MAX_VERIFY_ATTEMPTS = 5
+PASSWORD_RESET_MAX_SENDS_PER_WINDOW = 3
+PASSWORD_RESET_SEND_WINDOW_MINUTES = 10
+PASSWORD_RESET_TEMPLATE_ID = os.getenv("EMAILJS_RESET_TEMPLATE_ID", "template_yirej0o")
+PASSWORD_RESET_PUBLIC_KEY = os.getenv("EMAILJS_RESET_PUBLIC_KEY", "QsaI8dnLcJOo1epYB")
+PASSWORD_RESET_SERVICE_ID = os.getenv("EMAILJS_RESET_SERVICE_ID") or os.getenv("service_icakblw")
+PASSWORD_RESET_EMAIL_API_URL = "https://api.emailjs.com/api/v1.0/email/send"
 
 # Make Flask respect X-Forwarded-* headers on Render so url_for(..., _external=True)
 # uses the correct scheme/host (https and your subdomain)
@@ -229,65 +240,110 @@ def ensure_user_profile_columns(conn):
         conn.rollback()
 
 
-def ensure_password_reset_tokens_table(conn):
-    """Create password reset token storage if missing."""
+def normalize_auth_email(value):
+    """Normalize an auth email for comparisons and storage."""
+    return (value or "").strip().lower()
+
+
+def hash_password_reset_secret(value):
+    """Hash reset secrets so the raw code/token is never stored."""
+    secret = f"{app.secret_key}|password-reset|{value}"
+    return hashlib.sha256(secret.encode("utf-8")).hexdigest()
+
+
+def generate_password_reset_code():
+    """Return a six-digit reset code."""
+    return "".join(str(secrets.randbelow(10)) for _ in range(6))
+
+
+def generate_password_reset_session_token():
+    """Return a one-time token used after OTP verification."""
+    return secrets.token_urlsafe(32)
+
+
+def ensure_password_reset_table(conn):
+    """Create the password reset request table when needed."""
     try:
         cur = conn.cursor()
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            CREATE TABLE IF NOT EXISTS password_reset_requests (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                token_hash TEXT NOT NULL,
+                email TEXT NOT NULL,
+                code_hash TEXT NOT NULL,
+                session_token_hash TEXT,
                 expires_at TIMESTAMP NOT NULL,
-                used_at TIMESTAMP,
-                created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                verified_at TIMESTAMP,
+                consumed_at TIMESTAMP,
+                verify_attempts INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
             )
         """)
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_password_reset_token_hash ON password_reset_tokens (token_hash)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_password_reset_user ON password_reset_tokens (user_id)")
+        cur.execute("ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS session_token_hash TEXT")
+        cur.execute("ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP")
+        cur.execute("ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS consumed_at TIMESTAMP")
+        cur.execute("ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS verify_attempts INTEGER NOT NULL DEFAULT 0")
+        cur.execute("ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT NOW()")
+        cur.execute("ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW()")
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_password_reset_requests_email
+            ON password_reset_requests (email, created_at DESC)
+        """)
         conn.commit()
         cur.close()
     except Exception as e:
-        print(f"Error ensuring password_reset_tokens table: {e}")
+        print(f"Error ensuring password_reset_requests table: {e}")
         conn.rollback()
 
 
-def hash_password_reset_token(token: str) -> str:
-    """Hash reset tokens so raw values are never stored."""
-    value = f"{app.secret_key}|reset|{token}"
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
-def send_password_reset_email(recipient_email: str, reset_link: str):
-    """Send a password reset email using SMTP settings from environment."""
-    smtp_host = os.getenv("SMTP_HOST")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USERNAME")
-    smtp_pass = os.getenv("SMTP_PASSWORD")
-    smtp_from = os.getenv("SMTP_FROM") or smtp_user
-    use_tls = os.getenv("SMTP_USE_TLS", "true").lower() != "false"
-
-    if not all([smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from]):
-        return False, "Email is not configured on the server."
-
-    msg = MIMEText(f"We received a request to reset your password.\n\n"
-                   f"Reset your password here: {reset_link}\n\n"
-                   f"This link expires in {PASSWORD_RESET_TOKEN_TTL_MINUTES} minutes.\n"
-                   "If you did not request this, you can ignore this email.")
-    msg["Subject"] = "Reset your password"
-    msg["From"] = smtp_from
-    msg["To"] = recipient_email
-
+def send_password_reset_email_via_emailjs(recipient_email, user_name, reset_code, ttl_minutes):
+    """Send the OTP email using EmailJS REST API."""
+    payload = {
+        "service_id": PASSWORD_RESET_SERVICE_ID,
+        "template_id": PASSWORD_RESET_TEMPLATE_ID,
+        "user_id": PASSWORD_RESET_PUBLIC_KEY,
+        "template_params": {
+            "email": recipient_email,
+            "to_email": recipient_email,
+            "user_email": recipient_email,
+            "user_name": user_name or "Admin",
+            "ttl_minutes": ttl_minutes,
+            "reset_code": reset_code,
+        },
+    }
+    request_obj = urllib_request.Request(
+        PASSWORD_RESET_EMAIL_API_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-            if use_tls:
-                server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
-        return True, "sent"
-    except Exception as e:
-        print(f"Error sending password reset email: {e}")
+        with urllib_request.urlopen(request_obj, timeout=15) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            return 200 <= response.status < 300, body
+    except urllib_error.HTTPError as e:
+        error_body = e.read().decode("utf-8", errors="replace")
+        return False, error_body or str(e)
+    except urllib_error.URLError as e:
         return False, str(e)
+    except Exception as e:
+        return False, str(e)
+
+
+def get_active_password_reset_request(cur, normalized_email):
+    """Return the latest active password reset request for an email."""
+    cur.execute(
+        """
+        SELECT id, code_hash, session_token_hash, expires_at, verified_at, consumed_at, verify_attempts
+        FROM password_reset_requests
+        WHERE email = %s
+          AND consumed_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (normalized_email,),
+    )
+    return cur.fetchone()
 
 
 # ==============================================================  
@@ -397,10 +453,10 @@ def login():
     return render_template('Admin/login.html')
 
 
-@app.route('/forgot-password', methods=['POST'])
-def forgot_password():
+@app.route('/forgot-password/send-code', methods=['POST'])
+def forgot_password_send_code():
     data = request.get_json(silent=True) or {}
-    email = (data.get('email') or "").strip().lower()
+    email = normalize_auth_email(data.get('email'))
 
     if not is_valid_email(email):
         return jsonify({"status": "error", "message": "Please enter a valid email address."}), 400
@@ -411,143 +467,293 @@ def forgot_password():
 
     try:
         ensure_user_profile_columns(conn)
-        ensure_password_reset_tokens_table(conn)
+        ensure_password_reset_table(conn)
         cur = conn.cursor()
+
         cur.execute(
-            "SELECT id, fullname, email FROM users WHERE LOWER(email) = %s LIMIT 1",
-            (email,)
+            """
+            SELECT fullname, email
+            FROM users
+            WHERE LOWER(email) = %s
+            LIMIT 1
+            """,
+            (email,),
         )
         user = cur.fetchone()
-
-        # Always return success-style message to avoid enumeration timing hints
-        generic_success = {
-            "status": "success",
-            "message": "If that email exists, a reset link has been sent."
-        }
 
         if not user:
             cur.close()
             conn.close()
-            return jsonify(generic_success)
+            return jsonify({"status": "error", "message": "No admin account was found for that email address."}), 404
 
-        user_id, fullname, user_email = user
-
-        token = secrets.token_urlsafe(32)
-        token_hash = hash_password_reset_token(token)
-        expires_at = datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_TOKEN_TTL_MINUTES)
-
-        # Invalidate old tokens for this user
+        window_start = datetime.utcnow() - timedelta(minutes=PASSWORD_RESET_SEND_WINDOW_MINUTES)
         cur.execute(
-            "UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = %s AND used_at IS NULL",
-            (user_id,)
+            """
+            SELECT COUNT(*)
+            FROM password_reset_requests
+            WHERE email = %s
+              AND created_at >= %s
+            """,
+            (email, window_start),
+        )
+        recent_send_count = cur.fetchone()[0] or 0
+        if recent_send_count >= PASSWORD_RESET_MAX_SENDS_PER_WINDOW:
+            cur.close()
+            conn.close()
+            return jsonify({
+                "status": "error",
+                "message": "Too many reset requests. Please wait a few minutes before trying again."
+            }), 429
+
+        reset_code = generate_password_reset_code()
+        expires_at = datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_CODE_TTL_MINUTES)
+
+        cur.execute(
+            """
+            UPDATE password_reset_requests
+            SET consumed_at = NOW(), updated_at = NOW()
+            WHERE email = %s
+              AND consumed_at IS NULL
+            """,
+            (email,),
         )
         cur.execute(
             """
-            INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
-            VALUES (%s, %s, %s)
+            INSERT INTO password_reset_requests (email, code_hash, expires_at, updated_at)
+            VALUES (%s, %s, %s, NOW())
             """,
-            (user_id, token_hash, expires_at)
+            (email, hash_password_reset_secret(reset_code), expires_at),
         )
         conn.commit()
 
-        reset_link = url_for('reset_password', token=token, _external=True)
-        sent, send_detail = send_password_reset_email(user_email, reset_link)
+        sent, send_detail = send_password_reset_email_via_emailjs(
+            recipient_email=user[1],
+            user_name=extract_first_name(user[0]),
+            reset_code=reset_code,
+            ttl_minutes=PASSWORD_RESET_CODE_TTL_MINUTES,
+        )
         if not sent:
             conn.rollback()
             cur.execute(
-                "UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = %s",
-                (token_hash,)
+                """
+                DELETE FROM password_reset_requests
+                WHERE email = %s
+                  AND consumed_at IS NULL
+                  AND verified_at IS NULL
+                """,
+                (email,),
             )
             conn.commit()
             cur.close()
             conn.close()
-            return jsonify({"status": "error", "message": f"Could not send the reset email. {send_detail}"}), 502
+            print(f"Password reset email send failed for {email}: {send_detail}")
+            return jsonify({
+                "status": "error",
+                "message": f"We could not send the verification code right now. {send_detail or 'Please check the EmailJS template and service settings.'}"
+            }), 502
 
         cur.close()
         conn.close()
-        return jsonify(generic_success)
+        return jsonify({
+            "status": "success",
+            "message": f"A verification code was sent to {user[1]}.",
+            "ttl_minutes": PASSWORD_RESET_CODE_TTL_MINUTES,
+        })
     except Exception as e:
         conn.rollback()
         conn.close()
-        print(f"Forgot password error: {e}")
+        print(f"Forgot password send-code error: {e}")
         return jsonify({"status": "error", "message": "Unable to process your request right now."}), 500
 
 
-@app.route('/reset/<token>', methods=['GET', 'POST'])
-def reset_password(token):
-    token_hash = hash_password_reset_token(token)
+@app.route('/forgot-password/verify-code', methods=['POST'])
+def forgot_password_verify_code():
+    data = request.get_json(silent=True) or {}
+    email = normalize_auth_email(data.get('email'))
+    reset_code = (data.get('code') or "").strip()
+
+    if not is_valid_email(email):
+        return jsonify({"status": "error", "message": "Please enter a valid email address."}), 400
+    if not reset_code:
+        return jsonify({"status": "error", "message": "Please enter the verification code."}), 400
+
     conn = get_db_connection()
     if conn is None:
-        flash("Database connection is unavailable.", "error")
-        return redirect(url_for('login'))
+        return jsonify({"status": "error", "message": "Database connection is unavailable."}), 500
 
     try:
-        ensure_password_reset_tokens_table(conn)
+        ensure_password_reset_table(conn)
         cur = conn.cursor()
+        request_row = get_active_password_reset_request(cur, email)
+
+        if not request_row:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "No active reset request was found. Please request a new code."}), 404
+
+        request_id, code_hash, _, expires_at, verified_at, consumed_at, verify_attempts = request_row
+        now = datetime.utcnow()
+
+        if consumed_at is not None:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "This reset request is no longer active."}), 400
+        if expires_at is None or expires_at < now:
+            cur.execute(
+                "UPDATE password_reset_requests SET consumed_at = NOW(), updated_at = NOW() WHERE id = %s",
+                (request_id,),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "This verification code has expired. Please request a new one."}), 400
+        if verify_attempts >= PASSWORD_RESET_MAX_VERIFY_ATTEMPTS:
+            cur.execute(
+                "UPDATE password_reset_requests SET consumed_at = NOW(), updated_at = NOW() WHERE id = %s",
+                (request_id,),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Too many incorrect attempts. Please request a new code."}), 429
+        if verified_at is not None:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "success", "message": "Code already verified. You can reset your password now."})
+
+        submitted_code_hash = hash_password_reset_secret(reset_code)
+        if not hmac.compare_digest(submitted_code_hash, code_hash):
+            cur.execute(
+                """
+                UPDATE password_reset_requests
+                SET verify_attempts = verify_attempts + 1, updated_at = NOW()
+                WHERE id = %s
+                """,
+                (request_id,),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "The verification code is incorrect."}), 400
+
+        verification_token = generate_password_reset_session_token()
         cur.execute(
             """
-            SELECT prt.id, prt.user_id, prt.expires_at, prt.used_at, u.email
-            FROM password_reset_tokens prt
-            JOIN users u ON u.id = prt.user_id
-            WHERE prt.token_hash = %s
-            LIMIT 1
+            UPDATE password_reset_requests
+            SET verified_at = NOW(),
+                session_token_hash = %s,
+                updated_at = NOW()
+            WHERE id = %s
             """,
-            (token_hash,)
-        )
-        row = cur.fetchone()
-
-        if not row:
-            cur.close()
-            conn.close()
-            flash("This reset link is invalid or has expired.", "error")
-            return redirect(url_for('login'))
-
-        token_id, user_id, expires_at, used_at, user_email = row
-        now = datetime.utcnow()
-        if used_at is not None or expires_at < now:
-            cur.close()
-            conn.close()
-            flash("This reset link is no longer valid. Please request a new one.", "error")
-            return redirect(url_for('login'))
-
-        if request.method == 'GET':
-            cur.close()
-            conn.close()
-            return render_template('Admin/reset_password.html', token=token, email=user_email)
-
-        # POST: update password
-        new_password = request.form.get('new_password') or ""
-        confirm_password = request.form.get('confirm_password') or ""
-        if len(new_password) < 8:
-            cur.close()
-            conn.close()
-            flash("Your new password must be at least 8 characters long.", "error")
-            return redirect(url_for('reset_password', token=token))
-        if new_password != confirm_password:
-            cur.close()
-            conn.close()
-            flash("New password and confirm password do not match.", "error")
-            return redirect(url_for('reset_password', token=token))
-
-        cur.execute(
-            "UPDATE users SET password = %s WHERE id = %s",
-            (generate_password_hash(new_password), user_id)
-        )
-        cur.execute(
-            "UPDATE password_reset_tokens SET used_at = NOW() WHERE id = %s",
-            (token_id,)
+            (hash_password_reset_secret(verification_token), request_id),
         )
         conn.commit()
         cur.close()
         conn.close()
-        flash("Your password has been changed successfully. You can now log in.", "success")
-        return redirect(url_for('login'))
+        return jsonify({
+            "status": "success",
+            "message": "Code verified successfully.",
+            "verification_token": verification_token,
+        })
     except Exception as e:
         conn.rollback()
         conn.close()
-        print(f"Reset password error: {e}")
-        flash("Unable to reset the password right now.", "error")
-        return redirect(url_for('login'))
+        print(f"Forgot password verify-code error: {e}")
+        return jsonify({"status": "error", "message": "Unable to verify the code right now."}), 500
+
+
+@app.route('/forgot-password/reset', methods=['POST'])
+def forgot_password_reset():
+    data = request.get_json(silent=True) or {}
+    email = normalize_auth_email(data.get('email'))
+    verification_token = (data.get('verification_token') or "").strip()
+    new_password = data.get('new_password') or ""
+    confirm_password = data.get('confirm_password') or ""
+
+    if not is_valid_email(email):
+        return jsonify({"status": "error", "message": "Please enter a valid email address."}), 400
+    if not verification_token:
+        return jsonify({"status": "error", "message": "Your reset session is missing. Please verify the code again."}), 400
+    if len(new_password) < 8:
+        return jsonify({"status": "error", "message": "Your new password must be at least 8 characters long."}), 400
+    if new_password != confirm_password:
+        return jsonify({"status": "error", "message": "New password and confirm password do not match."}), 400
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"status": "error", "message": "Database connection is unavailable."}), 500
+
+    try:
+        ensure_user_profile_columns(conn)
+        ensure_password_reset_table(conn)
+        cur = conn.cursor()
+        request_row = get_active_password_reset_request(cur, email)
+
+        if not request_row:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "No verified reset request was found. Please start again."}), 404
+
+        request_id, _, session_token_hash, expires_at, verified_at, consumed_at, _ = request_row
+        now = datetime.utcnow()
+        if consumed_at is not None:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "This reset request is no longer active."}), 400
+        if verified_at is None or not session_token_hash:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Please verify the reset code before changing your password."}), 400
+        if expires_at is None or expires_at < now:
+            cur.execute(
+                "UPDATE password_reset_requests SET consumed_at = NOW(), updated_at = NOW() WHERE id = %s",
+                (request_id,),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "This reset request has expired. Please request a new code."}), 400
+        if not hmac.compare_digest(hash_password_reset_secret(verification_token), session_token_hash):
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Your reset session is invalid. Please verify the code again."}), 400
+
+        cur.execute(
+            """
+            UPDATE users
+            SET password = %s
+            WHERE LOWER(email) = %s
+            """,
+            (generate_password_hash(new_password), email),
+        )
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "No admin account was found for that email address."}), 404
+
+        cur.execute(
+            """
+            UPDATE password_reset_requests
+            SET consumed_at = NOW(),
+                session_token_hash = NULL,
+                updated_at = NOW()
+            WHERE id = %s
+            """,
+            (request_id,),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({
+            "status": "success",
+            "message": "Your password has been changed successfully. You can now log in using your new password."
+        })
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        print(f"Forgot password reset error: {e}")
+        return jsonify({"status": "error", "message": "Unable to reset the password right now."}), 500
 
 
 # ==============================================================  
