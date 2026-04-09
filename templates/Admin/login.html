@@ -60,17 +60,115 @@
 
 <div id="forgotPasswordModal" class="forgot-password-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="forgotPasswordTitle" aria-hidden="true">
   <div class="forgot-password-modal">
-    <h3>Forgot your password?</h3>
-    <p>Please contact the administrator to reset your password.</p>
-    <button type="button" onclick="hideForgotPasswordMessage()">Close</button>
+    <h3 id="forgotPasswordTitle">Forgot Password</h3>
+    <p id="forgotPasswordSubtitle">Enter the email address connected to your admin account.</p>
+
+    <div class="forgot-password-progress" aria-hidden="true">
+      <span class="forgot-password-progress-dot active" data-step-dot="email"></span>
+      <span class="forgot-password-progress-dot" data-step-dot="success"></span>
+    </div>
+
+    <div id="forgotPasswordStatus" class="forgot-password-status" role="status" aria-live="polite" style="display:none;"></div>
+
+    <div id="forgotPasswordEmailStep" class="forgot-password-step is-active">
+      <label class="forgot-password-label" for="forgotPasswordEmail">Email Address</label>
+      <input class="forgot-password-input" type="email" id="forgotPasswordEmail" placeholder="Enter your admin email">
+      <div class="forgot-password-actions">
+        <button type="button" id="forgotPasswordSendButton">Send Verification Code</button>
+        <button type="button" class="secondary-button" onclick="hideForgotPasswordMessage()">Cancel</button>
+      </div>
+    </div>
+
+    <div id="forgotPasswordVerifyStep" class="forgot-password-step">
+      <label class="forgot-password-label" for="forgotPasswordCode">Verification Code</label>
+      <input class="forgot-password-input" type="text" id="forgotPasswordCode" placeholder="Enter the verification code" inputmode="numeric">
+      <div class="forgot-password-actions">
+        <button type="button" id="forgotPasswordVerifyButton">Verify Code</button>
+        <button type="button" class="secondary-button" onclick="goToForgotPasswordStep('email')">Back</button>
+      </div>
+    </div>
+
+    <div id="forgotPasswordResetStep" class="forgot-password-step">
+      <label class="forgot-password-label" for="forgotPasswordNewPassword">New Password</label>
+      <input class="forgot-password-input" type="password" id="forgotPasswordNewPassword" placeholder="Enter your new password">
+      <label class="forgot-password-label" for="forgotPasswordConfirmPassword">Confirm New Password</label>
+      <input class="forgot-password-input" type="password" id="forgotPasswordConfirmPassword" placeholder="Confirm your new password">
+      <div class="forgot-password-actions">
+        <button type="button" id="forgotPasswordResetButton">Change Password</button>
+        <button type="button" class="secondary-button" onclick="goToForgotPasswordStep('verify')">Back</button>
+      </div>
+    </div>
+
+    <div id="forgotPasswordSuccessStep" class="forgot-password-step">
+      <div class="forgot-password-success">
+        Your password has been changed successfully. You can now log in using your new password.
+      </div>
+      <div class="forgot-password-actions">
+        <button type="button" onclick="hideForgotPasswordMessage()">Back to Login</button>
+      </div>
+    </div>
   </div>
 </div>
 
   <!-- JS for toggle password -->
   <script>
+    const forgotPasswordStepConfig = {
+      email: {
+        title: "Forgot Password",
+        subtitle: "Enter the email address connected to your admin account."
+      },
+      verify: {
+        title: "Verify Code",
+        subtitle: "Enter the verification code sent to your email."
+      },
+      reset: {
+        title: "Reset Password",
+        subtitle: "Enter your new password below."
+      },
+      success: {
+        title: "Password Updated",
+        subtitle: "You can now log in with your new password."
+      }
+    };
+
+    function goToForgotPasswordStep(step) {
+      const stepMap = {
+        email: "forgotPasswordEmailStep",
+        verify: "forgotPasswordVerifyStep",
+        reset: "forgotPasswordResetStep",
+        success: "forgotPasswordSuccessStep"
+      };
+
+      const config = forgotPasswordStepConfig[step] || forgotPasswordStepConfig.email;
+      const title = document.getElementById("forgotPasswordTitle");
+      const subtitle = document.getElementById("forgotPasswordSubtitle");
+      if (title) title.textContent = config.title;
+      if (subtitle) subtitle.textContent = config.subtitle;
+
+      Object.values(stepMap).forEach(function(id) {
+        const section = document.getElementById(id);
+        if (section) {
+          section.classList.remove("is-active");
+        }
+      });
+
+      const activeSection = document.getElementById(stepMap[step] || stepMap.email);
+      if (activeSection) {
+        activeSection.classList.add("is-active");
+      }
+
+      const dotOrder = ["email", "verify", "reset", "success"];
+      const activeIndex = dotOrder.indexOf(step);
+      document.querySelectorAll("[data-step-dot]").forEach(function(dot) {
+        const dotIndex = dotOrder.indexOf(dot.getAttribute("data-step-dot"));
+        dot.classList.toggle("active", dotIndex <= activeIndex && activeIndex >= 0);
+      });
+    }
+
     function showForgotPasswordMessage(event) {
       event.preventDefault();
       const modal = document.getElementById("forgotPasswordModal");
+      goToForgotPasswordStep("email");
       modal.classList.add("is-open");
       modal.setAttribute("aria-hidden", "false");
     }
@@ -79,6 +177,7 @@
       const modal = document.getElementById("forgotPasswordModal");
       modal.classList.remove("is-open");
       modal.setAttribute("aria-hidden", "true");
+      goToForgotPasswordStep("email");
     }
 
     function togglePassword(id, el) {
@@ -136,6 +235,124 @@
       }
 
       const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+      const forgotPasswordSendButton = document.getElementById('forgotPasswordSendButton');
+      const forgotPasswordVerifyButton = document.getElementById('forgotPasswordVerifyButton');
+      const forgotPasswordResetButton = document.getElementById('forgotPasswordResetButton');
+      const forgotPasswordEmailInput = document.getElementById('forgotPasswordEmail');
+      const forgotPasswordCodeInput = document.getElementById('forgotPasswordCode');
+      const forgotPasswordNewPassword = document.getElementById('forgotPasswordNewPassword');
+      const forgotPasswordConfirmPassword = document.getElementById('forgotPasswordConfirmPassword');
+      const forgotPasswordStatus = document.getElementById('forgotPasswordStatus');
+
+      const forgotState = { email: "", verificationToken: "" };
+
+      function setForgotStatus(message, type = "") {
+        if (!forgotPasswordStatus) return;
+        forgotPasswordStatus.style.display = message ? 'block' : 'none';
+        forgotPasswordStatus.textContent = message || '';
+        forgotPasswordStatus.className = 'forgot-password-status';
+        if (message && type) {
+          forgotPasswordStatus.classList.add(type);
+        }
+      }
+
+      async function postJSON(url, payload) {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.status !== "success") {
+          throw new Error(data.message || "Request failed.");
+        }
+        return data;
+      }
+
+      async function handleSendCode() {
+        const email = (forgotPasswordEmailInput?.value || "").trim();
+        if (!email) {
+          setForgotStatus("Please enter your admin email address.", "error");
+          return;
+        }
+        setForgotStatus("Sending code...", "success");
+        forgotPasswordSendButton.disabled = true;
+        try {
+          await postJSON("/forgot-password/send-code", { email });
+          forgotState.email = email;
+          setForgotStatus("");
+          goToForgotPasswordStep("verify");
+        } catch (err) {
+          setForgotStatus(err.message, "error");
+        } finally {
+          forgotPasswordSendButton.disabled = false;
+        }
+      }
+
+      async function handleVerifyCode() {
+        const code = (forgotPasswordCodeInput?.value || "").trim();
+        const email = forgotState.email || (forgotPasswordEmailInput?.value || "").trim();
+        if (!email) {
+          setForgotStatus("Please enter your email first.", "error");
+          goToForgotPasswordStep("email");
+          return;
+        }
+        if (!code) {
+          setForgotStatus("Please enter the verification code sent to your email.", "error");
+          return;
+        }
+        setForgotStatus("Verifying code...", "success");
+        forgotPasswordVerifyButton.disabled = true;
+        try {
+          const data = await postJSON("/forgot-password/verify-code", { email, code });
+          forgotState.email = email;
+          forgotState.verificationToken = data.verification_token;
+          setForgotStatus("");
+          goToForgotPasswordStep("reset");
+        } catch (err) {
+          setForgotStatus(err.message, "error");
+        } finally {
+          forgotPasswordVerifyButton.disabled = false;
+        }
+      }
+
+      async function handleResetPassword() {
+        const email = forgotState.email;
+        const token = forgotState.verificationToken;
+        const newPassword = forgotPasswordNewPassword?.value || "";
+        const confirmPassword = forgotPasswordConfirmPassword?.value || "";
+        if (!email || !token) {
+          setForgotStatus("Please verify your code before resetting your password.", "error");
+          goToForgotPasswordStep("email");
+          return;
+        }
+        setForgotStatus("Updating password...", "success");
+        forgotPasswordResetButton.disabled = true;
+        try {
+          await postJSON("/forgot-password/reset", {
+            email,
+            verification_token: token,
+            new_password: newPassword,
+            confirm_password: confirmPassword
+          });
+          setForgotStatus("");
+          goToForgotPasswordStep("success");
+        } catch (err) {
+          setForgotStatus(err.message, "error");
+        } finally {
+          forgotPasswordResetButton.disabled = false;
+        }
+      }
+
+      if (forgotPasswordSendButton) {
+        forgotPasswordSendButton.addEventListener('click', handleSendCode);
+      }
+      if (forgotPasswordVerifyButton) {
+        forgotPasswordVerifyButton.addEventListener('click', handleVerifyCode);
+      }
+      if (forgotPasswordResetButton) {
+        forgotPasswordResetButton.addEventListener('click', handleResetPassword);
+      }
       const forgotPasswordSendButton = document.getElementById('forgotPasswordSendButton');
       const forgotPasswordEmailInput = document.getElementById('forgotPasswordEmail');
       const forgotPasswordStatus = document.getElementById('forgotPasswordStatus');
