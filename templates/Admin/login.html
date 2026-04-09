@@ -275,15 +275,16 @@
           setForgotStatus("Please enter your admin email address.", "error");
           return;
         }
-        setForgotStatus("Sending code...", "success");
+        setForgotStatus("Sending verification code...", "success");
         forgotPasswordSendButton.disabled = true;
         try {
-          await postJSON("/forgot-password/send-code", { email });
+          const data = await postJSON("/forgot-password/send-code", { email });
           forgotState.email = email;
-          setForgotStatus("");
+          const ttlMinutes = data.ttl_minutes || 10;
+          setForgotStatus(`Verification code sent. It expires in ${ttlMinutes} minutes.`, "success");
           goToForgotPasswordStep("verify");
         } catch (err) {
-          setForgotStatus(err.message, "error");
+          setForgotStatus(err.message || 'Unable to send verification code.', "error");
         } finally {
           forgotPasswordSendButton.disabled = false;
         }

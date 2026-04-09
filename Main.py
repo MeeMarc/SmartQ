@@ -529,37 +529,39 @@ def forgot_password_send_code():
         )
         conn.commit()
 
+        # Send the reset code via EmailJS from the backend to avoid exposing it to clients.
         sent, send_detail = send_password_reset_email_via_emailjs(
-            recipient_email=user[1],
+            recipient_email=email,
             user_name=extract_first_name(user[0]),
             reset_code=reset_code,
             ttl_minutes=PASSWORD_RESET_CODE_TTL_MINUTES,
         )
         if not sent:
-            conn.rollback()
-            cur.execute(
-                """
-                DELETE FROM password_reset_requests
-                WHERE email = %s
-                  AND consumed_at IS NULL
-                  AND verified_at IS NULL
-                """,
-                (email,),
-            )
-            conn.commit()
+            print(f"Password reset email send failed for {email}: {send_detail}")
+            try:
+                cur.execute(
+                    """
+                    UPDATE password_reset_requests
+                    SET consumed_at = NOW(), updated_at = NOW()
+                    WHERE email = %s AND consumed_at IS NULL
+                    """,
+                    (email,),
+                )
+                conn.commit()
+            except Exception as cleanup_err:
+                print(f"Cleanup failed after email send error: {cleanup_err}")
             cur.close()
             conn.close()
-            print(f"Password reset email send failed for {email}: {send_detail}")
             return jsonify({
                 "status": "error",
-                "message": f"We could not send the verification code right now. {send_detail or 'Please check the EmailJS template and service settings.'}"
-            }), 502
+                "message": "Unable to send the verification email right now. Please try again later."
+            }), 500
 
         cur.close()
         conn.close()
         return jsonify({
             "status": "success",
-            "message": f"A verification code was sent to {user[1]}.",
+            "message": "A verification code was sent to your email.",
             "ttl_minutes": PASSWORD_RESET_CODE_TTL_MINUTES,
         })
     except Exception as e:
