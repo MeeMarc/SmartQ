@@ -60,85 +60,17 @@
 
 <div id="forgotPasswordModal" class="forgot-password-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="forgotPasswordTitle" aria-hidden="true">
   <div class="forgot-password-modal">
-    <h3 id="forgotPasswordTitle">Forgot Password</h3>
-    <p id="forgotPasswordSubtitle">Enter the email address connected to your admin account.</p>
-
-    <div class="forgot-password-progress" aria-hidden="true">
-      <span class="forgot-password-progress-dot active" data-step-dot="email"></span>
-      <span class="forgot-password-progress-dot" data-step-dot="success"></span>
-    </div>
-
-    <div id="forgotPasswordStatus" class="forgot-password-status" role="status" aria-live="polite" style="display:none;"></div>
-
-    <div id="forgotPasswordEmailStep" class="forgot-password-step is-active">
-      <label class="forgot-password-label" for="forgotPasswordEmail">Email Address</label>
-      <input class="forgot-password-input" type="email" id="forgotPasswordEmail" placeholder="Enter your admin email">
-      <div class="forgot-password-actions">
-        <button type="button" id="forgotPasswordSendButton">Send Reset Link</button>
-        <button type="button" class="secondary-button" onclick="hideForgotPasswordMessage()">Cancel</button>
-      </div>
-    </div>
-
-    <div id="forgotPasswordSuccessStep" class="forgot-password-step">
-      <div class="forgot-password-success">
-        If that email exists, a reset link has been sent. Check your inbox and follow the link to set a new password.
-      </div>
-      <div class="forgot-password-actions">
-        <button type="button" onclick="hideForgotPasswordMessage()">Back to Login</button>
-      </div>
-    </div>
+    <h3>Forgot your password?</h3>
+    <p>Please contact the administrator to reset your password.</p>
+    <button type="button" onclick="hideForgotPasswordMessage()">Close</button>
   </div>
 </div>
 
   <!-- JS for toggle password -->
   <script>
-    const forgotPasswordStepConfig = {
-      email: {
-        title: "Forgot Password",
-        subtitle: "Enter the email address connected to your admin account."
-      },
-      success: {
-        title: "Reset Link Sent",
-        subtitle: "If that email exists, you’ll receive a reset link shortly."
-      }
-    };
-
-    function goToForgotPasswordStep(step) {
-      const stepMap = {
-        email: "forgotPasswordEmailStep",
-        success: "forgotPasswordSuccessStep"
-      };
-
-      const config = forgotPasswordStepConfig[step] || forgotPasswordStepConfig.email;
-      const title = document.getElementById("forgotPasswordTitle");
-      const subtitle = document.getElementById("forgotPasswordSubtitle");
-      if (title) title.textContent = config.title;
-      if (subtitle) subtitle.textContent = config.subtitle;
-
-      Object.values(stepMap).forEach(function(id) {
-        const section = document.getElementById(id);
-        if (section) {
-          section.classList.remove("is-active");
-        }
-      });
-
-      const activeSection = document.getElementById(stepMap[step] || stepMap.email);
-      if (activeSection) {
-        activeSection.classList.add("is-active");
-      }
-
-      const dotOrder = ["email", "success"];
-      const activeIndex = dotOrder.indexOf(step);
-      document.querySelectorAll("[data-step-dot]").forEach(function(dot) {
-        const dotIndex = dotOrder.indexOf(dot.getAttribute("data-step-dot"));
-        dot.classList.toggle("active", dotIndex <= activeIndex && activeIndex >= 0);
-      });
-    }
-
     function showForgotPasswordMessage(event) {
       event.preventDefault();
       const modal = document.getElementById("forgotPasswordModal");
-      goToForgotPasswordStep("email");
       modal.classList.add("is-open");
       modal.setAttribute("aria-hidden", "false");
     }
@@ -147,7 +79,6 @@
       const modal = document.getElementById("forgotPasswordModal");
       modal.classList.remove("is-open");
       modal.setAttribute("aria-hidden", "true");
-      goToForgotPasswordStep("email");
     }
 
     function togglePassword(id, el) {
