@@ -40,7 +40,7 @@ PASSWORD_RESET_TEMPLATE_ID = os.getenv("EMAILJS_RESET_TEMPLATE_ID", "template_yi
 PASSWORD_RESET_PUBLIC_KEY = os.getenv("EMAILJS_RESET_PUBLIC_KEY", "9_GwJVQlMs7RR2TeE")
 PASSWORD_RESET_SERVICE_ID = os.getenv("EMAILJS_RESET_SERVICE_ID") or os.getenv("EMAILJS_SERVICE_ID") or "service_icakblw"
 PASSWORD_RESET_EMAIL_API_URL = "https://api.emailjs.com/api/v1.0/email/send"
-PASSWORD_RESET_PRIVATE_KEY = os.getenv("EMAILJS_RESET_PRIVATE_KEY") or os.getenv("EMAILJS_PRIVATE_KEY") or "eLbNtzJLNGXGACCrwnb04"
+PASSWORD_RESET_PRIVATE_KEY = os.getenv("EMAILJS_RESET_PRIVATE_KEY") or os.getenv("EMAILJS_PRIVATE_KEY") or ""
 
 # Make Flask respect X-Forwarded-* headers on Render so url_for(..., _external=True)
 # uses the correct scheme/host (https and your subdomain)
