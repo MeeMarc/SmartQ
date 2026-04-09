@@ -353,50 +353,6 @@
       if (forgotPasswordResetButton) {
         forgotPasswordResetButton.addEventListener('click', handleResetPassword);
       }
-      const forgotPasswordSendButton = document.getElementById('forgotPasswordSendButton');
-      const forgotPasswordEmailInput = document.getElementById('forgotPasswordEmail');
-      const forgotPasswordStatus = document.getElementById('forgotPasswordStatus');
-
-      function setForgotPasswordStatus(message, type = "") {
-        if (!forgotPasswordStatus) return;
-        forgotPasswordStatus.style.display = message ? 'block' : 'none';
-        forgotPasswordStatus.textContent = message || '';
-        forgotPasswordStatus.className = 'forgot-password-status';
-        if (message && type) {
-          forgotPasswordStatus.classList.add(type);
-        }
-      }
-
-      async function sendForgotPasswordRequest() {
-        const email = (forgotPasswordEmailInput?.value || "").trim();
-        if (!email) {
-          setForgotPasswordStatus("Please enter your admin email address.", "error");
-          return;
-        }
-        setForgotPasswordStatus("Sending reset link...", "success");
-        forgotPasswordSendButton.disabled = true;
-        try {
-          const res = await fetch("/forgot-password", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email })
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok || data.status !== "success") {
-            throw new Error(data.message || "Unable to send reset link right now.");
-          }
-          setForgotPasswordStatus("");
-          goToForgotPasswordStep("success");
-        } catch (err) {
-          setForgotPasswordStatus(err.message || "Unable to send reset link right now.", "error");
-        } finally {
-          forgotPasswordSendButton.disabled = false;
-        }
-      }
-
-      if (forgotPasswordSendButton) {
-        forgotPasswordSendButton.addEventListener('click', sendForgotPasswordRequest);
-      }
       if (forgotPasswordModal) {
         forgotPasswordModal.addEventListener('click', function(event) {
           if (event.target === forgotPasswordModal) {
