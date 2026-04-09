@@ -317,7 +317,12 @@ def send_password_reset_email_via_emailjs(recipient_email, user_name, reset_code
     request_obj = urllib_request.Request(
         PASSWORD_RESET_EMAIL_API_URL,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={
+            # Some EmailJS/Cloudflare edges reject requests without a browsery UA / origin.
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+            "Origin": os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "https://smartq-vd9k.onrender.com",
+        },
         method="POST",
     )
     try:
