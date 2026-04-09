@@ -37,9 +37,10 @@ PASSWORD_RESET_MAX_VERIFY_ATTEMPTS = 5
 PASSWORD_RESET_MAX_SENDS_PER_WINDOW = 3
 PASSWORD_RESET_SEND_WINDOW_MINUTES = 10
 PASSWORD_RESET_TEMPLATE_ID = os.getenv("EMAILJS_RESET_TEMPLATE_ID", "template_yirej0o")
-PASSWORD_RESET_PUBLIC_KEY = os.getenv("EMAILJS_RESET_PUBLIC_KEY", "QsaI8dnLcJOo1epYB")
+PASSWORD_RESET_PUBLIC_KEY = os.getenv("EMAILJS_RESET_PUBLIC_KEY", "9_GwJVQlMs7RR2TeE")
 PASSWORD_RESET_SERVICE_ID = os.getenv("EMAILJS_RESET_SERVICE_ID") or os.getenv("EMAILJS_SERVICE_ID") or "service_icakblw"
 PASSWORD_RESET_EMAIL_API_URL = "https://api.emailjs.com/api/v1.0/email/send"
+PASSWORD_RESET_PRIVATE_KEY = os.getenv("EMAILJS_RESET_PRIVATE_KEY") or os.getenv("EMAILJS_PRIVATE_KEY") or "eLbNtzJLNGXGACCrwnb04"
 
 # Make Flask respect X-Forwarded-* headers on Render so url_for(..., _external=True)
 # uses the correct scheme/host (https and your subdomain)
@@ -311,6 +312,8 @@ def send_password_reset_email_via_emailjs(recipient_email, user_name, reset_code
             "reset_code": reset_code,
         },
     }
+    if PASSWORD_RESET_PRIVATE_KEY:
+        payload["accessToken"] = PASSWORD_RESET_PRIVATE_KEY
     request_obj = urllib_request.Request(
         PASSWORD_RESET_EMAIL_API_URL,
         data=json.dumps(payload).encode("utf-8"),
