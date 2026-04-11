@@ -132,6 +132,29 @@ DEFAULT_APP_SETTINGS = {
 }
 
 
+def ensure_admin_branding_table(conn):
+    """Create a per-admin branding table so each admin can keep their own logo/settings."""
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS admin_branding (
+                email TEXT PRIMARY KEY,
+                app_name TEXT,
+                organization_name TEXT,
+                office_name TEXT,
+                office_tagline TEXT,
+                office_description TEXT,
+                logo_filename TEXT,
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        print(f"Error creating admin_branding table: {e}")
+        conn.rollback()
+
+
 def ensure_app_settings_table(conn):
     """Create the app_settings table and seed a single default row when missing."""
     try:
@@ -168,23 +191,55 @@ def ensure_app_settings_table(conn):
         conn.rollback()
 
 
-def get_app_settings():
-    """Return branding and office settings with safe defaults."""
+def get_app_settings(owner_email=None, allow_global_fallback=True):
+    """Return branding and office settings with safe defaults.
+
+    If an owner_email is provided, attempt to load that admin's branding first.
+    When allow_global_fallback is False (used for logged-in admins and queue owners),
+    we avoid falling back to another admin's logo and instead return defaults.
+    """
     settings = DEFAULT_APP_SETTINGS.copy()
+
+    owner_email = normalize_auth_email(owner_email) if owner_email else ""
 
     conn = get_db_connection()
     if conn is None:
+        settings["office_display_name"] = " - ".join(
+            part for part in [settings["organization_name"], settings["office_name"]] if part
+        )
+        settings["logo_url"] = url_for('static', filename='images/logo.png')
         return settings
 
     try:
         ensure_app_settings_table(conn)
+        ensure_admin_branding_table(conn)
         cur = conn.cursor()
-        cur.execute("""
-            SELECT app_name, organization_name, office_name, office_tagline, office_description, logo_filename
-            FROM app_settings
-            WHERE id = 1
-        """)
-        row = cur.fetchone()
+
+        branding_row = None
+        if owner_email:
+            cur.execute("""
+                SELECT app_name, organization_name, office_name, office_tagline, office_description, logo_filename
+                FROM admin_branding
+                WHERE email = %s
+            """, (owner_email,))
+            branding_row = cur.fetchone()
+
+        global_row = None
+        if (not owner_email) or allow_global_fallback:
+            cur.execute("""
+                SELECT app_name, organization_name, office_name, office_tagline, office_description, logo_filename
+                FROM app_settings
+                WHERE id = 1
+            """)
+            global_row = cur.fetchone()
+
+        row = branding_row
+        if not row and owner_email and global_row:
+            safe_email = secure_filename(owner_email)
+            if global_row[5] and global_row[5].startswith(f"branding_logo_{safe_email}"):
+                row = global_row
+        if not row and ((allow_global_fallback or not owner_email) and global_row):
+            row = global_row
         cur.close()
 
         if row:
@@ -213,12 +268,35 @@ def get_app_settings():
 
 @app.context_processor
 def inject_app_settings():
-    return {"app_settings": get_app_settings()}
+    owner_email = None
+    try:
+        owner_email = get_current_admin_email() or resolve_branding_owner_email()
+    except Exception as e:
+        print(f"Error resolving branding owner: {e}")
+    allow_global = not bool(owner_email)
+    return {"app_settings": get_app_settings(owner_email=owner_email, allow_global_fallback=allow_global)}
 
 
 def get_current_admin_email():
     """Return the normalized logged-in admin email, if any."""
     return (session.get('user_email') or "").strip()
+
+
+def resolve_branding_owner_email():
+    """Determine whose branding should be shown for the current request."""
+    try:
+        admin_email = normalize_auth_email(get_current_admin_email())
+        if admin_email:
+            return admin_email
+
+        view_args = getattr(request, "view_args", {}) or {}
+        queue_slug = view_args.get("queue_slug")
+        queue_number = view_args.get("queue_number") or 1
+        if queue_slug:
+            return find_queue_owner_email(queue_slug, queue_number)
+    except Exception as e:
+        print(f"resolve_branding_owner_email error: {e}")
+    return None
 
 
 def require_admin_session_json():
@@ -828,6 +906,7 @@ def admin_settings():
     conn = get_db_connection()
     cur = conn.cursor()
     ensure_app_settings_table(conn)
+    ensure_admin_branding_table(conn)
     ensure_user_profile_columns(conn)
 
     # Fetch fullname, email, password, company, and office for verification
@@ -839,10 +918,16 @@ def admin_settings():
     admin = cur.fetchone()
     cur.execute("""
         SELECT app_name, organization_name, office_name, office_tagline, office_description, logo_filename
+        FROM admin_branding
+        WHERE email = %s
+    """, (email,))
+    branding_row = cur.fetchone()
+    cur.execute("""
+        SELECT app_name, organization_name, office_name, office_tagline, office_description, logo_filename
         FROM app_settings
         WHERE id = 1
     """)
-    app_settings = cur.fetchone()
+    app_settings_row = cur.fetchone()
 
     if request.method == 'POST':
         form_action = request.form.get('form_action', 'account')
@@ -853,7 +938,11 @@ def admin_settings():
             office_name = (request.form.get('office_name') or DEFAULT_APP_SETTINGS["office_name"]).strip()
             office_tagline = (request.form.get('office_tagline') or DEFAULT_APP_SETTINGS["office_tagline"]).strip()
             office_description = (request.form.get('office_description') or DEFAULT_APP_SETTINGS["office_description"]).strip()
-            logo_filename = app_settings[5] if app_settings and len(app_settings) > 5 else ""
+            logo_filename = ""
+            if branding_row and len(branding_row) > 5:
+                logo_filename = branding_row[5] or ""
+            elif app_settings_row and len(app_settings_row) > 5:
+                logo_filename = app_settings_row[5] or ""
 
             logo_file = request.files.get('logo_file')
             if logo_file and logo_file.filename:
@@ -889,6 +978,20 @@ def admin_settings():
                     cur.close()
                     conn.close()
                     return redirect(url_for('admin_settings'))
+
+            # Save per-admin branding
+            cur.execute("""
+                INSERT INTO admin_branding (email, app_name, organization_name, office_name, office_tagline, office_description, logo_filename, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (email) DO UPDATE SET
+                    app_name = EXCLUDED.app_name,
+                    organization_name = EXCLUDED.organization_name,
+                    office_name = EXCLUDED.office_name,
+                    office_tagline = EXCLUDED.office_tagline,
+                    office_description = EXCLUDED.office_description,
+                    logo_filename = EXCLUDED.logo_filename,
+                    updated_at = NOW()
+            """, (email, app_name, organization_name, office_name, office_tagline, office_description, logo_filename))
 
             cur.execute("""
                 UPDATE app_settings
@@ -961,7 +1064,7 @@ def admin_settings():
 
     cur.close()
     conn.close()
-    return render_template('Admin2/AdminSettings.html', admin=admin, app_settings_row=app_settings)
+    return render_template('Admin2/AdminSettings.html', admin=admin, app_settings_row=branding_row or app_settings_row)
 
 
 
@@ -1262,6 +1365,67 @@ def create_slug(text):
     slug = re.sub(r'[^\w\s-]', '', text.lower())
     slug = re.sub(r'[-\s]+', '-', slug)
     return slug.strip('-')
+
+
+def find_queue_owner_email(queue_slug, queue_number=1):
+    """Return the admin email that created the given queue, if available."""
+    if not queue_slug:
+        return None
+
+    queue_path = f"/queue/{queue_slug}/{queue_number}"
+    queue_links = []
+    try:
+        queue_links.append(f"{get_public_base_url()}{queue_path}")
+    except Exception:
+        pass
+    queue_links.append(queue_path)
+    queue_suffix = f"%{queue_path}"
+
+    conn = get_db_connection()
+    if conn is None:
+        return None
+
+    owner = None
+    try:
+        cur = conn.cursor()
+        for table_name in ("qr_history", "temp_qr"):
+            if owner:
+                break
+            for link in queue_links:
+                cur.execute(
+                    f"""SELECT created_by FROM {table_name}
+                        WHERE queue_link = %s
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT 1""",
+                    (link,)
+                )
+                row = cur.fetchone()
+                if row and row[0]:
+                    owner = normalize_auth_email(row[0])
+                    break
+
+        if not owner:
+            for table_name in ("qr_history", "temp_qr"):
+                cur.execute(
+                    f"""SELECT created_by FROM {table_name}
+                        WHERE queue_link LIKE %s
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT 1""",
+                    (queue_suffix,)
+                )
+                row = cur.fetchone()
+                if row and row[0]:
+                    owner = normalize_auth_email(row[0])
+                    break
+        cur.close()
+    except Exception as e:
+        print(f"Error resolving queue owner email: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+    return owner
 
 def get_next_queue_number(queue_type):
     """Get the next queue number for a given normalized queue slug."""
