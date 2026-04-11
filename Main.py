@@ -273,6 +273,16 @@ def inject_app_settings():
         owner_email = get_current_admin_email() or resolve_branding_owner_email()
     except Exception as e:
         print(f"Error resolving branding owner: {e}")
+    # For unauthenticated views like login/signup, do not fall back to shared/global branding.
+    if not owner_email:
+        endpoint = (request.endpoint or "").lower() if request else ""
+        if endpoint in ("login", "signup"):
+            defaults = DEFAULT_APP_SETTINGS.copy()
+            defaults["office_display_name"] = " - ".join(
+                part for part in [defaults["organization_name"], defaults["office_name"]] if part
+            )
+            defaults["logo_url"] = url_for('static', filename='images/logo.png')
+            return {"app_settings": defaults}
     allow_global = not bool(owner_email)
     return {"app_settings": get_app_settings(owner_email=owner_email, allow_global_fallback=allow_global)}
 
