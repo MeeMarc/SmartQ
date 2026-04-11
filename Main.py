@@ -922,12 +922,8 @@ def admin_settings():
         WHERE email = %s
     """, (email,))
     branding_row = cur.fetchone()
-    cur.execute("""
-        SELECT app_name, organization_name, office_name, office_tagline, office_description, logo_filename
-        FROM app_settings
-        WHERE id = 1
-    """)
-    app_settings_row = cur.fetchone()
+    # Do not pull the global app_settings row for prefill to avoid leaking another admin's data.
+    app_settings_row = None
 
     if request.method == 'POST':
         form_action = request.form.get('form_action', 'account')
@@ -941,8 +937,6 @@ def admin_settings():
             logo_filename = ""
             if branding_row and len(branding_row) > 5:
                 logo_filename = branding_row[5] or ""
-            elif app_settings_row and len(app_settings_row) > 5:
-                logo_filename = app_settings_row[5] or ""
 
             logo_file = request.files.get('logo_file')
             if logo_file and logo_file.filename:
@@ -1053,7 +1047,7 @@ def admin_settings():
 
     cur.close()
     conn.close()
-    return render_template('Admin2/AdminSettings.html', admin=admin, app_settings_row=branding_row or app_settings_row)
+    return render_template('Admin2/AdminSettings.html', admin=admin, app_settings_row=branding_row)
 
 
 
