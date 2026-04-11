@@ -993,18 +993,7 @@ def admin_settings():
                     updated_at = NOW()
             """, (email, app_name, organization_name, office_name, office_tagline, office_description, logo_filename))
 
-            cur.execute("""
-                UPDATE app_settings
-                SET app_name = %s,
-                    organization_name = %s,
-                    office_name = %s,
-                    office_tagline = %s,
-                    office_description = %s,
-                    logo_filename = %s,
-                    updated_at = NOW()
-                WHERE id = 1
-            """, (app_name, organization_name, office_name, office_tagline, office_description, logo_filename))
-            flash("Company and office settings updated successfully!")
+            flash("Your branding was saved privately to your account.")
         else:
             fullname = request.form.get('fullname', admin[0])
             organization_name = (request.form.get('account_organization_name') or admin[3] or '').strip()

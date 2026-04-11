@@ -23,7 +23,7 @@
           <details class="settings-details" open>
             <summary class="settings-trigger active">Settings</summary>
             <div class="settings-menu">
-              <a href="{{ url_for('admin_settings') }}" class="active">Account & Branding</a>
+              <a href="{{ url_for('admin_settings') }}" class="active">Account & Office Information</a>
               <a href="{{ url_for('logout') }}" class="logout-link">Log out</a>
             </div>
           </details>
@@ -35,9 +35,9 @@
 
   <main>
     <section class="settings-section">
-      <h2>Account & Branding</h2>
+      <h2>Account & Office Information</h2>
       <p class="settings-intro">
-        Use <strong>System Branding</strong> to control how the system looks to users. Use
+        Use <strong>Office Information</strong> to control the details displayed on the public and admin pages. Use
         <strong>My Account Profile</strong> to manage the company and department stored on your account.
       </p>
 
@@ -55,9 +55,8 @@
 
       <div class="settings-card">
         <div class="settings-card__header">
-          <h3>System Branding</h3>
-          <p>This is what users will see on the public and admin pages.</p>
-        </div>
+          <h3>Office Information</h3>
+          <p>This section manages the office name, logo, and other details displayed on the public and admin pages.</p>
 
         <form method="POST" action="{{ url_for('admin_settings') }}" enctype="multipart/form-data">
           <input type="hidden" name="form_action" value="branding">
