@@ -2043,6 +2043,84 @@ def get_queue_entry_count(queue_slug, queue_number):
         print(f"Error counting queue entries: {e}")
         return 0
 
+
+def get_queue_entry_number_lookup(queue_slug, queue_number, cur=None):
+    """Return stable numbering for queue entries based on first scan/registration order."""
+    if not queue_slug or queue_number is None:
+        return {}
+
+    own_connection = cur is None
+    conn = None
+
+    try:
+        if own_connection:
+            conn = get_db_connection()
+            if conn is None:
+                return {}
+            ensure_queue_entries_table(conn)
+            cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT id
+            FROM queue_entries
+            WHERE queue_slug = %s AND queue_number = %s
+            ORDER BY
+                CASE WHEN created_at IS NULL THEN 1 ELSE 0 END,
+                created_at ASC,
+                id ASC
+            """,
+            (queue_slug, queue_number)
+        )
+        rows = cur.fetchall()
+        return {
+            row[0]: index + 1
+            for index, row in enumerate(rows)
+        }
+    except Exception as e:
+        print(f"Error getting queue entry numbering: {e}")
+        return {}
+    finally:
+        if own_connection:
+            if cur:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+
+def get_next_queue_entry_number(queue_slug, queue_number):
+    """Get the next numbering value to show on the public queue page."""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return 1
+
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM queue_entries
+            WHERE queue_slug = %s AND queue_number = %s
+            """,
+            (queue_slug, queue_number)
+        )
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        existing_count = int(row[0]) if row and row[0] is not None else 0
+        return existing_count + 1
+    except Exception as e:
+        print(f"Error getting next queue numbering: {e}")
+        return 1
+
 def check_existing_entry(queue_slug, queue_number, phone):
     """Check if a user with this phone number already has an entry in this queue."""
     try:
@@ -3010,6 +3088,7 @@ def get_qr_scans(qr_id):
         queue_processing_method = queue_mode.get("processing_method", "Online")
         queue_release_type = queue_mode.get("release_type", "Digital Copy")
         queue_processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
+        entry_number_lookup = get_queue_entry_number_lookup(queue_slug, queue_number, cur=cur)
 
         ensure_queue_entries_table(conn, include_column_migrations=False)
 
@@ -3024,7 +3103,8 @@ def get_qr_scans(qr_id):
                     WHEN status = 'completed' THEN 2
                     ELSE 3
                 END,
-                created_at DESC
+                created_at ASC,
+                id ASC
         """, (queue_slug, queue_number))
 
         rows = cur.fetchall()
@@ -3071,6 +3151,7 @@ def get_qr_scans(qr_id):
                 "applicant_id": row[12] or "",
                 "notification_message": row[13] or "",
                 "queue_type": row[14] or "Document",
+                "entry_number": entry_number_lookup.get(row[0]),
                 "processing_days": queue_processing_days,
                 "queue_processing_method": queue_processing_method,
                 "queue_release_type": queue_release_type
@@ -4302,6 +4383,7 @@ def queue_waiting(queue_slug, queue_number, entry_id):
         cur = conn.cursor()
         queue_processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
         queue_processing_time_label = format_processing_time_label(queue_processing_days)
+        entry_number_lookup = get_queue_entry_number_lookup(queue_slug, queue_number, cur=cur)
         cur.execute(
             """
             SELECT id, queue_slug, queue_number, queue_type, queue_purpose,
@@ -4386,6 +4468,7 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             queue_release_type=queue_mode_hints["release_type"],
             queue_processing_days=queue_processing_days,
             queue_processing_time_label=queue_processing_time_label,
+            entry_number=entry_number_lookup.get(entry["id"]),
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
             ticket_reference=ticket_reference,
@@ -4419,6 +4502,7 @@ def queue_page(queue_slug, queue_number):
         queue_mode = get_queue_mode(queue_slug, queue_number)
         queue_processing_days = get_queue_processing_days(queue_slug, queue_number)
         queue_processing_time_label = format_processing_time_label(queue_processing_days)
+        queue_display_number = get_next_queue_entry_number(queue_slug, queue_number)
         queue_mode_hints = get_queue_mode_hints(
             queue_mode.get("processing_method"),
             queue_mode.get("release_type")
@@ -4442,6 +4526,7 @@ def queue_page(queue_slug, queue_number):
             queue_release_type="Digital Copy",
             queue_processing_days=None,
             queue_processing_time_label="",
+            queue_display_number=1,
             queue_flow_hint="Please refresh the page or try again shortly.",
             queue_full=False,
             queue_limit=None,
@@ -4642,6 +4727,7 @@ def queue_page(queue_slug, queue_number):
         queue_release_type=queue_mode_hints["release_type"],
         queue_processing_days=queue_processing_days,
         queue_processing_time_label=queue_processing_time_label,
+        queue_display_number=queue_display_number,
         queue_flow_hint=queue_mode_hints["registration_hint"],
         queue_full=queue_full,
         queue_limit=queue_limit,
@@ -4702,6 +4788,7 @@ def ticket_proof(queue_slug, queue_number, entry_id):
     queue_mode = get_queue_mode(queue_slug, queue_number)
     queue_processing_days = get_queue_processing_days(queue_slug, queue_number)
     queue_processing_time_label = format_processing_time_label(queue_processing_days)
+    entry_number_lookup = get_queue_entry_number_lookup(queue_slug, queue_number)
     queue_mode_hints = get_queue_mode_hints(
         queue_mode.get("processing_method"),
         queue_mode.get("release_type")
@@ -4750,6 +4837,7 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             queue_release_type=queue_mode_hints["release_type"],
             queue_processing_days=queue_processing_days,
             queue_processing_time_label=queue_processing_time_label,
+            entry_number=entry_number_lookup.get(entry["id"]),
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
             ticket_reference=ticket_reference,

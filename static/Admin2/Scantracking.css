@@ -276,6 +276,21 @@
   color: #003366;
 }
 
+.scan-order-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #e7f3ff;
+  border: 1px solid #b3d9ff;
+  color: #004085;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 /* Status badges */
 .status-badge {
   display: inline-block;

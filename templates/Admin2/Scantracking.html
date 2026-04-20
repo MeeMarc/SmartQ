@@ -1460,6 +1460,7 @@ function rejectEntry(entryId, triggerButton = null) {
       scans.forEach(user => {
         const card = document.createElement("div");
         card.className = "scan-card";
+        const entryNumber = user.entry_number ? `No. ${user.entry_number}` : "No. -";
 
         const phone = user.phone ? ` • ${user.phone}` : "";
         const purpose = user.purpose ? ` • ${user.purpose}` : "";
@@ -1517,6 +1518,7 @@ function rejectEntry(entryId, triggerButton = null) {
       <div>
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
           <div style="flex: 1;">
+            <span class="scan-order-pill">${entryNumber}</span>
             <strong>${user.fullname || "Unknown"}</strong>${phone}${purpose}${scannedAt}
           </div>
 

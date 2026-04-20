@@ -83,8 +83,8 @@
     <div class="hero-meta">
   {% if queue_number %}
   <div class="queue-number-card">
-    <span>Queue No.</span>
-    <strong>{{ queue_number }}</strong>
+    <span>Numbering</span>
+    <strong>{{ queue_display_number|default(queue_number, true) }}</strong>
   </div>
   {% endif %}
 

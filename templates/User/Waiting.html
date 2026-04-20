@@ -38,7 +38,7 @@
         🎉 Ticket Confirmed!
       {% endif %}
     </h3>
-    <div class="number">Queue #{{ queue_number }}</div>
+    <div class="number">Numbering #{{ entry_number|default(queue_number, true) }}</div>
     {% if entry.status != 'cancelled' %}
     <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
     {% if queue_purpose %}
