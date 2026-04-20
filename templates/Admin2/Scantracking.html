@@ -175,7 +175,6 @@
 
     <h3 id="statusMessageTitle">Enter Notification Message</h3>
 
-    <!-- ✅ Processing time field (hidden by default; shown only for Accept) -->
 
     <label for="statusMessageInput">Message (optional):</label>
     <textarea id="statusMessageInput" rows="4"
@@ -526,6 +525,26 @@
 
 
 // ✅ Whole number only (accepts: "3", "3.9", "3 days", "5 business days")
+    function setButtonBusyState(button, busyText) {
+      if (!button) {
+        return () => { };
+      }
+
+      if (!button.dataset.originalText) {
+        button.dataset.originalText = button.textContent.trim();
+      }
+
+      button.disabled = true;
+      button.textContent = busyText;
+      button.setAttribute("aria-busy", "true");
+
+      return () => {
+        button.disabled = false;
+        button.textContent = button.dataset.originalText || button.textContent;
+        button.removeAttribute("aria-busy");
+      };
+    }
+
 function formatProcessingTime(value) {
   const raw = (value ?? "").toString().trim();
   if (!raw) return "";
@@ -672,8 +691,11 @@ async function sendAcceptRejectEmail(params) {
   );
 }
 
-async function acceptEntry(entryId) {
+async function acceptEntry(entryId, triggerButton = null) {
+  if (triggerButton?.disabled) return;
+
   showConfirmation("Accept Entry", "Are you sure you want to accept this entry?", async () => {
+    const restoreTriggerButton = setButtonBusyState(triggerButton, "Accepting...");
     let data;
     try {
       data = await fetchJsonSafe(`/accept_queue_entry/${entryId}`, {
@@ -684,13 +706,18 @@ async function acceptEntry(entryId) {
     } catch (err) {
       console.error("ACCEPT UPDATE ERROR:", err);
       showAlert(err?.message || "Accept failed.", "error");
+      restoreTriggerButton();
       return;
     }
 
     const recipientEmail = (data.email || "").trim();
     if (!isValidEmail(recipientEmail)) {
       showAlert("Entry accepted, but email not sent (missing/invalid recipient email).", "warning");
-      if (currentQRId) viewScans(currentQRId);
+      if (currentQRId) {
+        viewScans(currentQRId);
+      } else {
+        restoreTriggerButton();
+      }
       return;
     }
 
@@ -709,11 +736,17 @@ async function acceptEntry(entryId) {
       const reason = formatEmailSendError(err);
       showAlert(`Entry accepted, but email was not sent. ${reason}`, "warning");
     }
-    if (currentQRId) viewScans(currentQRId);
+    if (currentQRId) {
+      viewScans(currentQRId);
+    } else {
+      restoreTriggerButton();
+    }
   });
 }
 
-function rejectEntry(entryId) {
+function rejectEntry(entryId, triggerButton = null) {
+  if (triggerButton?.disabled) return;
+
   const DEFAULT_MSG =
     "We regret to inform you that your application form has not been approved by our administrator at this time.\n\n" +
     "Please review your submitted information and ensure that all requirements are complete and accurate before submitting a new request.";
@@ -725,6 +758,7 @@ function rejectEntry(entryId) {
       const notificationMessage = (message || DEFAULT_MSG).trim();
 
       showConfirmation("Reject Entry", "Are you sure you want to reject this entry?", async () => {
+        const restoreTriggerButton = setButtonBusyState(triggerButton, "Rejecting...");
         let data;
         try {
           data = await fetchJsonSafe(`/reject_queue_entry/${entryId}`, {
@@ -735,13 +769,18 @@ function rejectEntry(entryId) {
         } catch (err) {
           console.error("REJECT UPDATE ERROR:", err);
           showAlert(err?.message || "Reject failed.", "error");
+          restoreTriggerButton();
           return;
         }
 
         const recipientEmail = (data.email || "").trim();
         if (!isValidEmail(recipientEmail)) {
           showAlert("Entry rejected, but email not sent (missing/invalid recipient email).", "warning");
-          if (currentQRId) viewScans(currentQRId);
+          if (currentQRId) {
+            viewScans(currentQRId);
+          } else {
+            restoreTriggerButton();
+          }
           return;
         }
 
@@ -760,7 +799,11 @@ function rejectEntry(entryId) {
           const reason = formatEmailSendError(err);
           showAlert(`Entry rejected, but email was not sent. ${reason}`, "warning");
         }
-        if (currentQRId) viewScans(currentQRId);
+        if (currentQRId) {
+          viewScans(currentQRId);
+        } else {
+          restoreTriggerButton();
+        }
       });
     }
   );
@@ -837,7 +880,7 @@ function rejectEntry(entryId) {
           <div id="qr${qr.id}"></div>
           <p><small><a href="${qr.queue_link}" target="_blank" style="color: #0066cc; text-decoration: underline;">${qr.queue_link}</a></small></p>
           <button onclick="openModal('${qr.queue_link}')">Add Candidate</button>
-          <button onclick="viewScans(${qr.id})">View Scans</button>
+          <button onclick="viewScans(${qr.id}, this)">View Scans</button>
         `;
             qrListBody.appendChild(box);
 
@@ -1154,6 +1197,10 @@ function rejectEntry(entryId) {
       const message = document.getElementById("notificationMessage").value.trim();
       const submitBtn = document.getElementById('sendNotifBtn');
 
+      if (submitBtn.disabled) {
+        return;
+      }
+
       if (!message) {
         showAlert("Please enter a notification message.", "error");
         return;
@@ -1178,8 +1225,7 @@ function rejectEntry(entryId) {
         entryIds = [];
       }
 
-      submitBtn.disabled = true;
-      submitBtn.textContent = `Sending to ${scansToNotify.length} entries...`;
+      const restoreSubmitBtn = setButtonBusyState(submitBtn, `Sending to ${scansToNotify.length} entries...`);
 
       try {
         // 1. Save notification in database
@@ -1218,8 +1264,7 @@ function rejectEntry(entryId) {
         console.error(err);
         showAlert("Failed to send notification. Please try again.", "error");
       } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Send Notification';
+        restoreSubmitBtn();
       }
     });
 
@@ -1287,7 +1332,9 @@ function rejectEntry(entryId) {
         });
     });
 
-    function viewScans(qrId) {
+    function viewScans(qrId, triggerButton = null) {
+      if (triggerButton?.disabled) return;
+
       const normalizedQrId = Number(qrId);
       if (!Number.isInteger(normalizedQrId) || normalizedQrId <= 0) {
         showAlert("Invalid QR ID. Please refresh and try again.", "error");
@@ -1295,6 +1342,7 @@ function rejectEntry(entryId) {
       }
 
       currentQRId = normalizedQrId;
+      const restoreTriggerButton = setButtonBusyState(triggerButton, "Loading Scans...");
 
       fetch(`/get_qr_scans/${normalizedQrId}`, { credentials: "same-origin" })
         .then(async (res) => {
@@ -1368,6 +1416,9 @@ function rejectEntry(entryId) {
           </div>
         </div>
       `;
+        })
+        .finally(() => {
+          restoreTriggerButton();
         });
     }
 
@@ -1475,8 +1526,8 @@ function rejectEntry(entryId) {
             ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})">View Docs</button>` : ""}
 
             ${showAdminActions ? `
-              <button class="accept-btn" onclick="acceptEntry(${user.id})">Accept</button>
-              <button class="reject-btn" onclick="rejectEntry(${user.id})">Reject</button>
+              <button class="accept-btn" onclick="acceptEntry(${user.id}, this)">Accept</button>
+              <button class="reject-btn" onclick="rejectEntry(${user.id}, this)">Reject</button>
             ` : ""}
 
             ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ""}

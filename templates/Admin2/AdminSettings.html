@@ -85,7 +85,7 @@
           <input type="file" name="logo_file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
           <p class="field-help">Optional. Upload a new logo to replace the current one. Max 2MB.</p>
 
-          <button type="submit">Save Branding Settings</button>
+          <button type="submit" id="brandingSubmitBtn">Save Branding Settings</button>
         </form>
       </div>
 
@@ -129,7 +129,7 @@
             <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm new password" />
             <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('confirm_password', this)"></i>
           </div>
-          <button type="submit">Save Account Changes</button>
+          <button type="submit" id="accountSubmitBtn">Save Account Changes</button>
         </form>
       </div>
 
@@ -153,6 +153,35 @@
     // Auto-dismiss flash messages after 4 seconds
     document.addEventListener('DOMContentLoaded', function () {
       const flashMessages = document.querySelector('.flash-messages');
+      const brandingForm = document.querySelector('form input[name="form_action"][value="branding"]')?.form;
+      const accountForm = document.querySelector('form input[name="form_action"][value="account"]')?.form;
+      const brandingSubmitBtn = document.getElementById('brandingSubmitBtn');
+      const accountSubmitBtn = document.getElementById('accountSubmitBtn');
+
+      if (brandingForm && brandingSubmitBtn) {
+        brandingForm.addEventListener('submit', function (event) {
+          if (brandingSubmitBtn.disabled) {
+            event.preventDefault();
+            return;
+          }
+
+          brandingSubmitBtn.disabled = true;
+          brandingSubmitBtn.textContent = 'Saving Branding Settings...';
+        });
+      }
+
+      if (accountForm && accountSubmitBtn) {
+        accountForm.addEventListener('submit', function (event) {
+          if (accountSubmitBtn.disabled) {
+            event.preventDefault();
+            return;
+          }
+
+          accountSubmitBtn.disabled = true;
+          accountSubmitBtn.textContent = 'Saving Account Changes...';
+        });
+      }
+
       if (flashMessages) {
         setTimeout(() => {
           flashMessages.style.opacity = '0';

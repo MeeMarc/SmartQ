@@ -127,6 +127,12 @@
   font-size: 0.9rem;
 }
 
+.HomeRightContainer .form-section .field-description {
+  margin-top: 6px;
+  color: #617083;
+  font-size: 0.84rem;
+}
+
 /* Textareas */
 .HomeRightContainer .form-section textarea {
   resize: vertical;

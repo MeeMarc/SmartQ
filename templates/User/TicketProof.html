@@ -60,5 +60,13 @@
     </p>
   </section>
 
+  <script>
+    const TICKET_AUTO_REFRESH_MS = 10 * 60 * 1000;
+
+    setInterval(() => {
+      window.location.reload();
+    }, TICKET_AUTO_REFRESH_MS);
+  </script>
+
 </body>
 </html>

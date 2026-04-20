@@ -253,6 +253,19 @@ button:hover {
   transform: translateY(-2px);
 }
 
+button:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.82;
+}
+
+button:disabled:hover {
+  background-color: #94a3b8;
+  transform: none;
+}
+
 /* ===============================
    RESPONSIVE DESIGN
 =============================== */

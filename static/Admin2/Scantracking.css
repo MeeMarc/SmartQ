@@ -128,6 +128,32 @@
   background: #0056b3;
 }
 
+.qr-box button:disabled,
+.scan-action-btn:disabled,
+.accept-btn:disabled,
+.reject-btn:disabled,
+.view-docs-btn:disabled,
+.done-btn:disabled,
+.modal-content button:disabled {
+  background: #97a9bf !important;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  opacity: 0.82;
+}
+
+.qr-box button:disabled:hover,
+.scan-action-btn:disabled:hover,
+.accept-btn:disabled:hover,
+.reject-btn:disabled:hover,
+.view-docs-btn:disabled:hover,
+.done-btn:disabled:hover,
+.modal-content button:disabled:hover {
+  background: #97a9bf !important;
+  box-shadow: none;
+  transform: none;
+}
+
 /* =========================================================
    QR DETAIL PANEL
 ========================================================= */

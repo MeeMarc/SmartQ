@@ -47,7 +47,7 @@
         </div>
       </div>
 
-      <button type="submit">Log in</button>
+      <button type="submit" id="loginSubmitBtn">Log in</button>
 
  
 
@@ -207,12 +207,23 @@
       const loginForm = document.querySelector('form[method="POST"]');
       if (loginForm) {
         loginForm.addEventListener('submit', function(e) {
+          const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+          if (loginSubmitBtn && loginSubmitBtn.disabled) {
+            e.preventDefault();
+            return;
+          }
+
           if (rememberCheckbox.checked) {
             // Save email to localStorage
             localStorage.setItem('rememberedEmail', emailInput.value);
           } else {
             // Remove saved email if "Remember Me" is unchecked
             localStorage.removeItem('rememberedEmail');
+          }
+
+          if (loginSubmitBtn) {
+            loginSubmitBtn.disabled = true;
+            loginSubmitBtn.textContent = 'Logging in...';
           }
         });
       }
