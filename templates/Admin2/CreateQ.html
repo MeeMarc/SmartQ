@@ -66,45 +66,51 @@
 
             <label for="processingMethod">Service Channel:</label>
             <select id="processingMethod" required>
-              <option value="">-- Select Service Channel -- - Select how the applicant will process the request, either onsite or online.</option>
+              <option value="">-- Select Service Channel --</option>
               <option value="Walk-in">Walk-in (In-Person)</option>
               <option value="Online">Online</option>
             </select>
+            <p class="field-description">Select how the applicant will process the request, either onsite or online.</p>
 
             <label for="releaseType">Release Format:</label>
             <select id="releaseType" required>
-              <option value="">-- Select Release Format -- - Select how the completed document will be released to the applicant.</option>
+              <option value="">-- Select Release Format --</option>
               <option value="Physical Claim">Physical Claim (Onsite Pickup)</option>
               <option value="Digital Copy">Digital Copy (Online Release)</option>
             </select>
+            <p class="field-description">Select how the completed document will be released to the applicant.</p>
 
             <label for="studentId">Require Applicant ID (Student/Client Number)?</label>
             <select id="studentId" required>
-              <option value="">-- Select Applicant ID Requirement -- - Select "Yes" to ask for a student or client number during registration.</option>
+              <option value="">-- Select Applicant ID Requirement --</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
+            <p class="field-description">Select "Yes" to ask for a student or client number during registration.</p>
 
             <label for="validId">Require Valid ID Uploads (JPG, PNG, PDF, max 5MB each)?</label>
             <select id="validId" required>
-              <option value="">-- Select Valid ID Requirement -- - Select "Yes" if applicants must upload a valid ID before they can submit.</option>
+              <option value="">-- Select Valid ID Requirement --</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
+            <p class="field-description">Select "Yes" if applicants must upload a valid ID before they can submit.</p>
 
             <label for="supportingDoc">Require Supporting Document Uploads (JPG, PNG, PDF, max 5MB each)?</label>
             <select id="supportingDoc" required>
-              <option value="">-- Select Supporting Document Requirement -- - Select "Yes" if the request needs an attachment like a form, receipt, or proof.</option>
+              <option value="">-- Select Supporting Document Requirement --</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
+            <p class="field-description">Select "Yes" if the request needs an attachment like a form, receipt, or proof.</p>
 
             <label for="esignRequired">Require E-Signature?</label>
             <select id="esignRequired" required>
-              <option value="">-- Select E-Signature Requirement -- - Select "Yes" if the applicant must draw a signature before submitting the form.</option>
+              <option value="">-- Select E-Signature Requirement --</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
+            <p class="field-description">Select "Yes" if the applicant must draw a signature before submitting the form.</p>
             <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">Set to "No" to hide that field from the
               registration form.</p>
           </div>
