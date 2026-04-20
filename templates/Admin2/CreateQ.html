@@ -66,51 +66,45 @@
 
             <label for="processingMethod">Service Channel:</label>
             <select id="processingMethod" required>
-              <option value="">-- Select Service Channel --</option>
+              <option value="">-- Select Service Channel -- - Select how the applicant will process the request, either onsite or online.</option>
               <option value="Walk-in">Walk-in (In-Person)</option>
               <option value="Online">Online</option>
             </select>
-            <p class="field-description">Select how the applicant will process the request, either onsite or online.</p>
 
             <label for="releaseType">Release Format:</label>
             <select id="releaseType" required>
-              <option value="">-- Select Release Format --</option>
+              <option value="">-- Select Release Format -- - Select how the completed document will be released to the applicant.</option>
               <option value="Physical Claim">Physical Claim (Onsite Pickup)</option>
               <option value="Digital Copy">Digital Copy (Online Release)</option>
             </select>
-            <p class="field-description">Select how the completed document will be released to the applicant.</p>
 
             <label for="studentId">Require Applicant ID (Student/Client Number)?</label>
             <select id="studentId" required>
-              <option value="">-- Select Applicant ID Requirement --</option>
+              <option value="">-- Select Applicant ID Requirement -- - Select "Yes" to ask for a student or client number during registration.</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
-            <p class="field-description">Select "Yes" to ask for a student or client number during registration.</p>
 
             <label for="validId">Require Valid ID Uploads (JPG, PNG, PDF, max 5MB each)?</label>
             <select id="validId" required>
-              <option value="">-- Select Valid ID Requirement --</option>
+              <option value="">-- Select Valid ID Requirement -- - Select "Yes" if applicants must upload a valid ID before they can submit.</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
-            <p class="field-description">Select "Yes" if applicants must upload a valid ID before they can submit.</p>
 
             <label for="supportingDoc">Require Supporting Document Uploads (JPG, PNG, PDF, max 5MB each)?</label>
             <select id="supportingDoc" required>
-              <option value="">-- Select Supporting Document Requirement --</option>
+              <option value="">-- Select Supporting Document Requirement -- - Select "Yes" if the request needs an attachment like a form, receipt, or proof.</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
-            <p class="field-description">Select "Yes" if the request needs an attachment like a form, receipt, or proof.</p>
 
             <label for="esignRequired">Require E-Signature?</label>
             <select id="esignRequired" required>
-              <option value="">-- Select E-Signature Requirement --</option>
+              <option value="">-- Select E-Signature Requirement -- - Select "Yes" if the applicant must draw a signature before submitting the form.</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
-            <p class="field-description">Select "Yes" if the applicant must draw a signature before submitting the form.</p>
             <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">Set to "No" to hide that field from the
               registration form.</p>
           </div>
@@ -247,6 +241,15 @@
       if (!generateQrBtn) return;
       generateQrBtn.disabled = disabled;
       generateQrBtn.innerText = label;
+    }
+
+    function setActionButtonState(button, disabled, busyLabel) {
+      if (!button) return;
+      if (!button.dataset.defaultLabel) {
+        button.dataset.defaultLabel = button.textContent.trim();
+      }
+      button.disabled = disabled;
+      button.textContent = disabled ? busyLabel : button.dataset.defaultLabel;
     }
 
     function escapeHtml(value) {
@@ -464,8 +467,8 @@
         </div>
 
         <div class="qr-actions">
-          <button onclick="downloadQR(${index})">Download QR</button>
-          <button onclick="deleteQR(${index})">Delete</button>
+          <button type="button" class="qr-download-btn" data-default-label="Download QR" onclick="downloadQR(${index}, this)">Download QR</button>
+          <button type="button" class="qr-delete-btn" data-default-label="Delete" onclick="deleteQR(${index}, this)">Delete</button>
         </div>
       `;
 
@@ -589,21 +592,27 @@
 
 
     /* ================= DELETE QR ================= */
-    async function deleteQR(index) {
+    async function deleteQR(index, triggerButton) {
       const qr = qrList[index];
 
       showConfirmation(
         "Delete Queue",
         `Are you sure you want to delete "${qr.type}"?`,
         async () => {
+          setActionButtonState(triggerButton, true, "Deleting...");
+
           try {
             // Remove from active queue list in the backend (temp_qr / active queues)
             if (qr.qrId) {
-              await fetch("/delete_qr", {
+              const response = await fetch("/delete_qr", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: qr.qrId })
               });
+
+              if (!response.ok) {
+                throw new Error("Unable to delete queue from the server.");
+              }
             }
 
             // Remove from local storage / UI list
@@ -614,6 +623,9 @@
           } catch (err) {
             console.error(err);
             showAlert("Error deleting queue. Please try again.", "error");
+            if (triggerButton && document.body.contains(triggerButton)) {
+              setActionButtonState(triggerButton, false);
+            }
           }
         }
       );
@@ -646,67 +658,82 @@
       return String(value || "queue").replace(/[^\w.-]+/g, "_");
     }
 
-    function downloadQR(index) {
-      const source = document.querySelector(`#qr${index} canvas, #qr${index} img`);
-      const item = qrList[index];
-      if (!source || !item) return;
+    async function downloadQR(index, triggerButton) {
+      setActionButtonState(triggerButton, true, "Preparing Download...");
 
-      const exportCanvas = document.createElement("canvas");
-      const ctx = exportCanvas.getContext("2d");
-      const width = 520;
-      const padding = 36;
-      const qrSize = 280;
-      const textWidth = width - (padding * 2);
-      const titleLineHeight = 28;
-      const bodyLineHeight = 22;
+      try {
+        const source = document.querySelector(`#qr${index} canvas, #qr${index} img`);
+        const item = qrList[index];
+        if (!source || !item) {
+          throw new Error("QR preview is not ready yet.");
+        }
 
-      ctx.font = "700 24px Montserrat, Arial, sans-serif";
-      const titleLines = getWrappedCanvasLines(ctx, item.type || "Queue QR", textWidth);
+        const exportCanvas = document.createElement("canvas");
+        const ctx = exportCanvas.getContext("2d");
+        const width = 520;
+        const padding = 36;
+        const qrSize = 280;
+        const textWidth = width - (padding * 2);
+        const titleLineHeight = 28;
+        const bodyLineHeight = 22;
 
-      ctx.font = "500 17px Montserrat, Arial, sans-serif";
-      const detailBlocks = [
-        ...getWrappedCanvasLines(ctx, `Purpose: ${item.purpose || "N/A"}`, textWidth),
-        ...getWrappedCanvasLines(ctx, `Queue #: ${item.queueNumber || "N/A"}`, textWidth),
-        ...getWrappedCanvasLines(ctx, `Processing Time: ${item.processingDays || "N/A"} day(s)`, textWidth),
-        ...getWrappedCanvasLines(ctx, `Service Channel: ${item.processingMethod || "N/A"}`, textWidth),
-        ...getWrappedCanvasLines(ctx, `Release Format: ${item.releaseType || "N/A"}`, textWidth)
-      ];
+        ctx.font = "700 24px Montserrat, Arial, sans-serif";
+        const titleLines = getWrappedCanvasLines(ctx, item.type || "Queue QR", textWidth);
 
-      const height = padding + qrSize + 28 + (titleLines.length * titleLineHeight) + 10 + (detailBlocks.length * bodyLineHeight) + padding;
-      exportCanvas.width = width;
-      exportCanvas.height = height;
+        ctx.font = "500 17px Montserrat, Arial, sans-serif";
+        const detailBlocks = [
+          ...getWrappedCanvasLines(ctx, `Purpose: ${item.purpose || "N/A"}`, textWidth),
+          ...getWrappedCanvasLines(ctx, `Queue #: ${item.queueNumber || "N/A"}`, textWidth),
+          ...getWrappedCanvasLines(ctx, `Processing Time: ${item.processingDays || "N/A"} day(s)`, textWidth),
+          ...getWrappedCanvasLines(ctx, `Service Channel: ${item.processingMethod || "N/A"}`, textWidth),
+          ...getWrappedCanvasLines(ctx, `Release Format: ${item.releaseType || "N/A"}`, textWidth)
+        ];
 
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
+        const height = padding + qrSize + 28 + (titleLines.length * titleLineHeight) + 10 + (detailBlocks.length * bodyLineHeight) + padding;
+        exportCanvas.width = width;
+        exportCanvas.height = height;
 
-      ctx.fillStyle = "#d8e3ef";
-      ctx.fillRect(0, 0, width, 10);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
 
-      ctx.drawImage(source, (width - qrSize) / 2, padding, qrSize, qrSize);
+        ctx.fillStyle = "#d8e3ef";
+        ctx.fillRect(0, 0, width, 10);
 
-      let currentY = padding + qrSize + 34;
+        ctx.drawImage(source, (width - qrSize) / 2, padding, qrSize, qrSize);
 
-      ctx.fillStyle = "#003366";
-      ctx.textAlign = "center";
-      ctx.font = "700 24px Montserrat, Arial, sans-serif";
-      titleLines.forEach((line) => {
-        ctx.fillText(line, width / 2, currentY);
-        currentY += titleLineHeight;
-      });
+        let currentY = padding + qrSize + 34;
 
-      currentY += 6;
-      ctx.textAlign = "left";
-      ctx.fillStyle = "#334155";
-      ctx.font = "500 17px Montserrat, Arial, sans-serif";
-      detailBlocks.forEach((line) => {
-        ctx.fillText(line, padding, currentY);
-        currentY += bodyLineHeight;
-      });
+        ctx.fillStyle = "#003366";
+        ctx.textAlign = "center";
+        ctx.font = "700 24px Montserrat, Arial, sans-serif";
+        titleLines.forEach((line) => {
+          ctx.fillText(line, width / 2, currentY);
+          currentY += titleLineHeight;
+        });
 
-      const link = document.createElement("a");
-      link.href = exportCanvas.toDataURL("image/png");
-      link.download = `QR_${sanitizeFileName(item.type)}.png`;
-      link.click();
+        currentY += 6;
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#334155";
+        ctx.font = "500 17px Montserrat, Arial, sans-serif";
+        detailBlocks.forEach((line) => {
+          ctx.fillText(line, padding, currentY);
+          currentY += bodyLineHeight;
+        });
+
+        const link = document.createElement("a");
+        link.href = exportCanvas.toDataURL("image/png");
+        link.download = `QR_${sanitizeFileName(item.type)}.png`;
+        link.click();
+
+        await new Promise(resolve => setTimeout(resolve, 700));
+      } catch (err) {
+        console.error(err);
+        showAlert(`Error downloading QR: ${err.message}`, "error");
+      } finally {
+        if (triggerButton && document.body.contains(triggerButton)) {
+          setActionButtonState(triggerButton, false);
+        }
+      }
     }
   </script>
 

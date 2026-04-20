@@ -144,6 +144,7 @@
 .HomeRightContainer .form-section select {
   appearance: none;
   cursor: pointer;
+  line-height: 1.45;
 }
 
 /* Formula box */
@@ -327,6 +328,14 @@
 .qr-url-link:hover { color: #0052a3; text-decoration: none; }
 
 /* QR Buttons */
+.qr-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
 .qr-box button {
   margin: 5px 3px;
   border-radius: 8px;
@@ -334,12 +343,26 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  border: none;
+  color: #fff;
 }
 
-.qr-box button:nth-child(5) { background-color: #007bff; color: #fff; }
-.qr-box button:nth-child(6) { background-color: #dc3545; color: #fff; }
+.qr-box .qr-download-btn { background-color: #007bff; }
+.qr-box .qr-delete-btn { background-color: #dc3545; }
 
 .qr-box button:hover { transform: translateY(-2px); }
+
+.qr-box button:disabled {
+  background-color: #9aa7b7;
+  cursor: not-allowed;
+  opacity: 0.85;
+  transform: none;
+}
+
+.qr-box button:disabled:hover {
+  background-color: #9aa7b7;
+  transform: none;
+}
 
 /* =========================================================
    CONFIRMATION & ALERT MODALS (Centered)
