@@ -176,15 +176,6 @@
     <h3 id="statusMessageTitle">Enter Notification Message</h3>
 
     <!-- ✅ Processing time field (hidden by default; shown only for Accept) -->
-    <div id="statusProcessingWrap" style="display:none; margin-bottom: 12px;">
-      <label for="statusProcessingTime">Document processing time (optional):</label>
-      <input
-        id="statusProcessingTime"
-        type="text"
-        placeholder="e.g., 3"
-        style="width:100%; padding:10px; border:1px solid #ccd6e0; border-radius:8px; font-size:0.95rem;"
-      />
-    </div>
 
     <label for="statusMessageInput">Message (optional):</label>
     <textarea id="statusMessageInput" rows="4"
@@ -216,7 +207,7 @@
     let qrMetaById = {};
 
     const EMAILJS_CONFIG_STATUS = {
-      PUBLIC_KEY: "QsaI8dnLcJOo1epYB",
+      PUBLIC_KEY: "9_GwJVQlMs7RR2TeE",
       SERVICE_ID: "service_icakblw",
       TEMPLATE_STATUS_ID: "template_p0ngrx2",
       // Send Notif template ID from EmailJS template card
@@ -588,51 +579,17 @@ function closeStatusMessageModal() {
 
   const msg = document.getElementById("statusMessageInput");
   if (msg) msg.value = "";
-
-  const wrap = document.getElementById("statusProcessingWrap");
-  const input = document.getElementById("statusProcessingTime");
-
-  if (input) {
-    input.value = "";
-    input.oninput = null;
-  }
-  if (wrap) wrap.style.display = "none";
 }
 
-// options: { showProcessing: true/false, processingPlaceholder: "", defaultProcessing: "" }
-function requestStatusMessage(title, defaultMessage, onSave, options = {}) {
-  const showProcessing = !!options.showProcessing;
-
+function requestStatusMessage(title, defaultMessage, onSave) {
   const titleEl = document.getElementById("statusMessageTitle");
   const msgEl = document.getElementById("statusMessageInput");
   if (titleEl) titleEl.textContent = title;
   if (msgEl) msgEl.value = defaultMessage || "";
 
-  const wrap = document.getElementById("statusProcessingWrap");
-  const input = document.getElementById("statusProcessingTime");
-
-  if (wrap && input) {
-    if (showProcessing) {
-      wrap.style.display = "block";
-      input.placeholder = options.processingPlaceholder || "e.g., 3";
-      input.value = formatProcessingTime(options.defaultProcessing || "");
-
-      input.oninput = () => {
-        input.value = formatProcessingTime(input.value);
-      };
-    } else {
-      wrap.style.display = "none";
-      input.value = "";
-      input.oninput = null;
-    }
-  }
-
   _statusOnSave = () => {
     const message = (msgEl?.value || "").trim();
-    const processingTime =
-      showProcessing && input ? formatProcessingTime(input.value || "") : "";
-
-    onSave(message, processingTime);
+    onSave(message);
     closeStatusMessageModal();
   };
 
@@ -716,67 +673,44 @@ async function sendAcceptRejectEmail(params) {
 }
 
 async function acceptEntry(entryId) {
-  const DEFAULT_MSG =
-    "We are pleased to inform you that your application form has been approved by our administrator.\n\n" +
-    "Please check your email regularly for further instructions and updates regarding your requested document.";
-  const selectedEntry = currentScans.find(user => Number(user.id) === Number(entryId)) || {};
-  const activeQrMeta = qrMetaById[currentQRId] || {};
-  const defaultProcessingTime = formatProcessingTime(
-    selectedEntry.processing_days || activeQrMeta.avg_service_time || "3"
-  );
-
-  requestStatusMessage(
-    "Accept Entry Message",
-    DEFAULT_MSG,
-    async (message, processingTime) => {
-      const notificationMessage = (message || DEFAULT_MSG).trim();
-      const processing_time = formatProcessingTime(processingTime || "");
-
-      showConfirmation("Accept Entry", "Are you sure you want to accept this entry?", async () => {
-        let data;
-        try {
-          data = await fetchJsonSafe(`/accept_queue_entry/${entryId}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ notification_message: notificationMessage, processing_time })
-          });
-        } catch (err) {
-          console.error("ACCEPT UPDATE ERROR:", err);
-          showAlert(err?.message || "Accept failed.", "error");
-          return;
-        }
-
-        const recipientEmail = (data.email || "").trim();
-        if (!isValidEmail(recipientEmail)) {
-          showAlert("Entry accepted, but email not sent (missing/invalid recipient email).", "warning");
-          if (currentQRId) viewScans(currentQRId);
-          return;
-        }
-
-        const params = buildAcceptRejectParams(
-          { ...data, email: recipientEmail },
-          "Accepted",
-          data.notification_message || notificationMessage,
-          data.processing_time || processing_time
-        );
-
-        try {
-          await sendAcceptRejectEmail(params);
-          showAlert("Entry accepted and email sent!", "success");
-        } catch (err) {
-          console.error("ACCEPT EMAIL ERROR:", err);
-          const reason = formatEmailSendError(err);
-          showAlert(`Entry accepted, but email was not sent. ${reason}`, "warning");
-        }
-        if (currentQRId) viewScans(currentQRId);
+  showConfirmation("Accept Entry", "Are you sure you want to accept this entry?", async () => {
+    let data;
+    try {
+      data = await fetchJsonSafe(`/accept_queue_entry/${entryId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
       });
-    },
-    {
-      showProcessing: true,
-      processingPlaceholder: "e.g., 3",
-      defaultProcessing: defaultProcessingTime
+    } catch (err) {
+      console.error("ACCEPT UPDATE ERROR:", err);
+      showAlert(err?.message || "Accept failed.", "error");
+      return;
     }
-  );
+
+    const recipientEmail = (data.email || "").trim();
+    if (!isValidEmail(recipientEmail)) {
+      showAlert("Entry accepted, but email not sent (missing/invalid recipient email).", "warning");
+      if (currentQRId) viewScans(currentQRId);
+      return;
+    }
+
+    const params = buildAcceptRejectParams(
+      { ...data, email: recipientEmail },
+      "Accepted",
+      data.notification_message || "",
+      data.processing_time || ""
+    );
+
+    try {
+      await sendAcceptRejectEmail(params);
+      showAlert("Entry accepted and email sent!", "success");
+    } catch (err) {
+      console.error("ACCEPT EMAIL ERROR:", err);
+      const reason = formatEmailSendError(err);
+      showAlert(`Entry accepted, but email was not sent. ${reason}`, "warning");
+    }
+    if (currentQRId) viewScans(currentQRId);
+  });
 }
 
 function rejectEntry(entryId) {
@@ -828,8 +762,7 @@ function rejectEntry(entryId) {
         }
         if (currentQRId) viewScans(currentQRId);
       });
-    },
-    { showProcessing: false }
+    }
   );
 }
     // Mark entry as done

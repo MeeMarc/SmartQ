@@ -3269,11 +3269,6 @@ def accept_queue_entry(entry_id):
         if auth_error:
             return auth_error
 
-        data = request.get_json() or {}
-        provided_notification_message = (data.get('notification_message') or '').strip()
-
-        provided_processing_time = normalize_processing_time(data.get('processing_time'))
-
         conn = get_db_connection()
         cur = conn.cursor()
         owner_email = get_current_admin_email()
@@ -3300,15 +3295,14 @@ def accept_queue_entry(entry_id):
 
         processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
         auto_processing_time = normalize_processing_time(format_processing_time_label(processing_days))
-
-        processing_time = provided_processing_time or auto_processing_time or ""
+        processing_time = auto_processing_time or ""
 
         default_message = (
             "We are pleased to inform you that your application form has been approved by our administrator.\n\n"
             "Please check your email regularly for further instructions and updates regarding your requested document."
         )
 
-        base_message = provided_notification_message or default_message
+        base_message = default_message
 
         # ✅ number only (no "days")
         processing_line = f"Estimated Document Processing Duration: {processing_time} Business Days." if processing_time else ""
@@ -4306,6 +4300,8 @@ def queue_waiting(queue_slug, queue_number, entry_id):
 
         ensure_queue_entries_table(conn)
         cur = conn.cursor()
+        queue_processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
+        queue_processing_time_label = format_processing_time_label(queue_processing_days)
         cur.execute(
             """
             SELECT id, queue_slug, queue_number, queue_type, queue_purpose,
@@ -4388,6 +4384,8 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             queue_slug=queue_slug,
             queue_processing_method=queue_mode_hints["processing_method"],
             queue_release_type=queue_mode_hints["release_type"],
+            queue_processing_days=queue_processing_days,
+            queue_processing_time_label=queue_processing_time_label,
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
             ticket_reference=ticket_reference,
@@ -4419,6 +4417,8 @@ def queue_page(queue_slug, queue_number):
         queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
         queue_config = get_queue_config(queue_slug, queue_number)
         queue_mode = get_queue_mode(queue_slug, queue_number)
+        queue_processing_days = get_queue_processing_days(queue_slug, queue_number)
+        queue_processing_time_label = format_processing_time_label(queue_processing_days)
         queue_mode_hints = get_queue_mode_hints(
             queue_mode.get("processing_method"),
             queue_mode.get("release_type")
@@ -4440,6 +4440,8 @@ def queue_page(queue_slug, queue_number):
             queue_slug=queue_slug,
             queue_processing_method="Online",
             queue_release_type="Digital Copy",
+            queue_processing_days=None,
+            queue_processing_time_label="",
             queue_flow_hint="Please refresh the page or try again shortly.",
             queue_full=False,
             queue_limit=None,
@@ -4638,6 +4640,8 @@ def queue_page(queue_slug, queue_number):
         queue_slug=queue_slug,
         queue_processing_method=queue_mode_hints["processing_method"],
         queue_release_type=queue_mode_hints["release_type"],
+        queue_processing_days=queue_processing_days,
+        queue_processing_time_label=queue_processing_time_label,
         queue_flow_hint=queue_mode_hints["registration_hint"],
         queue_full=queue_full,
         queue_limit=queue_limit,
@@ -4696,6 +4700,8 @@ def ticket_proof(queue_slug, queue_number, entry_id):
     """Public ticket proof page for a submitted queue entry."""
     queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
     queue_mode = get_queue_mode(queue_slug, queue_number)
+    queue_processing_days = get_queue_processing_days(queue_slug, queue_number)
+    queue_processing_time_label = format_processing_time_label(queue_processing_days)
     queue_mode_hints = get_queue_mode_hints(
         queue_mode.get("processing_method"),
         queue_mode.get("release_type")
@@ -4742,6 +4748,8 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             queue_purpose=queue_purpose,
             queue_processing_method=queue_mode_hints["processing_method"],
             queue_release_type=queue_mode_hints["release_type"],
+            queue_processing_days=queue_processing_days,
+            queue_processing_time_label=queue_processing_time_label,
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
             ticket_reference=ticket_reference,
