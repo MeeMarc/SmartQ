@@ -3461,6 +3461,23 @@ def download_scans(qr_id):
 
         output = _io.StringIO()
         writer = csv.writer(output)
+
+        # Include organization and office branding at the top of the CSV
+        try:
+            branding = get_app_settings(owner_email=owner_email, allow_global_fallback=True) or {}
+            org_name = (branding.get("organization_name") or "").strip()
+            office_name = (branding.get("office_name") or "").strip()
+        except Exception:
+            org_name = ""
+            office_name = ""
+
+        if org_name:
+            writer.writerow([f"Company: {org_name}"])
+        if office_name:
+            writer.writerow([f"Office: {office_name}"])
+        # blank line before columns
+        writer.writerow([])
+
         writer.writerow([
             "Full Name",
             "Phone",

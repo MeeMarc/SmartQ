@@ -167,6 +167,8 @@
     const loadPreviousBtn = document.getElementById("loadPreviousBtn");
     const generateQrBtn = document.getElementById("generateQrBtn");
     const queueStorageKey = `queues_${String({{ (session.get('user_email') or 'guest')|tojson }}).toLowerCase()}`;
+    const downloadCompanyName = {{ (app_settings.organization_name or app_settings.app_name)|tojson }};
+    const downloadOfficeName = {{ (app_settings.office_name or "")|tojson }};
 
     const GENERATED_TITLE = "Generated Queues";
     const HISTORY_TITLE = "QR History";
@@ -688,6 +690,8 @@
 
         ctx.font = "500 17px Montserrat, Arial, sans-serif";
         const detailBlocks = [
+          ...getWrappedCanvasLines(ctx, `Company: ${downloadCompanyName || "N/A"}`, textWidth),
+          ...getWrappedCanvasLines(ctx, `Office: ${downloadOfficeName || "N/A"}`, textWidth),
           ...getWrappedCanvasLines(ctx, `Purpose: ${item.purpose || "N/A"}`, textWidth),
           ...getWrappedCanvasLines(ctx, `Queue #: ${item.queueNumber || "N/A"}`, textWidth),
           ...getWrappedCanvasLines(ctx, `Processing Time: ${item.processingDays || "N/A"} day(s)`, textWidth),
