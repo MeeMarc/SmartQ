@@ -5043,8 +5043,13 @@ def ticket_proof(queue_slug, queue_number, entry_id):
 
 @app.route('/download_ticket/<queue_slug>/<int:queue_number>/<int:entry_id>')
 def download_ticket(queue_slug, queue_number, entry_id):
-    """Generate a downloadable text ticket for a queue entry."""
+    """Generate a downloadable image ticket for a queue entry."""
     try:
+        from flask import Response
+        from PIL import Image, ImageDraw, ImageFont
+        import io
+        import qrcode
+        
         conn = get_db_connection()
         if conn is None:
             return "Error: Could not connect to database", 500
@@ -5070,39 +5075,110 @@ def download_ticket(queue_slug, queue_number, entry_id):
         fullname, phone, purpose, created_at, queue_type, queue_purpose = entry
         ticket_ref = generate_ticket_reference(queue_slug, entry_id)
         
-        ticket_content = f"""
-========================================
-          SMARTQ QUEUE TICKET
-========================================
-
-Queue Type: {queue_type or 'N/A'}
-Queue Purpose: {queue_purpose or 'N/A'}
-
-----------------------------------------
-CUSTOMER INFORMATION
-----------------------------------------
-Name: {fullname}
-Phone: {phone}
-Purpose: {purpose or 'N/A'}
-Registered: {created_at.strftime('%Y-%m-%d %I:%M %p') if created_at else 'N/A'}
-
-----------------------------------------
-IMPORTANT NOTES
-----------------------------------------
-• Please keep this ticket for your records
-• Show this ticket at the service counter
-
-========================================
-        Thank you for using SmartQ!
-========================================
-"""
+        # Create image
+        img_width, img_height = 800, 1000
+        img = Image.new('RGB', (img_width, img_height), color='white')
+        draw = ImageDraw.Draw(img)
         
-        from flask import Response
+        # Try to load a better font, fall back to default if not available
+        try:
+            title_font = ImageFont.truetype("arial.ttf", 38)
+            header_font = ImageFont.truetype("arial.ttf", 24)
+            label_font = ImageFont.truetype("arial.ttf", 18)
+            text_font = ImageFont.truetype("arial.ttf", 16)
+            small_font = ImageFont.truetype("arial.ttf", 12)
+        except:
+            title_font = header_font = label_font = text_font = small_font = ImageFont.load_default()
+        
+        # Colors
+        primary_color = (0, 102, 204)  # Blue
+        text_color = (0, 0, 0)
+        light_gray = (240, 240, 240)
+        
+        y_pos = 30
+        
+        # Title
+        draw.text((img_width // 2, y_pos), "SMARTQ QUEUE TICKET", fill=primary_color, font=title_font, anchor="mm")
+        y_pos += 70
+        
+        # Draw line
+        draw.line([(50, y_pos), (img_width - 50, y_pos)], fill=primary_color, width=3)
+        y_pos += 25
+        
+        # Ticket Reference (prominent)
+        draw.text((img_width // 2, y_pos), f"Ticket: {ticket_ref}", fill=primary_color, font=header_font, anchor="mm")
+        y_pos += 50
+        
+        # Queue Information
+        draw.text((50, y_pos), "QUEUE INFORMATION", fill=primary_color, font=label_font, anchor="lm")
+        y_pos += 35
+        draw.text((70, y_pos), f"Type: {queue_type or 'N/A'}", fill=text_color, font=text_font, anchor="lm")
+        y_pos += 30
+        draw.text((70, y_pos), f"Purpose: {queue_purpose or 'N/A'}", fill=text_color, font=text_font, anchor="lm")
+        y_pos += 45
+        
+        # Customer Information
+        draw.text((50, y_pos), "CUSTOMER INFORMATION", fill=primary_color, font=label_font, anchor="lm")
+        y_pos += 35
+        draw.text((70, y_pos), f"Name: {fullname}", fill=text_color, font=text_font, anchor="lm")
+        y_pos += 30
+        draw.text((70, y_pos), f"Phone: {phone}", fill=text_color, font=text_font, anchor="lm")
+        y_pos += 30
+        draw.text((70, y_pos), f"Purpose: {purpose or 'N/A'}", fill=text_color, font=text_font, anchor="lm")
+        y_pos += 30
+        if created_at:
+            time_str = created_at.strftime('%Y-%m-%d %I:%M %p')
+        else:
+            time_str = 'N/A'
+        draw.text((70, y_pos), f"Registered: {time_str}", fill=text_color, font=text_font, anchor="lm")
+        y_pos += 50
+        
+        # Generate QR Code
+        try:
+            qr_data = f"SmartQ-{ticket_ref}-{entry_id}"
+            qr = qrcode.QRCode(version=1, box_size=5, border=1)
+            qr.add_data(qr_data)
+            qr.make(fit=True)
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            
+            # Resize QR code to fit on ticket
+            qr_size = 150
+            qr_img = qr_img.resize((qr_size, qr_size))
+            
+            # Paste QR code on the right side
+            qr_x = img_width - qr_size - 50
+            img.paste(qr_img, (qr_x, y_pos - 20))
+        except Exception as qr_error:
+            print(f"Warning: Could not generate QR code: {qr_error}")
+        
+        # Important Notes
+        y_pos += 40
+        draw.text((50, y_pos), "IMPORTANT NOTES", fill=primary_color, font=label_font, anchor="lm")
+        y_pos += 35
+        draw.text((70, y_pos), "• Please keep this ticket for your records", fill=text_color, font=text_font, anchor="lm")
+        y_pos += 30
+        draw.text((70, y_pos), "• Show this ticket at the service counter", fill=text_color, font=text_font, anchor="lm")
+        y_pos += 30
+        draw.text((70, y_pos), "• Your queue position will be displayed", fill=text_color, font=text_font, anchor="lm")
+        y_pos += 50
+        
+        # Footer line
+        draw.line([(50, y_pos), (img_width - 50, y_pos)], fill=primary_color, width=2)
+        y_pos += 30
+        
+        # Thank you message
+        draw.text((img_width // 2, y_pos), "Thank you for using SmartQ!", fill=primary_color, font=label_font, anchor="mm")
+        
+        # Save to bytes
+        img_io = io.BytesIO()
+        img.save(img_io, 'PNG', quality=95)
+        img_io.seek(0)
+        
         return Response(
-            ticket_content,
-            mimetype='text/plain',
+            img_io.getvalue(),
+            mimetype='image/png',
             headers={
-                'Content-Disposition': f'attachment; filename=SmartQ_Ticket_{ticket_ref}.txt'
+                'Content-Disposition': f'attachment; filename=SmartQ_Ticket_{ticket_ref}.png'
             }
         )
     except Exception as e:
