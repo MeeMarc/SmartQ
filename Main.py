@@ -5059,7 +5059,7 @@ def download_ticket(queue_slug, queue_number, entry_id):
         
         cur.execute(
             """
-            SELECT fullname, phone, purpose, created_at, queue_type, queue_purpose, queue_number as position
+            SELECT fullname, phone, purpose, created_at, queue_type, queue_purpose
             FROM queue_entries
             WHERE id = %s AND queue_slug = %s AND queue_number = %s
             """,
@@ -5072,112 +5072,108 @@ def download_ticket(queue_slug, queue_number, entry_id):
         if not entry:
             return "Ticket not found", 404
         
-        fullname, phone, purpose, created_at, queue_type, queue_purpose, position = entry
+        fullname, phone, purpose, created_at, queue_type, queue_purpose = entry
         ticket_ref = generate_ticket_reference(queue_slug, entry_id)
         
-        # Create image with green background
-        img_width, img_height = 900, 1200
-        green_bg = (46, 169, 145)  # Teal/green color
-        img = Image.new('RGB', (img_width, img_height), color=green_bg)
+        # Create image with light background (mobile-style)
+        img_width, img_height = 600, 1000
+        light_bg = (255, 250, 248)  # Very light beige
+        img = Image.new('RGB', (img_width, img_height), color=light_bg)
         draw = ImageDraw.Draw(img)
         
         # Try to load fonts
         try:
-            title_font = ImageFont.truetype("arial.ttf", 50)
-            large_font = ImageFont.truetype("arial.ttf", 42)
-            header_font = ImageFont.truetype("arial.ttf", 26)
-            label_font = ImageFont.truetype("arial.ttf", 22)
-            text_font = ImageFont.truetype("arial.ttf", 18)
-            small_font = ImageFont.truetype("arial.ttf", 14)
+            title_font = ImageFont.truetype("arial.ttf", 28)
+            header_font = ImageFont.truetype("arial.ttf", 20)
+            label_font = ImageFont.truetype("arial.ttf", 14)
+            text_font = ImageFont.truetype("arial.ttf", 13)
+            small_font = ImageFont.truetype("arial.ttf", 12)
+            tiny_font = ImageFont.truetype("arial.ttf", 11)
         except:
-            title_font = large_font = header_font = label_font = text_font = small_font = ImageFont.load_default()
+            title_font = header_font = label_font = text_font = small_font = tiny_font = ImageFont.load_default()
         
-        white = (255, 255, 255)
-        cream_bg = (255, 248, 220)  # Light cream/yellow
-        brown_text = (139, 101, 43)  # Brown for cream box
+        dark_gray = (60, 60, 60)
+        light_gray = (150, 150, 150)
+        pink = (240, 80, 120)  # Pink accent color
         
         y_pos = 40
         
-        # "TICKET CONFIRMED!" header
-        draw.text((img_width // 2, y_pos), "✓ TICKET CONFIRMED!", fill=white, font=title_font, anchor="mm")
-        y_pos += 70
-        
-        # Numbering (large)
-        draw.text((img_width // 2, y_pos), f"Numbering #{position}", fill=white, font=large_font, anchor="mm")
-        y_pos += 80
-        
-        # Queue Purpose/Description
-        draw.text((img_width // 2, y_pos), f"You are registered for {queue_purpose or 'a service'}.", fill=white, font=label_font, anchor="mm")
-        y_pos += 45
-        draw.text((img_width // 2, y_pos), purpose or "N/A", fill=white, font=label_font, anchor="mm")
+        # "Reservation Details" header
+        draw.text((img_width // 2, y_pos), "Reservation Details", fill=dark_gray, font=title_font, anchor="mm")
         y_pos += 50
         
-        # Queue Type/Mode
-        draw.text((img_width // 2, y_pos), f"Mode: {queue_type or 'N/A'}", fill=white, font=label_font, anchor="mm")
+        # Location and date
+        draw.text((img_width // 2, y_pos), f"{queue_purpose or 'Queue Service'}", fill=dark_gray, font=header_font, anchor="mm")
+        y_pos += 35
+        if created_at:
+            date_str = created_at.strftime('%d %b %Y, %A')
+        else:
+            date_str = "Today"
+        draw.text((img_width // 2, y_pos), date_str, fill=light_gray, font=label_font, anchor="mm")
+        y_pos += 60
+        
+        # Two-column layout for details
+        left_col_x = 60
+        right_col_x = img_width // 2 + 20
+        col_width = (img_width - 120) // 2
+        
+        # Row 1: Service Type and Queue Number
+        draw.text((left_col_x, y_pos), "Service Type", fill=light_gray, font=tiny_font, anchor="lm")
+        draw.text((right_col_x, y_pos), "Queue Number", fill=light_gray, font=tiny_font, anchor="lm")
+        y_pos += 20
+        
+        draw.text((left_col_x, y_pos), queue_type or "N/A", fill=dark_gray, font=label_font, anchor="lm")
+        draw.text((right_col_x, y_pos), str(queue_number), fill=dark_gray, font=label_font, anchor="lm")
+        y_pos += 35
+        
+        # Row 2: Ticket ID and Full Name
+        draw.text((left_col_x, y_pos), "Ticket ID", fill=light_gray, font=tiny_font, anchor="lm")
+        draw.text((right_col_x, y_pos), "Passenger Name", fill=light_gray, font=tiny_font, anchor="lm")
+        y_pos += 20
+        
+        draw.text((left_col_x, y_pos), ticket_ref, fill=dark_gray, font=label_font, anchor="lm")
+        draw.text((right_col_x, y_pos), fullname, fill=dark_gray, font=label_font, anchor="lm")
+        y_pos += 35
+        
+        # Row 3: Purpose and Phone
+        draw.text((left_col_x, y_pos), "Purpose", fill=light_gray, font=tiny_font, anchor="lm")
+        draw.text((right_col_x, y_pos), "Contact", fill=light_gray, font=tiny_font, anchor="lm")
+        y_pos += 20
+        
+        draw.text((left_col_x, y_pos), purpose or "N/A", fill=dark_gray, font=label_font, anchor="lm")
+        draw.text((right_col_x, y_pos), phone or "N/A", fill=dark_gray, font=label_font, anchor="lm")
         y_pos += 50
         
-        # Ticket Holder
-        draw.text((img_width // 2, y_pos), f"Ticket Holder: {fullname}", fill=white, font=label_font, anchor="mm")
-        y_pos += 50
+        # Status - centered
+        draw.text((img_width // 2, y_pos), "Status: Waiting", fill=dark_gray, font=label_font, anchor="mm")
+        y_pos += 60
         
-        # Ticket Reference
-        draw.text((img_width // 2, y_pos), f"Your ticket reference: {ticket_ref}", fill=white, font=label_font, anchor="mm")
-        y_pos += 70
-        
-        # Status badge (simulated)
-        badge_y = y_pos
-        draw.text((img_width // 2, badge_y), "Status: Waiting", fill=white, font=label_font, anchor="mm")
-        y_pos += 70
-        
-        # Cream/Yellow information box
-        box_left, box_right = 50, img_width - 50
-        box_top = y_pos
-        box_height = 120
-        box_bottom = box_top + box_height
-        draw.rectangle([(box_left, box_top), (box_right, box_bottom)], fill=cream_bg, outline=brown_text, width=3)
-        
-        # Content inside box
-        box_text_y = box_top + 20
-        draw.text((img_width // 2, box_text_y), "⏳ Application Pending Review", fill=brown_text, font=label_font, anchor="mm")
-        box_text_y += 50
-        draw.text((img_width // 2, box_text_y), "Estimated processing time: 3 days", fill=brown_text, font=text_font, anchor="mm")
-        
-        y_pos = box_bottom + 60
-        
-        # QR Code section
-        draw.text((img_width // 2, y_pos), "QR TICKET PROOF", fill=white, font=header_font, anchor="mm")
-        y_pos += 50
-        
-        # Generate QR Code
+        # QR Code section - large and centered
         try:
             qr_data = f"SmartQ-{ticket_ref}-{entry_id}"
-            qr = qrcode.QRCode(version=1, box_size=8, border=2)
+            qr = qrcode.QRCode(version=1, box_size=6, border=2)
             qr.add_data(qr_data)
             qr.make(fit=True)
             qr_img = qr.make_image(fill_color="black", back_color="white")
             
-            # Resize and center QR code
-            qr_size = 250
+            # Resize QR code
+            qr_size = 260
             qr_img = qr_img.resize((qr_size, qr_size))
             
             # Paste QR code centered
             qr_x = (img_width - qr_size) // 2
             img.paste(qr_img, (qr_x, y_pos))
-            y_pos += qr_size + 30
+            y_pos += qr_size + 40
         except Exception as qr_error:
             print(f"Warning: Could not generate QR code: {qr_error}")
-            y_pos += 280
+            y_pos += 300
         
-        # Instructions
-        draw.text((img_width // 2, y_pos), "Show this QR code to verify your application.", fill=white, font=text_font, anchor="mm")
-        y_pos += 45
-        draw.text((img_width // 2, y_pos), "Staff can scan to confirm your ticket instantly.", fill=white, font=text_font, anchor="mm")
-        y_pos += 60
-        
-        # Bottom message
-        draw.text((img_width // 2, y_pos), "Bring your ticket and required documents when", fill=white, font=small_font, anchor="mm")
-        y_pos += 30
-        draw.text((img_width // 2, y_pos), "called for onsite physical claiming.", fill=white, font=small_font, anchor="mm")
+        # Note at bottom
+        note_text = "Just show your QR code to verify your registration."
+        draw.text((img_width // 2, y_pos), "Note:", fill=pink, font=small_font, anchor="mm")
+        y_pos += 25
+        # Word wrap for note
+        draw.text((img_width // 2, y_pos), note_text, fill=dark_gray, font=tiny_font, anchor="mm")
         
         # Save to bytes
         img_io = io.BytesIO()
