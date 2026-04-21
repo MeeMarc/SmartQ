@@ -1534,7 +1534,16 @@ function rejectEntry(entryId, triggerButton = null) {
           decisionStatus !== "pending" &&
           !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
-        const canSendDocument = (decisionStatus === "accepted") && !!entryId && hasRecipientEmail && !isCompleted;
+        const releaseType = (user.queue_release_type || "Digital Copy").toString().trim().toLowerCase();
+        const isDigitalRelease = releaseType === "digital copy";
+        const isCancelled = statusLower === "cancelled";
+        const canShowSendDocument =
+          decisionStatus === "accepted" &&
+          isDigitalRelease &&
+          !!entryId &&
+          hasRecipientEmail &&
+          !["completed", "rescheduled"].includes(statusLower);
+        const disableSendDocument = isCancelled;
         const canSkip =
           decisionStatus === "accepted" &&
           !["completed", "cancelled", "rescheduled"].includes(statusLower);
@@ -1565,8 +1574,9 @@ function rejectEntry(entryId, triggerButton = null) {
               </button>
             ` : ""}
 
-            ${canSendDocument ? `
+            ${canShowSendDocument ? `
                 <button class="send-doc-btn"
+                        ${disableSendDocument ? 'disabled title="Cannot send documents for cancelled applications."' : ""}
                         data-entry-id="${entryId}"
                         data-applicant-id="${applicantId}"
                         data-fullname="${user.fullname || ""}"

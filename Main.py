@@ -1238,7 +1238,7 @@ def upload_document():
             return jsonify({"error": "You do not have permission to send documents for this entry."}), 403
 
         cur.execute("""
-            SELECT applicant_id, email, admin_status, phone
+            SELECT applicant_id, email, admin_status, phone, status, queue_slug, queue_number
             FROM queue_entries
             WHERE id = %s
             LIMIT 1
@@ -1248,8 +1248,9 @@ def upload_document():
         if not row:
             return jsonify({"error": "Entry not found"}), 404
 
-        applicant_id, recipient_email, admin_status, phone = row
+        applicant_id, recipient_email, admin_status, phone, entry_status, queue_slug, queue_number = row
         admin_status = (admin_status or "pending").strip().lower()
+        entry_status = (entry_status or "waiting").strip().lower()
         recipient_email = resolve_entry_email(
             cur,
             current_email=recipient_email,
@@ -1257,12 +1258,24 @@ def upload_document():
             phone=phone
         )
         applicant_id = (applicant_id or "").strip()
+        queue_mode = get_queue_mode(queue_slug, queue_number, cur=cur, ensure_columns=False)
+        queue_release_type = normalize_release_type(queue_mode.get("release_type")) or "Digital Copy"
+        if queue_release_type == "Physical Claim":
+            return jsonify({
+                "error": "Documents cannot be sent for queues with Physical Claim release format.",
+                "release_type": queue_release_type
+            }), 403
 
         # ✅ Block if not accepted
         if admin_status != "accepted":
             return jsonify({
                 "error": "Documents can only be sent for ACCEPTED applications.",
                 "admin_status": admin_status
+            }), 403
+        if entry_status == "cancelled":
+            return jsonify({
+                "error": "Documents cannot be sent for cancelled applications.",
+                "status": entry_status
             }), 403
 
         # ✅ Email required
