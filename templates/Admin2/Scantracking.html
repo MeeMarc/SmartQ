@@ -836,6 +836,36 @@ function rejectEntry(entryId, triggerButton = null) {
       );
     }
 
+    async function skipEntry(entryId, triggerButton = null) {
+      if (triggerButton?.disabled) return;
+
+      showConfirmation(
+        "Skip Entry",
+        "Are you sure you want to skip this applicant? This will move the entry 3 places behind in the active queue.",
+        async () => {
+          const restoreTriggerButton = setButtonBusyState(triggerButton, "Skipping...");
+          try {
+            const data = await fetchJsonSafe(`/skip_queue_entry/${entryId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({})
+            });
+
+            showAlert(data.message || "Entry skipped successfully.", "success");
+            if (currentQRId) {
+              viewScans(currentQRId);
+            } else {
+              restoreTriggerButton();
+            }
+          } catch (err) {
+            console.error("Error skipping entry:", err);
+            showAlert(err?.message || "Skip failed.", "error");
+            restoreTriggerButton();
+          }
+        }
+      );
+    }
+
 
     // Fetch QR List - shows only ACTIVE queues
     function fetchQRList() {
@@ -1513,6 +1543,7 @@ function rejectEntry(entryId, triggerButton = null) {
           !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
         const canSendDocument = (decisionStatus === "accepted") && !!entryId && hasRecipientEmail && !isCompleted;
+        const canSkip = decisionStatus === "accepted" && !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
         card.innerHTML = `
       <div>
@@ -1551,6 +1582,8 @@ function rejectEntry(entryId, triggerButton = null) {
                 </button>
               ` : ""
             }
+
+            ${canSkip ? `<button class="skip-btn" onclick="skipEntry(${user.id}, this)">Skip</button>` : ""}
           </div>
         </div>
 

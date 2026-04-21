@@ -1475,6 +1475,7 @@ def ensure_queue_entries_table(conn, include_column_migrations=True):
                 signature_path VARCHAR(500),
                 notification_sent BOOLEAN DEFAULT FALSE,
                 notification_message TEXT,
+                service_order_offset INTEGER DEFAULT 0,
                 created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
             """
@@ -1507,7 +1508,8 @@ def ensure_queue_entries_table(conn, include_column_migrations=True):
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS last_rescheduled_at TIMESTAMP WITHOUT TIME ZONE",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS admin_status VARCHAR(50) DEFAULT 'pending'",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS notification_sent BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS notification_message TEXT"
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS notification_message TEXT",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS service_order_offset INTEGER DEFAULT 0"
         ]
 
         migration_failed = False
@@ -2079,6 +2081,86 @@ def get_queue_entry_number_lookup(queue_slug, queue_number, cur=None):
         }
     except Exception as e:
         print(f"Error getting queue entry numbering: {e}")
+        return {}
+    finally:
+        if own_connection:
+            if cur:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+
+def get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=None):
+    """Return the current processing order, including any admin skip offsets."""
+    if not queue_slug or queue_number is None:
+        return {}
+
+    own_connection = cur is None
+    conn = None
+
+    try:
+        if own_connection:
+            conn = get_db_connection()
+            if conn is None:
+                return {}
+            ensure_queue_entries_table(conn)
+            cur = conn.cursor()
+
+        cur.execute(
+            """
+            WITH ranked AS (
+                SELECT
+                    id,
+                    COALESCE(service_order_offset, 0) AS service_order_offset,
+                    CASE
+                        WHEN COALESCE(status, 'waiting') = 'waiting' THEN 1
+                        WHEN COALESCE(status, 'waiting') = 'completed' THEN 2
+                        ELSE 3
+                    END AS status_bucket,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY CASE
+                            WHEN COALESCE(status, 'waiting') = 'waiting' THEN 1
+                            WHEN COALESCE(status, 'waiting') = 'completed' THEN 2
+                            ELSE 3
+                        END
+                        ORDER BY
+                            CASE WHEN created_at IS NULL THEN 1 ELSE 0 END,
+                            created_at ASC,
+                            id ASC
+                    ) AS base_order
+                FROM queue_entries
+                WHERE queue_slug = %s AND queue_number = %s
+            )
+            SELECT id
+            FROM ranked
+            ORDER BY
+                status_bucket ASC,
+                CASE
+                    WHEN status_bucket = 1 THEN base_order + service_order_offset
+                    ELSE base_order
+                END ASC,
+                CASE
+                    WHEN status_bucket = 1 THEN service_order_offset
+                    ELSE 0
+                END ASC,
+                base_order ASC,
+                id ASC
+            """,
+            (queue_slug, queue_number)
+        )
+        rows = cur.fetchall()
+        return {
+            row[0]: index + 1
+            for index, row in enumerate(rows)
+        }
+    except Exception as e:
+        print(f"Error getting queue entry service order: {e}")
         return {}
     finally:
         if own_connection:
@@ -3084,27 +3166,20 @@ def get_qr_scans(qr_id):
         queue_slug = match.group(1)
         queue_number = int(match.group(2))
 
+        ensure_queue_entries_table(conn)
+
         queue_mode = get_queue_mode(queue_slug, queue_number, cur=cur, ensure_columns=False)
         queue_processing_method = queue_mode.get("processing_method", "Online")
         queue_release_type = queue_mode.get("release_type", "Digital Copy")
         queue_processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
         entry_number_lookup = get_queue_entry_number_lookup(queue_slug, queue_number, cur=cur)
-
-        ensure_queue_entries_table(conn, include_column_migrations=False)
+        service_order_lookup = get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=cur)
 
         cur.execute("""
             SELECT id, fullname, phone, email, purpose, status, admin_status, created_at, reference_number,
                    id_doc_path, req_doc_path, signature_path, applicant_id, notification_message, queue_type
             FROM queue_entries
             WHERE queue_slug = %s AND queue_number = %s
-            ORDER BY 
-                CASE 
-                    WHEN status = 'waiting' THEN 1
-                    WHEN status = 'completed' THEN 2
-                    ELSE 3
-                END,
-                created_at ASC,
-                id ASC
         """, (queue_slug, queue_number))
 
         rows = cur.fetchall()
@@ -3152,10 +3227,13 @@ def get_qr_scans(qr_id):
                 "notification_message": row[13] or "",
                 "queue_type": row[14] or "Document",
                 "entry_number": entry_number_lookup.get(row[0]),
+                "service_position": service_order_lookup.get(row[0]),
                 "processing_days": queue_processing_days,
                 "queue_processing_method": queue_processing_method,
                 "queue_release_type": queue_release_type
             })
+
+        scans.sort(key=lambda scan: service_order_lookup.get(scan["id"], float("inf")))
 
         return jsonify({"status": "success", "scans": scans}), 200
 
@@ -3204,19 +3282,20 @@ def download_scans(qr_id):
         queue_slug = match.group(1)
         queue_number = int(match.group(2))
 
-        ensure_queue_entries_table(conn, include_column_migrations=False)
+        ensure_queue_entries_table(conn)
+        service_order_lookup = get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=cur)
 
         # Fetch entries for this queue
         cur.execute(
             """
-            SELECT fullname, phone, email, purpose, status, admin_status, created_at, reference_number, applicant_id
+            SELECT id, fullname, phone, email, purpose, status, admin_status, created_at, reference_number, applicant_id
             FROM queue_entries
             WHERE queue_slug = %s AND queue_number = %s
-            ORDER BY created_at ASC
             """,
             (queue_slug, queue_number)
         )
         rows = cur.fetchall()
+        rows.sort(key=lambda row: service_order_lookup.get(row[0], float("inf")))
 
         # Build CSV content
         import csv
@@ -3237,7 +3316,7 @@ def download_scans(qr_id):
         ])
 
         for r in rows:
-            fullname, phone, email, purpose, status, admin_status, created_at, ref_no, applicant_id = r
+            _, fullname, phone, email, purpose, status, admin_status, created_at, ref_no, applicant_id = r
             writer.writerow([
                 fullname or "",
                 phone or "",
@@ -3326,6 +3405,115 @@ def update_queue_status():
         import traceback
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/skip_queue_entry/<int:entry_id>', methods=['POST'])
+def skip_queue_entry(entry_id):
+    """Move an accepted waiting entry 3 places behind in the service order."""
+    conn = None
+    cur = None
+    try:
+        auth_error = require_admin_session_json()
+        if auth_error:
+            return auth_error
+
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"status": "error", "message": "Database connection failed"}), 500
+
+        ensure_queue_entries_table(conn)
+        cur = conn.cursor()
+        owner_email = get_current_admin_email()
+
+        if not admin_owns_entry(cur, entry_id, owner_email):
+            return jsonify({"status": "error", "message": "You do not have permission to update this entry."}), 403
+
+        cur.execute(
+            """
+            SELECT fullname, queue_slug, queue_number, status, admin_status, COALESCE(service_order_offset, 0)
+            FROM queue_entries
+            WHERE id = %s
+            """,
+            (entry_id,)
+        )
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({"status": "error", "message": "Entry not found"}), 404
+
+        fullname, queue_slug, queue_number, current_status, admin_status, current_offset = row
+        status_lower = (current_status or "waiting").strip().lower()
+        admin_status_lower = (admin_status or "pending").strip().lower()
+
+        if admin_status_lower != "accepted":
+            return jsonify({
+                "status": "error",
+                "message": "Only accepted entries can be skipped in the active queue."
+            }), 400
+
+        if status_lower in ["completed", "cancelled", "rescheduled"]:
+            return jsonify({
+                "status": "error",
+                "message": f"Cannot skip an entry that is already {status_lower}."
+            }), 400
+
+        service_order_before = get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=cur)
+        previous_position = service_order_before.get(entry_id)
+
+        new_offset = int(current_offset or 0) + 3
+        cur.execute(
+            """
+            UPDATE queue_entries
+            SET service_order_offset = %s
+            WHERE id = %s
+            """,
+            (new_offset, entry_id)
+        )
+
+        conn.commit()
+
+        service_order_after = get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=cur)
+        current_position = service_order_after.get(entry_id)
+        moved_back_by = max(0, (current_position or 0) - (previous_position or 0))
+
+        if previous_position and current_position and current_position > previous_position:
+            message = (
+                f"{fullname or 'Applicant'} was moved from queue position "
+                f"{previous_position} to {current_position}."
+            )
+        else:
+            message = (
+                f"{fullname or 'Applicant'} is already near the back of the queue. "
+                "The skip was saved and the entry will stay behind the next 3 positions when available."
+            )
+
+        return jsonify({
+            "status": "success",
+            "entry_id": entry_id,
+            "fullname": fullname or "",
+            "previous_position": previous_position,
+            "current_position": current_position,
+            "moved_back_by": moved_back_by,
+            "skip_increment": 3,
+            "service_order_offset": new_offset,
+            "message": message
+        })
+    except Exception as e:
+        print(f"Error skipping queue entry: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        if cur:
+            try:
+                cur.close()
+            except Exception:
+                pass
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 import re
 import traceback
