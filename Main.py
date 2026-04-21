@@ -5059,7 +5059,7 @@ def download_ticket(queue_slug, queue_number, entry_id):
         
         cur.execute(
             """
-            SELECT fullname, phone, purpose, created_at, queue_type, queue_purpose
+            SELECT fullname, phone, purpose, created_at, queue_type, queue_purpose, queue_number as position
             FROM queue_entries
             WHERE id = %s AND queue_slug = %s AND queue_number = %s
             """,
@@ -5072,102 +5072,112 @@ def download_ticket(queue_slug, queue_number, entry_id):
         if not entry:
             return "Ticket not found", 404
         
-        fullname, phone, purpose, created_at, queue_type, queue_purpose = entry
+        fullname, phone, purpose, created_at, queue_type, queue_purpose, position = entry
         ticket_ref = generate_ticket_reference(queue_slug, entry_id)
         
-        # Create image
-        img_width, img_height = 800, 1000
-        img = Image.new('RGB', (img_width, img_height), color='white')
+        # Create image with green background
+        img_width, img_height = 900, 1200
+        green_bg = (46, 169, 145)  # Teal/green color
+        img = Image.new('RGB', (img_width, img_height), color=green_bg)
         draw = ImageDraw.Draw(img)
         
-        # Try to load a better font, fall back to default if not available
+        # Try to load fonts
         try:
-            title_font = ImageFont.truetype("arial.ttf", 38)
-            header_font = ImageFont.truetype("arial.ttf", 24)
-            label_font = ImageFont.truetype("arial.ttf", 18)
-            text_font = ImageFont.truetype("arial.ttf", 16)
-            small_font = ImageFont.truetype("arial.ttf", 12)
+            title_font = ImageFont.truetype("arial.ttf", 50)
+            large_font = ImageFont.truetype("arial.ttf", 42)
+            header_font = ImageFont.truetype("arial.ttf", 26)
+            label_font = ImageFont.truetype("arial.ttf", 22)
+            text_font = ImageFont.truetype("arial.ttf", 18)
+            small_font = ImageFont.truetype("arial.ttf", 14)
         except:
-            title_font = header_font = label_font = text_font = small_font = ImageFont.load_default()
+            title_font = large_font = header_font = label_font = text_font = small_font = ImageFont.load_default()
         
-        # Colors
-        primary_color = (0, 102, 204)  # Blue
-        text_color = (0, 0, 0)
-        light_gray = (240, 240, 240)
+        white = (255, 255, 255)
+        cream_bg = (255, 248, 220)  # Light cream/yellow
+        brown_text = (139, 101, 43)  # Brown for cream box
         
-        y_pos = 30
+        y_pos = 40
         
-        # Title
-        draw.text((img_width // 2, y_pos), "SMARTQ QUEUE TICKET", fill=primary_color, font=title_font, anchor="mm")
+        # "TICKET CONFIRMED!" header
+        draw.text((img_width // 2, y_pos), "✓ TICKET CONFIRMED!", fill=white, font=title_font, anchor="mm")
         y_pos += 70
         
-        # Draw line
-        draw.line([(50, y_pos), (img_width - 50, y_pos)], fill=primary_color, width=3)
-        y_pos += 25
+        # Numbering (large)
+        draw.text((img_width // 2, y_pos), f"Numbering #{position}", fill=white, font=large_font, anchor="mm")
+        y_pos += 80
         
-        # Ticket Reference (prominent)
-        draw.text((img_width // 2, y_pos), f"Ticket: {ticket_ref}", fill=primary_color, font=header_font, anchor="mm")
+        # Queue Purpose/Description
+        draw.text((img_width // 2, y_pos), f"You are registered for {queue_purpose or 'a service'}.", fill=white, font=label_font, anchor="mm")
+        y_pos += 45
+        draw.text((img_width // 2, y_pos), purpose or "N/A", fill=white, font=label_font, anchor="mm")
         y_pos += 50
         
-        # Queue Information
-        draw.text((50, y_pos), "QUEUE INFORMATION", fill=primary_color, font=label_font, anchor="lm")
-        y_pos += 35
-        draw.text((70, y_pos), f"Type: {queue_type or 'N/A'}", fill=text_color, font=text_font, anchor="lm")
-        y_pos += 30
-        draw.text((70, y_pos), f"Purpose: {queue_purpose or 'N/A'}", fill=text_color, font=text_font, anchor="lm")
-        y_pos += 45
+        # Queue Type/Mode
+        draw.text((img_width // 2, y_pos), f"Mode: {queue_type or 'N/A'}", fill=white, font=label_font, anchor="mm")
+        y_pos += 50
         
-        # Customer Information
-        draw.text((50, y_pos), "CUSTOMER INFORMATION", fill=primary_color, font=label_font, anchor="lm")
-        y_pos += 35
-        draw.text((70, y_pos), f"Name: {fullname}", fill=text_color, font=text_font, anchor="lm")
-        y_pos += 30
-        draw.text((70, y_pos), f"Phone: {phone}", fill=text_color, font=text_font, anchor="lm")
-        y_pos += 30
-        draw.text((70, y_pos), f"Purpose: {purpose or 'N/A'}", fill=text_color, font=text_font, anchor="lm")
-        y_pos += 30
-        if created_at:
-            time_str = created_at.strftime('%Y-%m-%d %I:%M %p')
-        else:
-            time_str = 'N/A'
-        draw.text((70, y_pos), f"Registered: {time_str}", fill=text_color, font=text_font, anchor="lm")
+        # Ticket Holder
+        draw.text((img_width // 2, y_pos), f"Ticket Holder: {fullname}", fill=white, font=label_font, anchor="mm")
+        y_pos += 50
+        
+        # Ticket Reference
+        draw.text((img_width // 2, y_pos), f"Your ticket reference: {ticket_ref}", fill=white, font=label_font, anchor="mm")
+        y_pos += 70
+        
+        # Status badge (simulated)
+        badge_y = y_pos
+        draw.text((img_width // 2, badge_y), "Status: Waiting", fill=white, font=label_font, anchor="mm")
+        y_pos += 70
+        
+        # Cream/Yellow information box
+        box_left, box_right = 50, img_width - 50
+        box_top = y_pos
+        box_height = 120
+        box_bottom = box_top + box_height
+        draw.rectangle([(box_left, box_top), (box_right, box_bottom)], fill=cream_bg, outline=brown_text, width=3)
+        
+        # Content inside box
+        box_text_y = box_top + 20
+        draw.text((img_width // 2, box_text_y), "⏳ Application Pending Review", fill=brown_text, font=label_font, anchor="mm")
+        box_text_y += 50
+        draw.text((img_width // 2, box_text_y), "Estimated processing time: 3 days", fill=brown_text, font=text_font, anchor="mm")
+        
+        y_pos = box_bottom + 60
+        
+        # QR Code section
+        draw.text((img_width // 2, y_pos), "QR TICKET PROOF", fill=white, font=header_font, anchor="mm")
         y_pos += 50
         
         # Generate QR Code
         try:
             qr_data = f"SmartQ-{ticket_ref}-{entry_id}"
-            qr = qrcode.QRCode(version=1, box_size=5, border=1)
+            qr = qrcode.QRCode(version=1, box_size=8, border=2)
             qr.add_data(qr_data)
             qr.make(fit=True)
             qr_img = qr.make_image(fill_color="black", back_color="white")
             
-            # Resize QR code to fit on ticket
-            qr_size = 150
+            # Resize and center QR code
+            qr_size = 250
             qr_img = qr_img.resize((qr_size, qr_size))
             
-            # Paste QR code on the right side
-            qr_x = img_width - qr_size - 50
-            img.paste(qr_img, (qr_x, y_pos - 20))
+            # Paste QR code centered
+            qr_x = (img_width - qr_size) // 2
+            img.paste(qr_img, (qr_x, y_pos))
+            y_pos += qr_size + 30
         except Exception as qr_error:
             print(f"Warning: Could not generate QR code: {qr_error}")
+            y_pos += 280
         
-        # Important Notes
-        y_pos += 40
-        draw.text((50, y_pos), "IMPORTANT NOTES", fill=primary_color, font=label_font, anchor="lm")
-        y_pos += 35
-        draw.text((70, y_pos), "• Please keep this ticket for your records", fill=text_color, font=text_font, anchor="lm")
-        y_pos += 30
-        draw.text((70, y_pos), "• Show this ticket at the service counter", fill=text_color, font=text_font, anchor="lm")
-        y_pos += 30
-        draw.text((70, y_pos), "• Your queue position will be displayed", fill=text_color, font=text_font, anchor="lm")
-        y_pos += 50
+        # Instructions
+        draw.text((img_width // 2, y_pos), "Show this QR code to verify your application.", fill=white, font=text_font, anchor="mm")
+        y_pos += 45
+        draw.text((img_width // 2, y_pos), "Staff can scan to confirm your ticket instantly.", fill=white, font=text_font, anchor="mm")
+        y_pos += 60
         
-        # Footer line
-        draw.line([(50, y_pos), (img_width - 50, y_pos)], fill=primary_color, width=2)
+        # Bottom message
+        draw.text((img_width // 2, y_pos), "Bring your ticket and required documents when", fill=white, font=small_font, anchor="mm")
         y_pos += 30
-        
-        # Thank you message
-        draw.text((img_width // 2, y_pos), "Thank you for using SmartQ!", fill=primary_color, font=label_font, anchor="mm")
+        draw.text((img_width // 2, y_pos), "called for onsite physical claiming.", fill=white, font=small_font, anchor="mm")
         
         # Save to bytes
         img_io = io.BytesIO()
