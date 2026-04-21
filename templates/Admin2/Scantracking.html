@@ -751,62 +751,54 @@ function rejectEntry(entryId, triggerButton = null) {
     "We regret to inform you that your application form has not been approved by our administrator at this time.\n\n" +
     "Please review your submitted information and ensure that all requirements are complete and accurate before submitting a new request.";
 
-  requestStatusMessage(
-    "Reject Entry Message",
-    DEFAULT_MSG,
-    async (message) => {
-      const notificationMessage = (message || DEFAULT_MSG).trim();
-
-      showConfirmation("Reject Entry", "Are you sure you want to reject this entry?", async () => {
-        const restoreTriggerButton = setButtonBusyState(triggerButton, "Rejecting...");
-        let data;
-        try {
-          data = await fetchJsonSafe(`/reject_queue_entry/${entryId}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ notification_message: notificationMessage })
-          });
-        } catch (err) {
-          console.error("REJECT UPDATE ERROR:", err);
-          showAlert(err?.message || "Reject failed.", "error");
-          restoreTriggerButton();
-          return;
-        }
-
-        const recipientEmail = (data.email || "").trim();
-        if (!isValidEmail(recipientEmail)) {
-          showAlert("Entry rejected, but email not sent (missing/invalid recipient email).", "warning");
-          if (currentQRId) {
-            viewScans(currentQRId);
-          } else {
-            restoreTriggerButton();
-          }
-          return;
-        }
-
-        const params = buildAcceptRejectParams(
-          { ...data, email: recipientEmail },
-          "Rejected",
-          data.notification_message || notificationMessage,
-          "" // no processing time for reject
-        );
-
-        try {
-          await sendAcceptRejectEmail(params);
-          showAlert("Entry rejected and email sent!", "success");
-        } catch (err) {
-          console.error("REJECT EMAIL ERROR:", err);
-          const reason = formatEmailSendError(err);
-          showAlert(`Entry rejected, but email was not sent. ${reason}`, "warning");
-        }
-        if (currentQRId) {
-          viewScans(currentQRId);
-        } else {
-          restoreTriggerButton();
-        }
+  showConfirmation("Reject Entry", "Are you sure you want to reject this entry?", async () => {
+    const restoreTriggerButton = setButtonBusyState(triggerButton, "Rejecting...");
+    let data;
+    try {
+      data = await fetchJsonSafe(`/reject_queue_entry/${entryId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notification_message: DEFAULT_MSG })
       });
+    } catch (err) {
+      console.error("REJECT UPDATE ERROR:", err);
+      showAlert(err?.message || "Reject failed.", "error");
+      restoreTriggerButton();
+      return;
     }
-  );
+
+    const recipientEmail = (data.email || "").trim();
+    if (!isValidEmail(recipientEmail)) {
+      showAlert("Entry rejected, but email not sent (missing/invalid recipient email).", "warning");
+      if (currentQRId) {
+        viewScans(currentQRId);
+      } else {
+        restoreTriggerButton();
+      }
+      return;
+    }
+
+    const params = buildAcceptRejectParams(
+      { ...data, email: recipientEmail },
+      "Rejected",
+      data.notification_message || DEFAULT_MSG,
+      "" // no processing time for reject
+    );
+
+    try {
+      await sendAcceptRejectEmail(params);
+      showAlert("Entry rejected and email sent!", "success");
+    } catch (err) {
+      console.error("REJECT EMAIL ERROR:", err);
+      const reason = formatEmailSendError(err);
+      showAlert(`Entry rejected, but email was not sent. ${reason}`, "warning");
+    }
+    if (currentQRId) {
+      viewScans(currentQRId);
+    } else {
+      restoreTriggerButton();
+    }
+  });
 }
     // Mark entry as done
     function markAsDone(entryId, buttonElement) {
@@ -1543,7 +1535,9 @@ function rejectEntry(entryId, triggerButton = null) {
           !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
         const canSendDocument = (decisionStatus === "accepted") && !!entryId && hasRecipientEmail && !isCompleted;
-        const canSkip = decisionStatus === "accepted" && !["completed", "cancelled", "rescheduled"].includes(statusLower);
+        const canSkip =
+          decisionStatus !== "rejected" &&
+          !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
         card.innerHTML = `
       <div>

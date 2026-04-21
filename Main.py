@@ -3409,7 +3409,7 @@ def update_queue_status():
 
 @app.route('/skip_queue_entry/<int:entry_id>', methods=['POST'])
 def skip_queue_entry(entry_id):
-    """Move an accepted waiting entry 3 places behind in the service order."""
+    """Move an active queue entry 3 places behind in the service order."""
     conn = None
     cur = None
     try:
@@ -3445,10 +3445,10 @@ def skip_queue_entry(entry_id):
         status_lower = (current_status or "waiting").strip().lower()
         admin_status_lower = (admin_status or "pending").strip().lower()
 
-        if admin_status_lower != "accepted":
+        if admin_status_lower == "rejected":
             return jsonify({
                 "status": "error",
-                "message": "Only accepted entries can be skipped in the active queue."
+                "message": "Rejected entries cannot be skipped in the active queue."
             }), 400
 
         if status_lower in ["completed", "cancelled", "rescheduled"]:
