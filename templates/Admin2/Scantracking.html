@@ -1535,7 +1535,9 @@ function rejectEntry(entryId, triggerButton = null) {
           !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
         const canSendDocument = (decisionStatus === "accepted") && !!entryId && hasRecipientEmail && !isCompleted;
-        const canSkip = decisionStatus === "accepted";
+        const canSkip =
+          decisionStatus === "accepted" &&
+          !["completed", "cancelled", "rescheduled"].includes(statusLower);
 
         card.innerHTML = `
       <div>

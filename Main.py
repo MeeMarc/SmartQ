@@ -2096,8 +2096,151 @@ def get_queue_entry_number_lookup(queue_slug, queue_number, cur=None):
                     pass
 
 
+def get_accepted_waiting_base_order_lookup(queue_slug, queue_number, cur=None):
+    """Return stable base ordering for accepted waiting entries."""
+    if not queue_slug or queue_number is None:
+        return {}
+
+    own_connection = cur is None
+    conn = None
+
+    try:
+        if own_connection:
+            conn = get_db_connection()
+            if conn is None:
+                return {}
+            ensure_queue_entries_table(conn)
+            cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT id
+            FROM queue_entries
+            WHERE queue_slug = %s
+              AND queue_number = %s
+              AND LOWER(COALESCE(admin_status, 'pending')) = 'accepted'
+              AND LOWER(COALESCE(status, 'waiting')) = 'waiting'
+            ORDER BY
+                CASE WHEN created_at IS NULL THEN 1 ELSE 0 END,
+                created_at ASC,
+                id ASC
+            """,
+            (queue_slug, queue_number)
+        )
+        rows = cur.fetchall()
+        return {
+            row[0]: index + 1
+            for index, row in enumerate(rows)
+        }
+    except Exception as e:
+        print(f"Error getting accepted waiting base order: {e}")
+        return {}
+    finally:
+        if own_connection:
+            if cur:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+
+def get_active_service_queue_ids(queue_slug, queue_number, cur=None):
+    """Return accepted waiting entry IDs in their current live processing order."""
+    if not queue_slug or queue_number is None:
+        return []
+
+    own_connection = cur is None
+    conn = None
+
+    try:
+        if own_connection:
+            conn = get_db_connection()
+            if conn is None:
+                return []
+            ensure_queue_entries_table(conn)
+            cur = conn.cursor()
+
+        cur.execute(
+            """
+            WITH accepted_waiting AS (
+                SELECT
+                    id,
+                    COALESCE(service_order_offset, 0) AS service_order_offset,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            CASE WHEN created_at IS NULL THEN 1 ELSE 0 END,
+                            created_at ASC,
+                            id ASC
+                    ) AS base_order
+                FROM queue_entries
+                WHERE queue_slug = %s
+                  AND queue_number = %s
+                  AND LOWER(COALESCE(admin_status, 'pending')) = 'accepted'
+                  AND LOWER(COALESCE(status, 'waiting')) = 'waiting'
+            )
+            SELECT id
+            FROM accepted_waiting
+            ORDER BY
+                base_order + service_order_offset ASC,
+                base_order ASC,
+                id ASC
+            """,
+            (queue_slug, queue_number)
+        )
+        return [row[0] for row in cur.fetchall()]
+    except Exception as e:
+        print(f"Error getting active service queue ids: {e}")
+        return []
+    finally:
+        if own_connection:
+            if cur:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+
+def resequence_accepted_waiting_service_order(queue_slug, queue_number, ordered_entry_ids, cur):
+    """Persist a new live service order for accepted waiting entries."""
+    if cur is None or not queue_slug or queue_number is None:
+        return
+
+    base_lookup = get_accepted_waiting_base_order_lookup(queue_slug, queue_number, cur=cur)
+    if not base_lookup:
+        return
+
+    ordered_ids = [entry_id for entry_id in ordered_entry_ids if entry_id in base_lookup]
+    remaining_ids = [entry_id for entry_id in base_lookup if entry_id not in ordered_ids]
+    final_order = ordered_ids + remaining_ids
+
+    updates = []
+    for position, entry_id in enumerate(final_order, start=1):
+        base_position = base_lookup.get(entry_id, position)
+        service_order_offset = position - base_position
+        updates.append((service_order_offset, entry_id))
+
+    cur.executemany(
+        """
+        UPDATE queue_entries
+        SET service_order_offset = %s
+        WHERE id = %s
+        """,
+        updates
+    )
+
+
 def get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=None):
-    """Return the current processing order, including any admin skip offsets."""
+    """Return the current processing order for scan tracking cards."""
     if not queue_slug or queue_number is None:
         return {}
 
@@ -2119,15 +2262,21 @@ def get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=None):
                     id,
                     COALESCE(service_order_offset, 0) AS service_order_offset,
                     CASE
-                        WHEN COALESCE(status, 'waiting') = 'waiting' THEN 1
-                        WHEN COALESCE(status, 'waiting') = 'completed' THEN 2
-                        ELSE 3
-                    END AS status_bucket,
+                        WHEN LOWER(COALESCE(admin_status, 'pending')) = 'accepted'
+                             AND LOWER(COALESCE(status, 'waiting')) = 'waiting' THEN 1
+                        WHEN LOWER(COALESCE(admin_status, 'pending')) = 'pending'
+                             AND LOWER(COALESCE(status, 'waiting')) = 'waiting' THEN 2
+                        WHEN LOWER(COALESCE(status, 'waiting')) = 'completed' THEN 3
+                        ELSE 4
+                    END AS service_bucket,
                     ROW_NUMBER() OVER (
                         PARTITION BY CASE
-                            WHEN COALESCE(status, 'waiting') = 'waiting' THEN 1
-                            WHEN COALESCE(status, 'waiting') = 'completed' THEN 2
-                            ELSE 3
+                            WHEN LOWER(COALESCE(admin_status, 'pending')) = 'accepted'
+                                 AND LOWER(COALESCE(status, 'waiting')) = 'waiting' THEN 1
+                            WHEN LOWER(COALESCE(admin_status, 'pending')) = 'pending'
+                                 AND LOWER(COALESCE(status, 'waiting')) = 'waiting' THEN 2
+                            WHEN LOWER(COALESCE(status, 'waiting')) = 'completed' THEN 3
+                            ELSE 4
                         END
                         ORDER BY
                             CASE WHEN created_at IS NULL THEN 1 ELSE 0 END,
@@ -2140,14 +2289,10 @@ def get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=None):
             SELECT id
             FROM ranked
             ORDER BY
-                status_bucket ASC,
+                service_bucket ASC,
                 CASE
-                    WHEN status_bucket = 1 THEN base_order + service_order_offset
+                    WHEN service_bucket = 1 THEN base_order + service_order_offset
                     ELSE base_order
-                END ASC,
-                CASE
-                    WHEN status_bucket = 1 THEN service_order_offset
-                    ELSE 0
                 END ASC,
                 base_order ASC,
                 id ASC
@@ -3409,7 +3554,7 @@ def update_queue_status():
 
 @app.route('/skip_queue_entry/<int:entry_id>', methods=['POST'])
 def skip_queue_entry(entry_id):
-    """Move an active queue entry 3 places behind in the service order."""
+    """Move an accepted waiting entry 3 places behind in the live service order."""
     conn = None
     cur = None
     try:
@@ -3445,10 +3590,10 @@ def skip_queue_entry(entry_id):
         status_lower = (current_status or "waiting").strip().lower()
         admin_status_lower = (admin_status or "pending").strip().lower()
 
-        if admin_status_lower == "rejected":
+        if admin_status_lower != "accepted":
             return jsonify({
                 "status": "error",
-                "message": "Rejected entries cannot be skipped in the active queue."
+                "message": "Only accepted entries can be skipped in the active queue."
             }), 400
 
         if status_lower in ["completed", "cancelled", "rescheduled"]:
@@ -3457,24 +3602,32 @@ def skip_queue_entry(entry_id):
                 "message": f"Cannot skip an entry that is already {status_lower}."
             }), 400
 
-        service_order_before = get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=cur)
-        previous_position = service_order_before.get(entry_id)
+        active_queue_ids = get_active_service_queue_ids(queue_slug, queue_number, cur=cur)
+        if entry_id not in active_queue_ids:
+            return jsonify({
+                "status": "error",
+                "message": "This entry is not currently in the active accepted queue."
+            }), 400
 
-        new_offset = int(current_offset or 0) + 3
-        cur.execute(
-            """
-            UPDATE queue_entries
-            SET service_order_offset = %s
-            WHERE id = %s
-            """,
-            (new_offset, entry_id)
-        )
+        previous_position = active_queue_ids.index(entry_id) + 1
+        target_position = min(previous_position + 3, len(active_queue_ids))
+
+        reordered_queue_ids = [queue_entry_id for queue_entry_id in active_queue_ids if queue_entry_id != entry_id]
+        reordered_queue_ids.insert(target_position - 1, entry_id)
+
+        resequence_accepted_waiting_service_order(queue_slug, queue_number, reordered_queue_ids, cur)
 
         conn.commit()
 
-        service_order_after = get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=cur)
-        current_position = service_order_after.get(entry_id)
+        service_order_after = get_active_service_queue_ids(queue_slug, queue_number, cur=cur)
+        current_position = (service_order_after.index(entry_id) + 1) if entry_id in service_order_after else None
         moved_back_by = max(0, (current_position or 0) - (previous_position or 0))
+        cur.execute(
+            "SELECT COALESCE(service_order_offset, 0) FROM queue_entries WHERE id = %s",
+            (entry_id,)
+        )
+        updated_offset_row = cur.fetchone()
+        updated_offset = int(updated_offset_row[0]) if updated_offset_row and updated_offset_row[0] is not None else 0
 
         if previous_position and current_position and current_position > previous_position:
             message = (
@@ -3495,7 +3648,7 @@ def skip_queue_entry(entry_id):
             "current_position": current_position,
             "moved_back_by": moved_back_by,
             "skip_increment": 3,
-            "service_order_offset": new_offset,
+            "service_order_offset": updated_offset,
             "message": message
         })
     except Exception as e:
