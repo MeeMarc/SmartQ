@@ -110,9 +110,11 @@
       <p class="download-ticket-subtitle">Choose the file format you want to save.</p>
       <div class="download-ticket-actions">
         <a href="{{ url_for('download_ticket', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry.id, format='picture') }}"
-           class="download-btn">Picture</a>
+           class="download-btn"
+           data-download-ticket-link="true">Picture</a>
         <a href="{{ url_for('download_ticket', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry.id, format='pdf') }}"
-           class="download-btn download-btn-secondary">PDF</a>
+           class="download-btn download-btn-secondary"
+           data-download-ticket-link="true">PDF</a>
       </div>
     </div>
     {% endif %}
@@ -170,6 +172,53 @@
       navMenu.classList.toggle("active");
     });
   }
+
+  const DOWNLOAD_TICKET_LOCK_MS = 5000;
+
+  function setDownloadButtonsDisabled(buttons, disabled, clickedButton = null) {
+    buttons.forEach((button) => {
+      const defaultLabel = button.getAttribute('data-default-label') || button.textContent.trim();
+      button.setAttribute('data-default-label', defaultLabel);
+      button.classList.toggle('is-disabled', disabled);
+      button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+      button.tabIndex = disabled ? -1 : 0;
+
+      if (disabled) {
+        button.textContent = button === clickedButton ? 'Preparing...' : 'Please wait...';
+      } else {
+        button.textContent = defaultLabel;
+      }
+    });
+  }
+
+  function initializeDownloadTicketButtons() {
+    const buttons = Array.from(document.querySelectorAll('[data-download-ticket-link="true"]'));
+    if (!buttons.length) return;
+
+    let isDownloading = false;
+    let unlockTimeoutId = null;
+
+    buttons.forEach((button) => {
+      button.setAttribute('data-default-label', button.textContent.trim());
+      button.addEventListener('click', (event) => {
+        if (isDownloading || button.classList.contains('is-disabled')) {
+          event.preventDefault();
+          return;
+        }
+
+        isDownloading = true;
+        setDownloadButtonsDisabled(buttons, true, button);
+
+        window.clearTimeout(unlockTimeoutId);
+        unlockTimeoutId = window.setTimeout(() => {
+          isDownloading = false;
+          setDownloadButtonsDisabled(buttons, false);
+        }, DOWNLOAD_TICKET_LOCK_MS);
+      });
+    });
+  }
+
+  initializeDownloadTicketButtons();
 
   // Custom Confirmation Dialog
   function showConfirmation(title, message, onConfirm) {

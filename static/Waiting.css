@@ -596,6 +596,15 @@ header {
   color: #4c2fb5;
 }
 
+.download-btn.is-disabled,
+.download-btn[aria-disabled="true"] {
+  pointer-events: none;
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+}
+
 /* =========================================================
    MOBILE RESPONSIVE (✅ added improvements)
 ========================================================= */
