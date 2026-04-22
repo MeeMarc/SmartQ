@@ -558,6 +558,44 @@ header {
   text-decoration: none;
 }
 
+.download-ticket-panel {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.download-ticket-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.download-ticket-subtitle {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.88);
+  margin-bottom: 14px;
+}
+
+.download-ticket-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.download-btn-secondary {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #5f3dc4;
+  border-color: rgba(255, 255, 255, 0.95);
+}
+
+.download-btn-secondary:hover {
+  background-color: #ffffff;
+  color: #4c2fb5;
+}
+
 /* =========================================================
    MOBILE RESPONSIVE (✅ added improvements)
 ========================================================= */
@@ -622,6 +660,14 @@ header {
   .cancel-btn {
     width: 100%;
     padding: 14px 20px;
+  }
+
+  .download-ticket-actions {
+    flex-direction: column;
+  }
+
+  .download-btn {
+    width: 100%;
   }
 
   .status-display {

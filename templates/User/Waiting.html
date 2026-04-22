@@ -105,10 +105,15 @@
     
     <!-- Download Ticket Button -->
     {% if entry.status != 'cancelled' %}
-    <div style="display: flex; justify-content: center; margin-top: 15px;">
-      <a href="{{ url_for('download_ticket', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry.id) }}" 
-         class="download-btn" 
-         download>📥 Download Ticket</a>
+    <div class="download-ticket-panel">
+      <p class="download-ticket-title">Download Ticket</p>
+      <p class="download-ticket-subtitle">Choose the file format you want to save.</p>
+      <div class="download-ticket-actions">
+        <a href="{{ url_for('download_ticket', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry.id, format='picture') }}"
+           class="download-btn">Picture</a>
+        <a href="{{ url_for('download_ticket', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry.id, format='pdf') }}"
+           class="download-btn download-btn-secondary">PDF</a>
+      </div>
     </div>
     {% endif %}
     

@@ -27,3 +27,4 @@ SmartQ now stores queue workflow mode per generated QR using two fields:
 
 - Existing queues without mode values default to `Online` + `Digital Copy`.
 - Scan Tracking hides `Send Document` when a queue is configured as `Physical Claim`.
+- The user-facing `Download Ticket` action now supports both `Picture` and `PDF` proof exports using the same branded ticket design.
