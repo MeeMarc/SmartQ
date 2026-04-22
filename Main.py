@@ -9,7 +9,7 @@ from collections import OrderedDict
 from threading import Lock
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response, send_from_directory, send_file
 from datetime import datetime, timedelta
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
@@ -25,6 +25,7 @@ import secrets
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 from werkzeug.utils import secure_filename
+from PIL import Image, ImageDraw, ImageFont
 
 load_dotenv()  # Load variables from .env if present (local dev)
 
@@ -68,6 +69,409 @@ def get_public_base_url():
         return env_base.rstrip('/')
     # Fallback to current request host
     return request.host_url.rstrip('/')
+
+
+def load_ticket_font(size, bold=False):
+    """Load a truetype font for generated ticket images with safe fallbacks."""
+    env_path = os.getenv(
+        "SMARTQ_TICKET_FONT_BOLD_PATH" if bold else "SMARTQ_TICKET_FONT_PATH",
+        "",
+    ).strip()
+    candidates = [env_path] if env_path else []
+    if bold:
+        candidates.extend([
+            "C:/Windows/Fonts/segoeuib.ttf",
+            "C:/Windows/Fonts/arialbd.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+            "DejaVuSans-Bold.ttf",
+            "arialbd.ttf",
+            "segoeuib.ttf",
+        ])
+    else:
+        candidates.extend([
+            "C:/Windows/Fonts/segoeui.ttf",
+            "C:/Windows/Fonts/arial.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+            "DejaVuSans.ttf",
+            "arial.ttf",
+            "segoeui.ttf",
+        ])
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            return ImageFont.truetype(candidate, size=size)
+        except OSError:
+            continue
+
+    return ImageFont.load_default()
+
+
+def measure_ticket_text(draw, text, font):
+    """Return width and height for a text snippet in the ticket image."""
+    box = draw.textbbox((0, 0), str(text or ""), font=font)
+    return box[2] - box[0], box[3] - box[1]
+
+
+def wrap_ticket_text(draw, text, font, max_width, max_lines=None):
+    """Wrap text using pixel width so generated ticket text stays inside cards."""
+    content = str(text or "").strip()
+    if not content:
+        return [""]
+
+    raw_lines = []
+    for paragraph in content.splitlines():
+        words = paragraph.split()
+        if not words:
+            raw_lines.append("")
+            continue
+
+        current = words[0]
+        for word in words[1:]:
+            proposal = f"{current} {word}"
+            if measure_ticket_text(draw, proposal, font)[0] <= max_width:
+                current = proposal
+            else:
+                raw_lines.append(current)
+                current = word
+        raw_lines.append(current)
+
+    wrapped = []
+    for line in raw_lines:
+        if measure_ticket_text(draw, line, font)[0] <= max_width:
+            wrapped.append(line)
+            continue
+
+        current = ""
+        for char in line:
+            proposal = f"{current}{char}"
+            if current and measure_ticket_text(draw, proposal, font)[0] > max_width:
+                wrapped.append(current)
+                current = char
+            else:
+                current = proposal
+        if current:
+            wrapped.append(current)
+
+    if max_lines and len(wrapped) > max_lines:
+        wrapped = wrapped[:max_lines]
+        while wrapped and measure_ticket_text(draw, f"{wrapped[-1]}...", font)[0] > max_width:
+            wrapped[-1] = wrapped[-1][:-1]
+        if wrapped:
+            wrapped[-1] = f"{wrapped[-1]}..."
+
+    return wrapped or [""]
+
+
+def draw_ticket_shadow_card(draw, box, radius, fill, outline=None, width=2):
+    """Draw a rounded card with a soft shadow on the ticket canvas."""
+    x1, y1, x2, y2 = box
+    shadow_box = (x1, y1 + 12, x2, y2 + 12)
+    draw.rounded_rectangle(shadow_box, radius=radius, fill=(135, 111, 220, 28))
+    draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
+
+
+def draw_centered_ticket_lines(draw, center_x, start_y, lines, font, fill, line_gap=8):
+    """Draw multiple centered lines and return the next y position."""
+    current_y = start_y
+    for line in lines:
+        text_width, text_height = measure_ticket_text(draw, line, font)
+        draw.text((center_x - (text_width / 2), current_y), line, font=font, fill=fill)
+        current_y += text_height + line_gap
+    return current_y
+
+
+def build_ticket_download_image(
+    app_name,
+    queue_number,
+    queue_type,
+    queue_purpose,
+    processing_method,
+    release_type,
+    fullname,
+    ticket_reference,
+    created_at_label,
+    entry_status,
+    admin_status,
+    admin_message,
+    ticket_url,
+):
+    """Build the downloadable PNG ticket that mirrors the ticket proof design."""
+    width = 1080
+    padding = 64
+    center_x = width // 2
+
+    background = (248, 246, 255, 255)
+    panel_fill = (255, 255, 255, 255)
+    accent = (120, 81, 255, 255)
+    accent_soft = (241, 236, 255, 255)
+    accent_border = (213, 198, 255, 255)
+    text_primary = (33, 40, 63, 255)
+    text_secondary = (109, 116, 142, 255)
+    divider = (225, 223, 237, 255)
+    success = (74, 200, 136, 255)
+
+    status_styles = {
+        "accepted": {
+            "fill": (234, 251, 240, 255),
+            "outline": (86, 195, 122, 255),
+            "title": "Application Approved",
+            "message": "Your application has been approved. Please keep this ticket ready for verification.",
+            "text": (34, 111, 64, 255),
+        },
+        "rejected": {
+            "fill": (255, 239, 241, 255),
+            "outline": (234, 105, 121, 255),
+            "title": "Application Rejected",
+            "message": "Please contact the office for the next steps regarding your application.",
+            "text": (143, 42, 55, 255),
+        },
+        "pending": {
+            "fill": (255, 248, 221, 255),
+            "outline": (232, 181, 63, 255),
+            "title": "Application Pending Review",
+            "message": "We are reviewing your application. Please keep this ticket ready for verification.",
+            "text": (145, 100, 19, 255),
+        },
+    }
+    resolved_admin_status = (admin_status or "pending").strip().lower()
+    status_style = status_styles.get(resolved_admin_status, status_styles["pending"])
+    status_message = (admin_message or "").strip() or status_style["message"]
+    mode_value = f"{processing_method or 'Online'} / {release_type or 'Digital Copy'}"
+
+    base_font = load_ticket_font(30)
+    small_font = load_ticket_font(24)
+    small_bold_font = load_ticket_font(24, bold=True)
+    label_font = load_ticket_font(28)
+    label_bold_font = load_ticket_font(30, bold=True)
+    title_font = load_ticket_font(60, bold=True)
+    heading_font = load_ticket_font(42, bold=True)
+    subheading_font = load_ticket_font(34, bold=True)
+    badge_font = load_ticket_font(32, bold=True)
+    queue_font = load_ticket_font(72, bold=True)
+
+    image = Image.new("RGBA", (width, 2400), background)
+    draw = ImageDraw.Draw(image)
+
+    y = 52
+    brand_lines = wrap_ticket_text(draw, app_name or "SmartQ", small_bold_font, width - (padding * 2), max_lines=1)
+    y = draw_centered_ticket_lines(draw, center_x, y, brand_lines, small_bold_font, accent, line_gap=6)
+    y += 10
+
+    heading_lines = wrap_ticket_text(draw, "TICKET CONFIRMED!", heading_font, width - (padding * 2), max_lines=1)
+    y = draw_centered_ticket_lines(draw, center_x, y, heading_lines, heading_font, accent, line_gap=6)
+    y += 32
+
+    circle_size = 124
+    circle_box = (center_x - (circle_size // 2), y, center_x + (circle_size // 2), y + circle_size)
+    draw.ellipse(circle_box, outline=success, width=6)
+    draw.line(
+        (
+            center_x - 22, y + 66,
+            center_x - 2, y + 86,
+            center_x + 34, y + 42,
+        ),
+        fill=success,
+        width=8,
+        joint="curve",
+    )
+    y += circle_size + 42
+
+    queue_title = f"Numbering #{queue_number}"
+    y = draw_centered_ticket_lines(
+        draw,
+        center_x,
+        y,
+        wrap_ticket_text(draw, queue_title, queue_font, width - (padding * 2), max_lines=1),
+        queue_font,
+        text_primary,
+        line_gap=6,
+    )
+    y += 12
+    y = draw_centered_ticket_lines(
+        draw,
+        center_x,
+        y,
+        wrap_ticket_text(draw, f"You are registered for {queue_type or 'this queue'}.", base_font, width - (padding * 2)),
+        base_font,
+        text_secondary,
+        line_gap=8,
+    )
+    if queue_purpose:
+        y += 8
+        y = draw_centered_ticket_lines(
+            draw,
+            center_x,
+            y,
+            wrap_ticket_text(draw, queue_purpose, small_font, width - (padding * 2)),
+            small_font,
+            text_secondary,
+            line_gap=6,
+        )
+
+    y += 26
+    draw.line((padding + 70, y, width - padding - 70, y), fill=divider, width=2)
+    y += 40
+
+    info_y = y
+    info_card_width = (width - (padding * 2) - 24) // 2
+    left_box = (padding, info_y, padding + info_card_width, info_y + 148)
+    right_box = (padding + info_card_width + 24, info_y, width - padding, info_y + 148)
+
+    def draw_info_card(box, label, value):
+        draw_ticket_shadow_card(draw, box, radius=28, fill=panel_fill, outline=accent_border, width=2)
+        x1, y1, x2, y2 = box
+        inner_x = x1 + 28
+        icon_box = (inner_x, y1 + 28, inner_x + 56, y1 + 84)
+        draw.rounded_rectangle(icon_box, radius=18, fill=accent_soft)
+        draw.rounded_rectangle(
+            (icon_box[0] + 16, icon_box[1] + 16, icon_box[2] - 16, icon_box[3] - 16),
+            radius=10,
+            outline=accent,
+            width=3,
+        )
+        text_x = icon_box[2] + 20
+        draw.text((text_x, y1 + 28), label, font=label_font, fill=text_secondary)
+        value_lines = wrap_ticket_text(draw, value, label_bold_font, x2 - text_x - 26, max_lines=2)
+        current_y = y1 + 60
+        for line in value_lines:
+            draw.text((text_x, current_y), line, font=label_bold_font, fill=text_primary)
+            current_y += measure_ticket_text(draw, line, label_bold_font)[1] + 4
+
+    draw_info_card(left_box, "Mode", mode_value)
+    draw_info_card(right_box, "Ticket Holder", fullname or "N/A")
+    y = right_box[3] + 34
+
+    reference_box = (padding, y, width - padding, y + 108)
+    draw_ticket_shadow_card(draw, reference_box, radius=22, fill=accent_soft, outline=accent_border, width=2)
+    draw.text((padding + 46, y + 24), "Your ticket reference:", font=label_font, fill=text_secondary)
+    ref_lines = wrap_ticket_text(draw, ticket_reference or "N/A", label_bold_font, width - (padding * 2) - 330, max_lines=1)
+    ref_text_width, _ = measure_ticket_text(draw, ref_lines[0], label_bold_font)
+    draw.text((width - padding - ref_text_width - 46, y + 24), ref_lines[0], font=label_bold_font, fill=accent)
+    y = reference_box[3] + 52
+
+    y = draw_centered_ticket_lines(
+        draw,
+        center_x,
+        y,
+        wrap_ticket_text(draw, "Scan This QR", subheading_font, width - (padding * 2), max_lines=1),
+        subheading_font,
+        text_primary,
+        line_gap=4,
+    )
+    y += 8
+    y = draw_centered_ticket_lines(
+        draw,
+        center_x,
+        y,
+        wrap_ticket_text(draw, "Point this QR to the scan place", label_font, width - (padding * 2)),
+        label_font,
+        text_secondary,
+        line_gap=6,
+    )
+    y += 28
+
+    qr_frame = (padding + 96, y, width - padding - 96, y + 520)
+    draw_ticket_shadow_card(draw, qr_frame, radius=34, fill=panel_fill, outline=accent_border, width=3)
+    qr_canvas = (padding + 124, y + 28, width - padding - 124, y + 492)
+    draw.rounded_rectangle(qr_canvas, radius=22, fill=(255, 255, 255, 255))
+
+    qr = qrcode.QRCode(version=None, box_size=12, border=2)
+    qr.add_data(ticket_url)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+    resampling = getattr(Image, "Resampling", Image)
+    qr_img = qr_img.resize((380, 380), resampling.LANCZOS)
+    image.paste(qr_img, (center_x - 190, y + 70))
+    y = qr_frame[3] + 54
+
+    detail_rows = [
+        ("Service Type", queue_type or "N/A"),
+        ("Queue Number", str(queue_number)),
+        ("Ticket ID", ticket_reference or "N/A"),
+        ("Registered", created_at_label or "N/A"),
+    ]
+    if queue_purpose:
+        detail_rows.insert(1, ("Purpose", queue_purpose))
+
+    row_heights = []
+    detail_label_width = 240
+    detail_value_width = width - (padding * 2) - detail_label_width - 84
+    for label, value in detail_rows:
+        label_lines = wrap_ticket_text(draw, label, label_font, detail_label_width)
+        value_lines = wrap_ticket_text(draw, value, label_bold_font, detail_value_width)
+        label_height = sum(measure_ticket_text(draw, line, label_font)[1] for line in label_lines) + (max(0, len(label_lines) - 1) * 4)
+        value_height = sum(measure_ticket_text(draw, line, label_bold_font)[1] for line in value_lines) + (max(0, len(value_lines) - 1) * 4)
+        row_heights.append(max(48, label_height, value_height) + 28)
+
+    details_height = 92 + sum(row_heights)
+    details_box = (padding, y, width - padding, y + details_height)
+    draw_ticket_shadow_card(draw, details_box, radius=28, fill=panel_fill, outline=(238, 236, 247, 255), width=2)
+    draw.text((padding + 40, y + 26), "Registration Details", font=subheading_font, fill=text_primary)
+    current_y = y + 82
+    for index, (label, value) in enumerate(detail_rows):
+        row_height = row_heights[index]
+        if index > 0:
+            draw.line((padding + 30, current_y, width - padding - 30, current_y), fill=divider, width=2)
+
+        label_lines = wrap_ticket_text(draw, label, label_font, detail_label_width)
+        value_lines = wrap_ticket_text(draw, value, label_bold_font, detail_value_width)
+        row_top = current_y + 18
+        label_y = row_top
+        for line in label_lines:
+            draw.text((padding + 40, label_y), line, font=label_font, fill=text_secondary)
+            label_y += measure_ticket_text(draw, line, label_font)[1] + 4
+
+        value_y = row_top
+        for line in value_lines:
+            draw.text((padding + 320, value_y), line, font=label_bold_font, fill=text_primary)
+            value_y += measure_ticket_text(draw, line, label_bold_font)[1] + 4
+
+        current_y += row_height
+
+    y = details_box[3] + 52
+    status_lines = wrap_ticket_text(draw, status_message, label_font, width - (padding * 2) - 76)
+    status_message_height = sum(measure_ticket_text(draw, line, label_font)[1] for line in status_lines) + (max(0, len(status_lines) - 1) * 6)
+    status_box = (padding, y, width - padding, y + 118 + status_message_height)
+    draw_ticket_shadow_card(draw, status_box, radius=24, fill=status_style["fill"], outline=status_style["outline"], width=2)
+    draw.text((padding + 40, y + 24), status_style["title"], font=badge_font, fill=status_style["text"])
+    message_y = y + 72
+    for line in status_lines:
+        draw.text((padding + 40, message_y), line, font=label_font, fill=status_style["text"])
+        message_y += measure_ticket_text(draw, line, label_font)[1] + 6
+
+    y = status_box[3] + 42
+    footer_status = f"Status: {(entry_status or 'waiting').strip().capitalize()}"
+    y = draw_centered_ticket_lines(
+        draw,
+        center_x,
+        y,
+        wrap_ticket_text(draw, footer_status, badge_font, width - (padding * 2), max_lines=1),
+        badge_font,
+        accent,
+        line_gap=4,
+    )
+    y += 28
+    y = draw_centered_ticket_lines(
+        draw,
+        center_x,
+        y,
+        wrap_ticket_text(draw, "Present this ticket when requested by SmartQ staff.", small_font, width - (padding * 2)),
+        small_font,
+        text_secondary,
+        line_gap=4,
+    )
+    final_height = max(int(y + 48), 1720)
+
+    output = Image.new("RGB", (width, final_height), (255, 255, 255))
+    output.paste(image.crop((0, 0, width, final_height)).convert("RGB"), (0, 0))
+    buffer = io.BytesIO()
+    output.save(buffer, format="PNG", optimize=True)
+    buffer.seek(0)
+    return buffer
 
 
 def extract_first_name(fullname):
@@ -4602,8 +5006,14 @@ def ticket_proof(queue_slug, queue_number, entry_id):
 
 @app.route('/download_ticket/<queue_slug>/<int:queue_number>/<int:entry_id>')
 def download_ticket(queue_slug, queue_number, entry_id):
-    """Generate a downloadable text ticket for a queue entry."""
+    """Generate a downloadable PNG ticket for a queue entry."""
     try:
+        queue_type, queue_purpose = resolve_queue_metadata(queue_slug, queue_number)
+        queue_mode = get_queue_mode(queue_slug, queue_number)
+        queue_mode_hints = get_queue_mode_hints(
+            queue_mode.get("processing_method"),
+            queue_mode.get("release_type")
+        )
         conn = get_db_connection()
         if conn is None:
             return "Error: Could not connect to database", 500
@@ -4613,7 +5023,8 @@ def download_ticket(queue_slug, queue_number, entry_id):
         
         cur.execute(
             """
-            SELECT fullname, phone, purpose, created_at, queue_type, queue_purpose
+            SELECT fullname, purpose, created_at, queue_type, queue_purpose,
+                   status, reference_number, admin_status, notification_message
             FROM queue_entries
             WHERE id = %s AND queue_slug = %s AND queue_number = %s
             """,
@@ -4626,8 +5037,37 @@ def download_ticket(queue_slug, queue_number, entry_id):
         if not entry:
             return "Ticket not found", 404
         
-        fullname, phone, purpose, created_at, queue_type, queue_purpose = entry
-        ticket_ref = generate_ticket_reference(queue_slug, entry_id)
+        fullname, purpose, created_at, stored_queue_type, stored_queue_purpose, status, reference_number, admin_status, notification_message = entry
+        queue_type = stored_queue_type or queue_type
+        queue_purpose = stored_queue_purpose or queue_purpose or purpose
+        ticket_ref = reference_number or generate_ticket_reference(queue_slug, entry_id)
+        created_at_label = created_at.strftime('%Y-%m-%d %I:%M %p') if created_at else 'N/A'
+        ticket_path = url_for('ticket_proof', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
+        ticket_url = f"{get_public_base_url()}{ticket_path}"
+        app_settings = get_app_settings()
+
+        ticket_image = build_ticket_download_image(
+            app_name=app_settings.get("app_name") or "SmartQ",
+            queue_number=queue_number,
+            queue_type=queue_type,
+            queue_purpose=queue_purpose,
+            processing_method=queue_mode_hints["processing_method"],
+            release_type=queue_mode_hints["release_type"],
+            fullname=fullname,
+            ticket_reference=ticket_ref,
+            created_at_label=created_at_label,
+            entry_status=status or "waiting",
+            admin_status=admin_status or "pending",
+            admin_message=notification_message or "",
+            ticket_url=ticket_url,
+        )
+
+        return send_file(
+            ticket_image,
+            mimetype='image/png',
+            as_attachment=True,
+            download_name=f"SmartQ_Ticket_{ticket_ref}.png"
+        )
         
         ticket_content = f"""
 ========================================
