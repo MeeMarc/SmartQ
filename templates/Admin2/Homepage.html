@@ -21,7 +21,7 @@
           <details class="settings-details">
             <summary class="settings-trigger">Settings</summary>
             <div class="settings-menu">
-              <a href="{{ url_for('admin_settings') }}">Account & Branding</a>
+              <a href="{{ url_for('admin_settings') }}">Account & Office Information</a>
               <a href="{{ url_for('logout') }}" class="logout-link">Log out</a>
             </div>
           </details>
@@ -49,7 +49,7 @@
       <div class="HomeRow">
         <!-- Left side: Text -->
         <div class="HomeTextContent">
-          <h2>{{ app_settings.office_display_name }} Virtual Queue System</h2>
+          <h2>{{ app_settings.office_display_name }}  Virtual Queue System to make it efficient than traditional queue methods</h2>
           <p>
             {{ app_settings.office_description }}
           </p>
@@ -75,7 +75,7 @@
 
       <!-- Right side: Text -->
       <div class="HomeTextContent">
-        <h3>How {{ app_settings.app_name }} Works for {{ app_settings.office_name }}?</h3>
+        <h3>How the system works?</h3>
         <ul>
           <li>Users simply scan a QR code on their mobile devices to join the queue.</li>
           <li>A webpage will open displaying the required fields (Name, Mobile Number) for the student to fill out and submit.</li>
@@ -91,7 +91,7 @@
 <!-- Section 3 -->
 <section class="HomeFeaturesSection">
   <div class="HomeContainer">
-    <h2>How will {{ app_settings.office_name }} benefit clients and staff members?</h2>
+    <h2>How will it benefit clients and staff members?</h2>
     <p><strong>Features Highlights</strong></p>
 
     <ul>

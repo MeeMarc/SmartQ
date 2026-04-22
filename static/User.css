@@ -150,6 +150,12 @@ header {
   letter-spacing: 0.03em;
 }
 
+.hero-chip-processing {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+  font-weight: 700;
+}
+
 .queue-number-card {
   background: #ffffff;
   color: #003366;

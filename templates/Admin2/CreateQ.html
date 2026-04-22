@@ -24,7 +24,7 @@
           <details class="settings-details">
             <summary class="settings-trigger">Settings</summary>
             <div class="settings-menu">
-              <a href="{{ url_for('admin_settings') }}">Account & Branding</a>
+              <a href="{{ url_for('admin_settings') }}">Account & Office Information</a>
               <a href="{{ url_for('logout') }}" class="logout-link">Log out</a>
             </div>
           </details>
@@ -35,7 +35,7 @@
 
   <!-- ================= MAIN CONTENT ================= -->
   <main class="HomeMainContent">
-    <h2>Create Queue and Generate QR Codes for {{ app_settings.office_name }}</h2>
+    <h2>Create Queue and Generate QR Codes</h2>
 
     <div class="HomeTwoContainer">
       <!-- LEFT: Form -->
@@ -66,45 +66,51 @@
 
             <label for="processingMethod">Service Channel:</label>
             <select id="processingMethod" required>
-              <option value="">-- Select --</option>
+              <option value="">-- Select Service Channel --</option>
               <option value="Walk-in">Walk-in (In-Person)</option>
               <option value="Online">Online</option>
             </select>
+            <p class="field-description">Select how the applicant will process the request, either onsite or online.</p>
 
             <label for="releaseType">Release Format:</label>
             <select id="releaseType" required>
-              <option value="">-- Select --</option>
+              <option value="">-- Select Release Format --</option>
               <option value="Physical Claim">Physical Claim (Onsite Pickup)</option>
               <option value="Digital Copy">Digital Copy (Online Release)</option>
             </select>
+            <p class="field-description">Select how the completed document will be released to the applicant.</p>
 
             <label for="studentId">Require Applicant ID (Student/Client Number)?</label>
             <select id="studentId" required>
-              <option value="">-- Select --</option>
+              <option value="">-- Select Applicant ID Requirement --</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
+            <p class="field-description">Select "Yes" to ask for a student or client number during registration.</p>
 
             <label for="validId">Require Valid ID Uploads (JPG, PNG, PDF, max 5MB each)?</label>
             <select id="validId" required>
-              <option value="">-- Select --</option>
+              <option value="">-- Select Valid ID Requirement --</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
+            <p class="field-description">Select "Yes" if applicants must upload a valid ID before they can submit.</p>
 
             <label for="supportingDoc">Require Supporting Document Uploads (JPG, PNG, PDF, max 5MB each)?</label>
             <select id="supportingDoc" required>
-              <option value="">-- Select --</option>
+              <option value="">-- Select Supporting Document Requirement --</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
+            <p class="field-description">Select "Yes" if the request needs an attachment like a form, receipt, or proof.</p>
 
             <label for="esignRequired">Require E-Signature?</label>
             <select id="esignRequired" required>
-              <option value="">-- Select --</option>
+              <option value="">-- Select E-Signature Requirement --</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
+            <p class="field-description">Select "Yes" if the applicant must draw a signature before submitting the form.</p>
             <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">Set to "No" to hide that field from the
               registration form.</p>
           </div>
@@ -161,6 +167,8 @@
     const loadPreviousBtn = document.getElementById("loadPreviousBtn");
     const generateQrBtn = document.getElementById("generateQrBtn");
     const queueStorageKey = `queues_${String({{ (session.get('user_email') or 'guest')|tojson }}).toLowerCase()}`;
+    const downloadCompanyName = {{ (app_settings.organization_name or app_settings.app_name)|tojson }};
+    const downloadOfficeName = {{ (app_settings.office_name or "")|tojson }};
 
     const GENERATED_TITLE = "Generated Queues";
     const HISTORY_TITLE = "QR History";
@@ -168,9 +176,6 @@
     let qrHistoryList = [];
     let isHistoryView = false;
     let isGenerating = false;
-    let generateCooldownUntil = 0;
-    let generateCooldownTimer = null;
-
     function getMissingConfigFields() {
       const configFields = [
         { id: "processingMethod", label: "Service Channel" },
@@ -246,30 +251,13 @@
       generateQrBtn.innerText = label;
     }
 
-    function startGenerateCooldown(seconds = 10) {
-      generateCooldownUntil = Date.now() + (seconds * 1000);
-
-      if (generateCooldownTimer) {
-        clearInterval(generateCooldownTimer);
+    function setActionButtonState(button, disabled, busyLabel) {
+      if (!button) return;
+      if (!button.dataset.defaultLabel) {
+        button.dataset.defaultLabel = button.textContent.trim();
       }
-
-      const updateCooldownLabel = () => {
-        const remainingMs = generateCooldownUntil - Date.now();
-
-        if (remainingMs <= 0) {
-          clearInterval(generateCooldownTimer);
-          generateCooldownTimer = null;
-          generateCooldownUntil = 0;
-          setGenerateButtonState(false, "Generate QR");
-          return;
-        }
-
-        const remainingSeconds = Math.ceil(remainingMs / 1000);
-        setGenerateButtonState(true, `Please wait, generating queue... ${remainingSeconds}s`);
-      };
-
-      updateCooldownLabel();
-      generateCooldownTimer = setInterval(updateCooldownLabel, 250);
+      button.disabled = disabled;
+      button.textContent = disabled ? busyLabel : button.dataset.defaultLabel;
     }
 
     function escapeHtml(value) {
@@ -487,8 +475,8 @@
         </div>
 
         <div class="qr-actions">
-          <button onclick="downloadQR(${index})">Download QR</button>
-          <button onclick="deleteQR(${index})">Delete</button>
+          <button type="button" class="qr-download-btn" data-default-label="Download QR" onclick="downloadQR(${index}, this)">Download QR</button>
+          <button type="button" class="qr-delete-btn" data-default-label="Delete" onclick="deleteQR(${index}, this)">Delete</button>
         </div>
       `;
 
@@ -520,12 +508,6 @@
 
       if (isGenerating) {
         showAlert("Please wait, generating queue...", "warning");
-        return;
-      }
-
-      if (Date.now() < generateCooldownUntil) {
-        const remainingSeconds = Math.ceil((generateCooldownUntil - Date.now()) / 1000);
-        showAlert(`Please wait ${remainingSeconds} second(s) before generating another queue.`, "warning");
         return;
       }
 
@@ -603,7 +585,7 @@
           showGeneratedQueueView();
           form.reset();
           showAlert("Queue created successfully!", "success");
-          startGenerateCooldown(10);
+          setGenerateButtonState(false, "Generate QR");
         })
         .catch(err => {
           console.error(err);
@@ -612,29 +594,33 @@
         })
         .finally(() => {
           isGenerating = false;
-          if (Date.now() >= generateCooldownUntil) {
-            setGenerateButtonState(false, "Generate QR");
-          }
+          setGenerateButtonState(false, "Generate QR");
         });
     });
 
 
     /* ================= DELETE QR ================= */
-    async function deleteQR(index) {
+    async function deleteQR(index, triggerButton) {
       const qr = qrList[index];
 
       showConfirmation(
         "Delete Queue",
         `Are you sure you want to delete "${qr.type}"?`,
         async () => {
+          setActionButtonState(triggerButton, true, "Deleting...");
+
           try {
             // Remove from active queue list in the backend (temp_qr / active queues)
             if (qr.qrId) {
-              await fetch("/delete_qr", {
+              const response = await fetch("/delete_qr", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: qr.qrId })
               });
+
+              if (!response.ok) {
+                throw new Error("Unable to delete queue from the server.");
+              }
             }
 
             // Remove from local storage / UI list
@@ -645,20 +631,119 @@
           } catch (err) {
             console.error(err);
             showAlert("Error deleting queue. Please try again.", "error");
+            if (triggerButton && document.body.contains(triggerButton)) {
+              setActionButtonState(triggerButton, false);
+            }
           }
         }
       );
     }
 
     /* ================= DOWNLOAD QR ================= */
-    function downloadQR(index) {
-      const canvas = document.querySelector(`#qr${index} canvas`);
-      if (!canvas) return;
+    function getWrappedCanvasLines(ctx, text, maxWidth) {
+      const value = String(text || "").trim();
+      if (!value) return [""];
 
-      const link = document.createElement("a");
-      link.href = canvas.toDataURL("image/png");
-      link.download = `QR_${qrList[index].type}.png`;
-      link.click();
+      const words = value.split(/\s+/);
+      const lines = [];
+      let currentLine = words[0] || "";
+
+      for (let i = 1; i < words.length; i++) {
+        const testLine = `${currentLine} ${words[i]}`.trim();
+        if (ctx.measureText(testLine).width <= maxWidth) {
+          currentLine = testLine;
+        } else {
+          lines.push(currentLine);
+          currentLine = words[i];
+        }
+      }
+
+      lines.push(currentLine);
+      return lines;
+    }
+
+    function sanitizeFileName(value) {
+      return String(value || "queue").replace(/[^\w.-]+/g, "_");
+    }
+
+    async function downloadQR(index, triggerButton) {
+      setActionButtonState(triggerButton, true, "Preparing Download...");
+
+      try {
+        const source = document.querySelector(`#qr${index} canvas, #qr${index} img`);
+        const item = qrList[index];
+        if (!source || !item) {
+          throw new Error("QR preview is not ready yet.");
+        }
+
+        const exportCanvas = document.createElement("canvas");
+        const ctx = exportCanvas.getContext("2d");
+        const width = 520;
+        const padding = 36;
+        const qrSize = 280;
+        const textWidth = width - (padding * 2);
+        const titleLineHeight = 28;
+        const bodyLineHeight = 22;
+
+        ctx.font = "700 24px Montserrat, Arial, sans-serif";
+        const titleLines = getWrappedCanvasLines(ctx, item.type || "Queue QR", textWidth);
+
+        ctx.font = "500 17px Montserrat, Arial, sans-serif";
+        const detailBlocks = [
+          ...getWrappedCanvasLines(ctx, `Company: ${downloadCompanyName || "N/A"}`, textWidth),
+          ...getWrappedCanvasLines(ctx, `Office: ${downloadOfficeName || "N/A"}`, textWidth),
+          ...getWrappedCanvasLines(ctx, `Purpose: ${item.purpose || "N/A"}`, textWidth),
+          ...getWrappedCanvasLines(ctx, `Queue #: ${item.queueNumber || "N/A"}`, textWidth),
+          ...getWrappedCanvasLines(ctx, `Processing Time: ${item.processingDays || "N/A"} day(s)`, textWidth),
+          ...getWrappedCanvasLines(ctx, `Service Channel: ${item.processingMethod || "N/A"}`, textWidth),
+          ...getWrappedCanvasLines(ctx, `Release Format: ${item.releaseType || "N/A"}`, textWidth)
+        ];
+
+        const height = padding + qrSize + 28 + (titleLines.length * titleLineHeight) + 10 + (detailBlocks.length * bodyLineHeight) + padding;
+        exportCanvas.width = width;
+        exportCanvas.height = height;
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.fillStyle = "#d8e3ef";
+        ctx.fillRect(0, 0, width, 10);
+
+        ctx.drawImage(source, (width - qrSize) / 2, padding, qrSize, qrSize);
+
+        let currentY = padding + qrSize + 34;
+
+        ctx.fillStyle = "#003366";
+        ctx.textAlign = "center";
+        ctx.font = "700 24px Montserrat, Arial, sans-serif";
+        titleLines.forEach((line) => {
+          ctx.fillText(line, width / 2, currentY);
+          currentY += titleLineHeight;
+        });
+
+        currentY += 6;
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#334155";
+        ctx.font = "500 17px Montserrat, Arial, sans-serif";
+        detailBlocks.forEach((line) => {
+          ctx.fillText(line, padding, currentY);
+          currentY += bodyLineHeight;
+        });
+
+        const link = document.createElement("a");
+        link.href = exportCanvas.toDataURL("image/png");
+        link.download = `QR_${sanitizeFileName(item.type)}.png`;
+        link.click();
+
+        await new Promise(resolve => setTimeout(resolve, 700));
+      } catch (err) {
+        console.error(err);
+        showAlert(`Error downloading QR: ${err.message}`, "error");
+      } finally {
+        if (triggerButton && document.body.contains(triggerButton)) {
+          setActionButtonState(triggerButton, false);
+        }
+      }
     }
   </script>
 

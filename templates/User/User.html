@@ -10,6 +10,7 @@
       data-queue-type="{{ queue_type|default('', true) }}"
       data-queue-purpose="{{ queue_purpose|default('', true) }}"
       data-queue-slug="{{ queue_slug|default('', true) }}"
+      data-queue-processing-days="{{ queue_processing_time_label|default('', true) }}"
       data-queue-processing-method="{{ queue_processing_method|default('', true) }}"
       data-queue-release-type="{{ queue_release_type|default('', true) }}">
 
@@ -82,14 +83,17 @@
     <div class="hero-meta">
   {% if queue_number %}
   <div class="queue-number-card">
-    <span>Queue No.</span>
-    <strong>{{ queue_number }}</strong>
+    <span>Numbering</span>
+    <strong>{{ queue_display_number|default(queue_number, true) }}</strong>
   </div>
   {% endif %}
 
   <div class="hero-chip">Service Channel: {{ queue_processing_method|default('Online', true) }}</div>
   <div class="hero-chip">Release Format: {{ queue_release_type|default('Digital Copy', true) }}</div>
   <div class="hero-chip">{{ app_settings.organization_name }} service queue</div>
+  {% if queue_processing_time_label %}
+  <div class="hero-chip hero-chip-processing">Processing Days: {{ queue_processing_time_label }}</div>
+  {% endif %}
 </div>
 
   </div>

@@ -336,6 +336,12 @@ header {
   color: rgba(255, 255, 255, 0.9);
 }
 
+.processing-days-note {
+  margin: 8px 0 0 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
 /* Ticket QR */
 .ticket-qr {
   margin-top: 18px;

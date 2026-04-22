@@ -16,7 +16,7 @@
 
   <section class="queue-card {% if entry.status == 'completed' %}completed{% elif entry.status == 'cancelled' %}cancelled{% else %}waiting{% endif %}">
     <h3>Ticket Proof</h3>
-    <div class="number">Queue #{{ queue_number }}</div>
+    <div class="number">Numbering #{{ entry_number|default(queue_number, true) }}</div>
     <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
     {% if queue_purpose %}
     <p class="queue-purpose">{{ queue_purpose }}</p>
@@ -38,6 +38,11 @@
           <strong>Application Pending Review</strong>
         {% endif %}
       </p>
+      {% if queue_processing_time_label and entry.admin_status == 'pending' %}
+      <p class="processing-days-note" style="color: {% if entry.admin_status == 'accepted' %}#155724{% else %}#856404{% endif %};">
+        Estimated processing time: <strong>{{ queue_processing_time_label }}</strong>
+      </p>
+      {% endif %}
       {% if entry.notification_message %}
       <p style="margin: 8px 0 0 0; color: {% if entry.admin_status == 'accepted' %}#155724{% elif entry.admin_status == 'rejected' %}#721c24{% else %}#856404{% endif %};">
         {{ entry.notification_message }}
@@ -54,6 +59,14 @@
       {% endif %}
     </p>
   </section>
+
+  <script>
+    const TICKET_AUTO_REFRESH_MS = 10 * 60 * 1000;
+
+    setInterval(() => {
+      window.location.reload();
+    }, TICKET_AUTO_REFRESH_MS);
+  </script>
 
 </body>
 </html>

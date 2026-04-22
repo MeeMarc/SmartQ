@@ -23,7 +23,7 @@
           <details class="settings-details" open>
             <summary class="settings-trigger active">Settings</summary>
             <div class="settings-menu">
-              <a href="{{ url_for('admin_settings') }}" class="active">Account & Branding</a>
+              <a href="{{ url_for('admin_settings') }}" class="active">Account & Office Information</a>
               <a href="{{ url_for('logout') }}" class="logout-link">Log out</a>
             </div>
           </details>
@@ -32,108 +32,195 @@
     </nav>
   </header>
 
-
-  <main>
+  <main class="settings-page">
     <section class="settings-section">
-      <h2>Account & Branding</h2>
-      <p class="settings-intro">
-        Use <strong>System Branding</strong> to control how the system looks to users. Use
-        <strong>My Account Profile</strong> to manage the company and department stored on your account.
-      </p>
+      <div class="settings-hero">
+        <div class="settings-hero__content">
+          <span class="settings-kicker">Workspace Settings</span>
+          <h2>Account & Office Information</h2>
+          <p class="settings-intro">
+            Shape how your office appears across SmartQ and keep your account details updated in one clean workspace.
+          </p>
+        </div>
+
+        <div class="settings-hero__stats">
+          <div class="settings-stat">
+            <span class="settings-stat__label">Public Branding/Office</span>
+            <strong>{{ app_settings.organization_name }}</strong>
+            <small>{{ app_settings.office_name }}</small>
+          </div>
+
+          <div class="settings-stat">
+            <span class="settings-stat__label">Signed In As</span>
+            <strong>{{ admin[0] if admin else 'Admin User' }}</strong>
+            <small>{{ admin[1] if admin else 'No email available' }}</small>
+          </div>
+        </div>
+      </div>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
       <div class="flash-messages">
         {% for category, msg in messages %}
         {% if category != 'login' and category != 'logout' %}
-        <p>{{ msg }}</p>
+        <p class="{{ category }}">{{ msg }}</p>
         {% endif %}
         {% endfor %}
       </div>
       {% endif %}
       {% endwith %}
 
-      <div class="settings-card">
-        <div class="settings-card__header">
-          <h3>System Branding</h3>
-          <p>This is what users will see on the public and admin pages.</p>
-        </div>
-
-        <form method="POST" action="{{ url_for('admin_settings') }}" enctype="multipart/form-data">
-          <input type="hidden" name="form_action" value="branding">
-
-          <div class="branding-preview">
-            <img src="{{ app_settings.logo_url }}" alt="{{ app_settings.app_name }} logo" class="branding-preview__logo">
-            <p class="branding-preview__text">This is the current logo shown to users and admin pages.</p>
+      <div class="settings-grid">
+        <article class="settings-card settings-card--branding">
+          <div class="settings-card__header">
+            <div class="settings-card__icon">
+              <i class="fa-solid fa-building"></i>
+            </div>
+            <div class="settings-card__header-copy">
+              <span class="settings-card__eyebrow">Public View</span>
+              <h3>Office Information</h3>
+              <p>This section manages the office name, logo, and branding details displayed on the public and admin pages.</p>
+            </div>
           </div>
 
-          <label>System Name:</label>
-          <input type="text" name="app_name" value="{{ app_settings_row[0] if app_settings_row else app_settings.app_name }}" placeholder="e.g. SmartQ" onfocus="this.select()" required>
+          <form method="POST" action="{{ url_for('admin_settings') }}" enctype="multipart/form-data" class="settings-form">
+            <input type="hidden" name="form_action" value="branding">
 
-          <label>Displayed Company / Organization Name:</label>
-          <input type="text" name="organization_name" value="{{ app_settings_row[1] if app_settings_row else app_settings.organization_name }}" placeholder="e.g. ABC Corporation" onfocus="this.select()" required>
+            <div class="branding-preview">
+              <img src="{{ app_settings.logo_url }}" alt="{{ app_settings.app_name }} logo" class="branding-preview__logo">
+              <div class="branding-preview__content">
+                <span class="branding-preview__badge">Live Preview</span>
+                <strong>{{ app_settings.app_name }}</strong>
+                <span class="branding-preview__subtitle">{{ app_settings.organization_name }} / {{ app_settings.office_name }}</span>
+                <p class="branding-preview__text">{{ app_settings.office_tagline }}</p>
+              </div>
+            </div>
 
-          <label>Displayed Office / Department Name:</label>
-          <input type="text" name="office_name" value="{{ app_settings_row[2] if app_settings_row else app_settings.office_name }}" placeholder="e.g. HR Office" onfocus="this.select()" required>
+            <div class="settings-form-grid">
+              <div class="field-group">
+                <label>System Name</label>
+                <input type="text" name="app_name" value="{{ app_settings_row[0] if app_settings_row else app_settings.app_name }}" placeholder="e.g. SmartQ" onfocus="this.select()" required>
+              </div>
 
-          <label>Short Tagline:</label>
-          <input type="text" name="office_tagline" value="{{ app_settings_row[3] if app_settings_row else app_settings.office_tagline }}" placeholder="Short label for your homepage" onfocus="this.select()" required>
+              <div class="field-group">
+                <label>Short Tagline</label>
+                <input type="text" name="office_tagline" value="{{ app_settings_row[3] if app_settings_row else app_settings.office_tagline }}" placeholder="Short label for your homepage" onfocus="this.select()" required>
+              </div>
 
-          <label>Office Description:</label>
-          <textarea name="office_description" rows="4" placeholder="Describe the office or service desk." onfocus="this.select()" required>{{ app_settings_row[4] if app_settings_row else app_settings.office_description }}</textarea>
+              <div class="field-group">
+                <label>Displayed Company / Organization Name</label>
+                <input type="text" name="organization_name" value="{{ app_settings_row[1] if app_settings_row else app_settings.organization_name }}" placeholder="e.g. ABC Corporation" onfocus="this.select()" required>
+              </div>
 
-          <label>Company Logo:</label>
-          <input type="file" name="logo_file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
-          <p class="field-help">Optional. Upload a new logo to replace the current one. Max 2MB.</p>
+              <div class="field-group">
+                <label>Displayed Office / Department Name</label>
+                <input type="text" name="office_name" value="{{ app_settings_row[2] if app_settings_row else app_settings.office_name }}" placeholder="e.g. HR Office" onfocus="this.select()" required>
+              </div>
 
-          <button type="submit">Save Branding Settings</button>
-        </form>
+              <div class="field-group field-group--full">
+                <label>Office Description</label>
+                <textarea name="office_description" rows="4" placeholder="Describe the office or service desk." onfocus="this.select()" required>{{ app_settings_row[4] if app_settings_row else app_settings.office_description }}</textarea>
+              </div>
+
+              <div class="field-group field-group--full">
+                <label>Company Logo</label>
+                <input type="file" name="logo_file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" class="file-input">
+                <p class="field-help">Optional. Upload a new logo to replace the current one. Max 2MB.</p>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" id="brandingSubmitBtn">Save Branding Settings</button>
+            </div>
+          </form>
+        </article>
+
+        <article class="settings-card settings-card--account">
+          <div class="settings-card__header">
+            <div class="settings-card__icon settings-card__icon--account">
+              <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <div class="settings-card__header-copy">
+              <span class="settings-card__eyebrow">Account Security</span>
+              <h3>My Account Profile</h3>
+              <p>Manage the company, department, and password connected to your administrator account.</p>
+            </div>
+          </div>
+
+          <div class="account-summary">
+            <div class="account-summary__avatar">{{ (admin[0][:1] if admin and admin[0] else 'A')|upper }}</div>
+            <div class="account-summary__meta">
+              <span class="account-summary__badge">Administrator Access</span>
+              <strong>{{ admin[0] if admin else 'Admin User' }}</strong>
+              <span>{{ admin[1] if admin else 'No email available' }}</span>
+              <small>Keep your profile details and password secure.</small>
+            </div>
+          </div>
+
+          <form method="POST" action="{{ url_for('admin_settings') }}" class="settings-form">
+            <input type="hidden" name="form_action" value="account">
+
+            <div class="settings-form-grid">
+              <div class="field-group">
+                <label>Full Name</label>
+                <input type="text" name="fullname" value="{{ admin[0] if admin else '' }}" placeholder="Enter your full name" onfocus="this.select()" required>
+              </div>
+
+              <div class="field-group field-group--full">
+                <label>Email</label>
+                <p class="readonly-value">{{ admin[1] if admin else '' }}</p>
+              </div>
+
+              <div class="field-group">
+                <label>My Company / Organization</label>
+                <input type="text" name="account_organization_name" value="{{ admin[3] if admin else '' }}" placeholder="Enter your company or organization name" onfocus="this.select()" required>
+              </div>
+
+              <div class="field-group">
+                <label>My Office / Department</label>
+                <input type="text" name="account_office_name" value="{{ admin[4] if admin else '' }}" placeholder="Enter your office or department name" onfocus="this.select()" required>
+              </div>
+            </div>
+
+            <div class="password-panel">
+              <div class="password-panel__header">
+                <h4>Password Update</h4>
+                <p>Fill in these fields only if you want to change your current password.</p>
+              </div>
+
+              <div class="settings-form-grid">
+                <div class="field-group field-group--full">
+                  <label>Old Password</label>
+                  <div class="input-group">
+                    <input type="password" id="old_password" name="old_password" placeholder="Required only when changing password">
+                    <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('old_password', this)"></i>
+                  </div>
+                </div>
+
+                <div class="field-group">
+                  <label>New Password</label>
+                  <div class="input-group">
+                    <input type="password" id="new_password" name="new_password" placeholder="Enter new password">
+                    <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('new_password', this)"></i>
+                  </div>
+                </div>
+
+                <div class="field-group">
+                  <label>Confirm Password</label>
+                  <div class="input-group">
+                    <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm new password">
+                    <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('confirm_password', this)"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" id="accountSubmitBtn">Save Account Changes</button>
+            </div>
+          </form>
+        </article>
       </div>
-
-      <div class="settings-divider"></div>
-
-      <div class="settings-card">
-        <div class="settings-card__header">
-          <h3>My Account Profile</h3>
-          <p>These are the company and department values stored on your account from signup.</p>
-        </div>
-
-        <form method="POST" action="{{ url_for('admin_settings') }}">
-          <input type="hidden" name="form_action" value="account">
-
-          <label>Full Name:</label>
-          <input type="text" name="fullname" value="{{ admin[0] if admin else '' }}" placeholder="Enter your full name" onfocus="this.select()" required>
-
-          <label>My Company / Organization:</label>
-          <input type="text" name="account_organization_name" value="{{ admin[3] if admin else '' }}" placeholder="Enter your company or organization name" onfocus="this.select()" required>
-
-          <label>My Office / Department:</label>
-          <input type="text" name="account_office_name" value="{{ admin[4] if admin else '' }}" placeholder="Enter your office or department name" onfocus="this.select()" required>
-
-          <label>Email:</label>
-          <p>{{ admin[1] if admin else '' }}</p>
-
-          <label>Old Password:</label>
-          <div class="input-group">
-            <input type="password" id="old_password" name="old_password" placeholder="Required only when changing password">
-            <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('old_password', this)"></i>
-          </div>
-
-          <label>New Password:</label>
-          <div class="input-group">
-            <input type="password" id="new_password" name="new_password" placeholder="Enter new password" />
-            <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('new_password', this)"></i>
-          </div>
-
-          <label>Confirm Password:</label>
-          <div class="input-group">
-            <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm new password" />
-            <i class="toggle-password fa fa-eye-slash" onclick="togglePassword('confirm_password', this)"></i>
-          </div>
-          <button type="submit">Save Account Changes</button>
-        </form>
-      </div>
-
     </section>
   </main>
   <script>
@@ -154,6 +241,35 @@
     // Auto-dismiss flash messages after 4 seconds
     document.addEventListener('DOMContentLoaded', function () {
       const flashMessages = document.querySelector('.flash-messages');
+      const brandingForm = document.querySelector('form input[name="form_action"][value="branding"]')?.form;
+      const accountForm = document.querySelector('form input[name="form_action"][value="account"]')?.form;
+      const brandingSubmitBtn = document.getElementById('brandingSubmitBtn');
+      const accountSubmitBtn = document.getElementById('accountSubmitBtn');
+
+      if (brandingForm && brandingSubmitBtn) {
+        brandingForm.addEventListener('submit', function (event) {
+          if (brandingSubmitBtn.disabled) {
+            event.preventDefault();
+            return;
+          }
+
+          brandingSubmitBtn.disabled = true;
+          brandingSubmitBtn.textContent = 'Saving Branding Settings...';
+        });
+      }
+
+      if (accountForm && accountSubmitBtn) {
+        accountForm.addEventListener('submit', function (event) {
+          if (accountSubmitBtn.disabled) {
+            event.preventDefault();
+            return;
+          }
+
+          accountSubmitBtn.disabled = true;
+          accountSubmitBtn.textContent = 'Saving Account Changes...';
+        });
+      }
+
       if (flashMessages) {
         setTimeout(() => {
           flashMessages.style.opacity = '0';
