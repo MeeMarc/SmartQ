@@ -1957,13 +1957,7 @@ def ensure_queue_mode_columns(conn):
         print(f"Error ensuring queue mode columns: {e}")
 
 def normalize_processing_method(value):
-    raw = (value or "").strip()
-    v = raw.lower()
-    if v in ("walk-in", "walk in", "walkin", "in-person", "in person", "onsite", "on-site"):
-        return "Walk-in"
-    if v in ("online", "digital", "remote"):
-        return "Online"
-    return raw
+    return "Online"
 
 def normalize_release_type(value):
     raw = (value or "").strip()
@@ -1987,15 +1981,7 @@ def get_queue_mode_hints(processing_method, release_type):
         ("Online", "Physical Claim"): {
             "registration_hint": "Submit online, then wait for a pickup notice before claiming the document onsite.",
             "waiting_hint": "Wait for approval, then present your ticket at the office for physical claiming."
-        },
-        ("Walk-in", "Digital Copy"): {
-            "registration_hint": "Queue may be processed onsite, but approved documents are sent digitally.",
-            "waiting_hint": "After review, your document will be sent digitally to your provided contact."
-        },
-        ("Walk-in", "Physical Claim"): {
-            "registration_hint": "This queue is handled onsite, and document release is through physical claiming.",
-            "waiting_hint": "Bring your ticket and required documents when called for onsite physical claiming."
-        },
+        }
     }
     hints = matrix.get((mode, release), {
         "registration_hint": "Follow queue instructions and complete the required steps for this queue.",
@@ -3931,7 +3917,7 @@ def download_scans(qr_id):
             "Admin Status",
             "Scanned At",
             "Reference Number",
-            "Applicant ID",
+            "ID Number",
         ])
 
         for r in rows:
@@ -5420,7 +5406,7 @@ def queue_page(queue_slug, queue_number):
             return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
         if queue_config.get("require_student_id", True) and not applicant_id:
-            flash("Student / Client ID is required.", "error")
+            flash("ID Number (Student/Client Number) is required.", "error")
             return redirect(url_for('queue_page', queue_slug=queue_slug, queue_number=queue_number))
 
         if not declaration:

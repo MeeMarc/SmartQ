@@ -66,11 +66,9 @@
 
             <label for="processingMethod">Service Channel:</label>
             <select id="processingMethod" required>
-              <option value="">-- Select Service Channel --</option>
-              <option value="Walk-in">Walk-in (In-Person)</option>
-              <option value="Online">Online</option>
+              <option value="Online" selected>Online</option>
             </select>
-            <p class="field-description">Select how the applicant will process the request, either onsite or online.</p>
+            <p class="field-description">Service channel is currently online only.</p>
 
             <label for="releaseType">Release Format:</label>
             <select id="releaseType" required>
@@ -80,13 +78,13 @@
             </select>
             <p class="field-description">Select how the completed document will be released to the applicant.</p>
 
-            <label for="studentId">Require Applicant ID (Student/Client Number)?</label>
+            <label for="studentId">Require ID Number (Student/Client Number)?</label>
             <select id="studentId" required>
-              <option value="">-- Select Applicant ID Requirement --</option>
+              <option value="">-- Select ID Number Requirement --</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
-            <p class="field-description">Select "Yes" to ask for a student or client number during registration.</p>
+            <p class="field-description">Select "Yes" to ask for an ID number during registration.</p>
 
             <label for="validId">Require Valid ID Uploads (JPG, PNG, PDF, max 5MB each)?</label>
             <select id="validId" required>
@@ -180,7 +178,7 @@
       const configFields = [
         { id: "processingMethod", label: "Service Channel" },
         { id: "releaseType", label: "Release Format" },
-        { id: "studentId", label: "Applicant ID Requirement" },
+        { id: "studentId", label: "ID Number Requirement" },
         { id: "validId", label: "Valid ID Upload Requirement" },
         { id: "supportingDoc", label: "Supporting Document Upload Requirement" },
         { id: "esignRequired", label: "E-Signature Requirement" }
@@ -460,7 +458,7 @@
         <p><strong>Processing Time:</strong> ${item.processingDays} day(s)</p>
         <p><strong>Service Channel:</strong> ${item.processingMethod || 'N/A'}</p>
         <p><strong>Release Format:</strong> ${item.releaseType || 'N/A'}</p>
-        <p><strong>Student/Client ID:</strong> ${item.studentId || 'Yes'}</p>
+        <p><strong>ID Number:</strong> ${item.studentId || 'Yes'}</p>
         <p><strong>Valid ID:</strong> ${item.validId || 'Yes'}</p>
         <p><strong>Supporting Doc:</strong> ${item.supportingDoc || 'Yes'}</p>
         <p><strong>E-Signature Required:</strong> ${item.esignRequired}</p>
