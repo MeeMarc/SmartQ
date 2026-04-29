@@ -411,9 +411,13 @@
       const resolvedStatus = (payload.application_status || "Accepted").toString().trim();
       const statusLower = resolvedStatus.toLowerCase();
       const resolvedProcessingTime = formatProcessingTime(payload.processing_time || payload.processing_days || payload.avg_service_time || "");
+      const resolvedEntryNumber = (payload.entry_number || payload.queue_number || "").toString().trim();
       const acceptedBaseMessage = "We are pleased to inform you that your application form has been approved by our administrator.\n\nPlease check your email regularly for further instructions and updates regarding your requested document.";
-      const acceptedMessage = resolvedProcessingTime
-        ? `${acceptedBaseMessage}\n\nEstimated processing time: ${resolvedProcessingTime}.`
+      const acceptedMessageParts = [];
+      if (resolvedEntryNumber) acceptedMessageParts.push(`Your queue number is #${resolvedEntryNumber}.`);
+      if (resolvedProcessingTime) acceptedMessageParts.push(`Estimated processing time: ${resolvedProcessingTime}.`);
+      const acceptedMessage = acceptedMessageParts.length
+        ? `${acceptedBaseMessage}\n\n${acceptedMessageParts.join("\n\n")}`
         : acceptedBaseMessage;
       const defaultMessage = statusLower === "accepted"
         ? acceptedMessage

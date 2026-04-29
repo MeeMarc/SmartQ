@@ -81,13 +81,6 @@
       {% endif %}
     </div>
     <div class="hero-meta">
-  {% if queue_number %}
-  <div class="queue-number-card">
-    <span>Queue</span>
-    <strong>{{ queue_display_number|default(queue_number, true) }}</strong>
-  </div>
-  {% endif %}
-
   <div class="hero-chip">Service Channel: {{ queue_processing_method|default('Online', true) }}</div>
   <div class="hero-chip">Release Format: {{ queue_release_type|default('Digital Copy', true) }}</div>
   <div class="hero-chip">{{ app_settings.organization_name }} service queue</div>

@@ -2794,6 +2794,17 @@ def get_next_accepted_queue_entry_number(queue_slug, queue_number, cur=None):
                 except Exception:
                     pass
 
+
+def lock_queue_acceptance_sequence(cur, queue_slug, queue_number):
+    """Serialize accepted-number assignment per queue."""
+    if cur is None or not queue_slug or queue_number is None:
+        return
+
+    cur.execute(
+        "SELECT pg_advisory_xact_lock(hashtext(%s), %s)",
+        (str(queue_slug), int(queue_number))
+    )
+
 def check_existing_entry(queue_slug, queue_number, phone):
     """Check if a user with this phone number already has an entry in this queue."""
     try:
@@ -4175,6 +4186,21 @@ def accept_queue_entry(entry_id):
 
         full_name, email, created_at, ticket_status, queue_type, applicant_id, phone, queue_slug, queue_number, accepted_queue_number = row
 
+        lock_queue_acceptance_sequence(cur, queue_slug, queue_number)
+
+        if accepted_queue_number is None:
+            cur.execute(
+                """
+                SELECT accepted_queue_number
+                FROM queue_entries
+                WHERE id = %s
+                FOR UPDATE
+                """,
+                (entry_id,)
+            )
+            locked_row = cur.fetchone()
+            accepted_queue_number = locked_row[0] if locked_row else None
+
         email = resolve_entry_email(cur, current_email=email, applicant_id=applicant_id, phone=phone)
         resolved_entry_number = accepted_queue_number or get_next_accepted_queue_entry_number(queue_slug, queue_number, cur=cur)
 
@@ -4191,16 +4217,19 @@ def accept_queue_entry(entry_id):
         )
 
         base_message = default_message
+        queue_number_line = f"Your queue number is #{resolved_entry_number}." if resolved_entry_number else ""
 
         # âœ… number only (no "days")
         processing_line = f"Estimated Document Processing Duration: {processing_time} Business Days." if processing_time else ""
+        message_lines = [line for line in (queue_number_line, processing_line) if line]
 
-        if processing_line:
+        if message_lines:
+            details_block = "\n\n".join(message_lines)
             if "\n\n" in base_message:
                 first_part, rest = base_message.split("\n\n", 1)
-                notification_message = f"{first_part}\n\n{processing_line}\n\n{rest}"
+                notification_message = f"{first_part}\n\n{details_block}\n\n{rest}"
             else:
-                notification_message = f"{base_message}\n\n{processing_line}"
+                notification_message = f"{base_message}\n\n{details_block}"
         else:
             notification_message = base_message
 
@@ -5312,7 +5341,6 @@ def queue_page(queue_slug, queue_number):
         queue_mode = get_queue_mode(queue_slug, queue_number)
         queue_processing_days = get_queue_processing_days(queue_slug, queue_number)
         queue_processing_time_label = format_processing_time_label(queue_processing_days)
-        queue_display_number = get_next_queue_entry_number(queue_slug, queue_number)
         queue_mode_hints = get_queue_mode_hints(
             queue_mode.get("processing_method"),
             queue_mode.get("release_type")
@@ -5336,7 +5364,6 @@ def queue_page(queue_slug, queue_number):
             queue_release_type="Digital Copy",
             queue_processing_days=None,
             queue_processing_time_label="",
-            queue_display_number=1,
             queue_flow_hint="Please refresh the page or try again shortly.",
             queue_full=False,
             queue_limit=None,
@@ -5537,7 +5564,6 @@ def queue_page(queue_slug, queue_number):
         queue_release_type=queue_mode_hints["release_type"],
         queue_processing_days=queue_processing_days,
         queue_processing_time_label=queue_processing_time_label,
-        queue_display_number=queue_display_number,
         queue_flow_hint=queue_mode_hints["registration_hint"],
         queue_full=queue_full,
         queue_limit=queue_limit,
