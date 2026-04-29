@@ -38,7 +38,13 @@
         🎉 Ticket Confirmed!
       {% endif %}
     </h3>
-    <div class="number">Numbering #{{ entry_number|default(queue_number, true) }}</div>
+    {% if entry.admin_status == 'accepted' and entry_number %}
+    <div class="number">Numbering #{{ entry_number }}</div>
+    {% elif entry.admin_status == 'rejected' %}
+    <p style="margin: 12px 0 0; font-weight: 600; color: #b42318;">Queue number was not assigned because the application was rejected.</p>
+    {% else %}
+    <p style="margin: 12px 0 0; font-weight: 600; color: #856404;">Queue number will appear once your application is approved.</p>
+    {% endif %}
     {% if entry.status != 'cancelled' %}
     <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
     {% if queue_purpose %}

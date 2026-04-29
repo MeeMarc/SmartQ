@@ -248,7 +248,16 @@ def build_ticket_download_image(
     resolved_admin_status = (admin_status or "pending").strip().lower()
     status_style = status_styles.get(resolved_admin_status, status_styles["pending"])
     display_queue_type = str(queue_type or "N/A")
-    display_number = str(display_number or "N/A")
+    if display_number:
+        display_number = str(display_number)
+        number_heading = f"Numbering #{display_number}"
+        detail_number_label = display_number
+    elif resolved_admin_status == "rejected":
+        number_heading = "Not Assigned"
+        detail_number_label = "Not Assigned"
+    else:
+        number_heading = "Pending Approval"
+        detail_number_label = "Pending Approval"
 
     small_bold_font = load_ticket_font(24, bold=True)
     title_font = load_ticket_font(42, bold=True)
@@ -271,7 +280,7 @@ def build_ticket_download_image(
     draw_ticket_check_icon(draw, center_x, y, 124, success)
     y += 166
 
-    y = draw_centered_ticket_lines(draw, center_x, y, [f"Numbering #{display_number}"], queue_font, text_primary, line_gap=4)
+    y = draw_centered_ticket_lines(draw, center_x, y, [number_heading], queue_font, text_primary, line_gap=4)
     y += 6
     y = draw_centered_ticket_lines(draw, center_x, y, [f"You are registered for {display_queue_type}."], label_font, text_secondary, line_gap=4)
     y += 28
@@ -328,7 +337,7 @@ def build_ticket_download_image(
 
     detail_rows = [
         ("Service Type", display_queue_type),
-        ("Queue Number", display_number),
+        ("Queue Number", detail_number_label),
         ("Ticket ID", ticket_reference or "N/A"),
         ("Registered", created_at_label or "N/A"),
     ]
@@ -1820,6 +1829,7 @@ def ensure_queue_entries_table(conn, include_column_migrations=True):
                 signature_path VARCHAR(500),
                 notification_sent BOOLEAN DEFAULT FALSE,
                 notification_message TEXT,
+                accepted_queue_number INTEGER,
                 service_order_offset INTEGER DEFAULT 0,
                 created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
@@ -1854,6 +1864,7 @@ def ensure_queue_entries_table(conn, include_column_migrations=True):
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS admin_status VARCHAR(50) DEFAULT 'pending'",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS notification_sent BOOLEAN DEFAULT FALSE",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS notification_message TEXT",
+            "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS accepted_queue_number INTEGER",
             "ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS service_order_offset INTEGER DEFAULT 0"
         ]
 
@@ -2392,7 +2403,7 @@ def get_queue_entry_count(queue_slug, queue_number):
 
 
 def get_queue_entry_number_lookup(queue_slug, queue_number, cur=None):
-    """Return stable numbering for queue entries based on first scan/registration order."""
+    """Return queue numbers for currently accepted entries only."""
     if not queue_slug or queue_number is None:
         return {}
 
@@ -2409,10 +2420,25 @@ def get_queue_entry_number_lookup(queue_slug, queue_number, cur=None):
 
         cur.execute(
             """
-            SELECT id
+            SELECT COALESCE(MAX(accepted_queue_number), 0)
             FROM queue_entries
             WHERE queue_slug = %s AND queue_number = %s
+            """,
+            (queue_slug, queue_number)
+        )
+        stored_max_row = cur.fetchone()
+        max_assigned_number = int(stored_max_row[0]) if stored_max_row and stored_max_row[0] is not None else 0
+
+        cur.execute(
+            """
+            SELECT id, accepted_queue_number, created_at
+            FROM queue_entries
+            WHERE queue_slug = %s
+              AND queue_number = %s
+              AND LOWER(COALESCE(admin_status, 'pending')) = 'accepted'
             ORDER BY
+                CASE WHEN accepted_queue_number IS NULL THEN 1 ELSE 0 END,
+                accepted_queue_number ASC,
                 CASE WHEN created_at IS NULL THEN 1 ELSE 0 END,
                 created_at ASC,
                 id ASC
@@ -2420,10 +2446,23 @@ def get_queue_entry_number_lookup(queue_slug, queue_number, cur=None):
             (queue_slug, queue_number)
         )
         rows = cur.fetchall()
-        return {
-            row[0]: index + 1
-            for index, row in enumerate(rows)
-        }
+        lookup = {}
+        missing_number_rows = []
+
+        for entry_id, accepted_queue_number, created_at in rows:
+            if accepted_queue_number is not None:
+                resolved_number = int(accepted_queue_number)
+                lookup[entry_id] = resolved_number
+                max_assigned_number = max(max_assigned_number, resolved_number)
+            else:
+                missing_number_rows.append((entry_id, created_at))
+
+        next_number = max_assigned_number + 1
+        for entry_id, _created_at in missing_number_rows:
+            lookup[entry_id] = next_number
+            next_number += 1
+
+        return lookup
     except Exception as e:
         print(f"Error getting queue entry numbering: {e}")
         return {}
@@ -2457,22 +2496,27 @@ def get_accepted_waiting_base_order_lookup(queue_slug, queue_number, cur=None):
             ensure_queue_entries_table(conn)
             cur = conn.cursor()
 
+        entry_number_lookup = get_queue_entry_number_lookup(queue_slug, queue_number, cur=cur)
         cur.execute(
             """
-            SELECT id
+            SELECT id, created_at
             FROM queue_entries
             WHERE queue_slug = %s
               AND queue_number = %s
               AND LOWER(COALESCE(admin_status, 'pending')) = 'accepted'
               AND LOWER(COALESCE(status, 'waiting')) = 'waiting'
-            ORDER BY
-                CASE WHEN created_at IS NULL THEN 1 ELSE 0 END,
-                created_at ASC,
-                id ASC
             """,
             (queue_slug, queue_number)
         )
         rows = cur.fetchall()
+        rows.sort(
+            key=lambda row: (
+                entry_number_lookup.get(row[0], float("inf")),
+                row[1] is None,
+                row[1],
+                row[0],
+            )
+        )
         return {
             row[0]: index + 1
             for index, row in enumerate(rows)
@@ -2510,34 +2554,30 @@ def get_active_service_queue_ids(queue_slug, queue_number, cur=None):
             ensure_queue_entries_table(conn)
             cur = conn.cursor()
 
+        base_lookup = get_accepted_waiting_base_order_lookup(queue_slug, queue_number, cur=cur)
+        if not base_lookup:
+            return []
+
         cur.execute(
             """
-            WITH accepted_waiting AS (
-                SELECT
-                    id,
-                    COALESCE(service_order_offset, 0) AS service_order_offset,
-                    ROW_NUMBER() OVER (
-                        ORDER BY
-                            CASE WHEN created_at IS NULL THEN 1 ELSE 0 END,
-                            created_at ASC,
-                            id ASC
-                    ) AS base_order
-                FROM queue_entries
-                WHERE queue_slug = %s
-                  AND queue_number = %s
-                  AND LOWER(COALESCE(admin_status, 'pending')) = 'accepted'
-                  AND LOWER(COALESCE(status, 'waiting')) = 'waiting'
-            )
-            SELECT id
-            FROM accepted_waiting
-            ORDER BY
-                base_order + service_order_offset ASC,
-                base_order ASC,
-                id ASC
+            SELECT id, COALESCE(service_order_offset, 0) AS service_order_offset
+            FROM queue_entries
+            WHERE queue_slug = %s
+              AND queue_number = %s
+              AND LOWER(COALESCE(admin_status, 'pending')) = 'accepted'
+              AND LOWER(COALESCE(status, 'waiting')) = 'waiting'
             """,
             (queue_slug, queue_number)
         )
-        return [row[0] for row in cur.fetchall()]
+        rows = cur.fetchall()
+        rows.sort(
+            key=lambda row: (
+                base_lookup.get(row[0], float("inf")) + int(row[1] or 0),
+                base_lookup.get(row[0], float("inf")),
+                row[0],
+            )
+        )
+        return [row[0] for row in rows]
     except Exception as e:
         print(f"Error getting active service queue ids: {e}")
         return []
@@ -2600,54 +2640,69 @@ def get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=None):
             ensure_queue_entries_table(conn)
             cur = conn.cursor()
 
+        entry_number_lookup = get_queue_entry_number_lookup(queue_slug, queue_number, cur=cur)
+        active_service_ids = get_active_service_queue_ids(queue_slug, queue_number, cur=cur)
+        active_service_id_set = set(active_service_ids)
+
         cur.execute(
             """
-            WITH ranked AS (
-                SELECT
-                    id,
-                    COALESCE(service_order_offset, 0) AS service_order_offset,
-                    CASE
-                        WHEN LOWER(COALESCE(admin_status, 'pending')) = 'accepted'
-                             AND LOWER(COALESCE(status, 'waiting')) = 'waiting' THEN 1
-                        WHEN LOWER(COALESCE(admin_status, 'pending')) = 'pending'
-                             AND LOWER(COALESCE(status, 'waiting')) = 'waiting' THEN 2
-                        WHEN LOWER(COALESCE(status, 'waiting')) = 'completed' THEN 3
-                        ELSE 4
-                    END AS service_bucket,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY CASE
-                            WHEN LOWER(COALESCE(admin_status, 'pending')) = 'accepted'
-                                 AND LOWER(COALESCE(status, 'waiting')) = 'waiting' THEN 1
-                            WHEN LOWER(COALESCE(admin_status, 'pending')) = 'pending'
-                                 AND LOWER(COALESCE(status, 'waiting')) = 'waiting' THEN 2
-                            WHEN LOWER(COALESCE(status, 'waiting')) = 'completed' THEN 3
-                            ELSE 4
-                        END
-                        ORDER BY
-                            CASE WHEN created_at IS NULL THEN 1 ELSE 0 END,
-                            created_at ASC,
-                            id ASC
-                    ) AS base_order
-                FROM queue_entries
-                WHERE queue_slug = %s AND queue_number = %s
-            )
-            SELECT id
-            FROM ranked
-            ORDER BY
-                service_bucket ASC,
-                CASE
-                    WHEN service_bucket = 1 THEN base_order + service_order_offset
-                    ELSE base_order
-                END ASC,
-                base_order ASC,
-                id ASC
+            SELECT id, created_at, status, admin_status
+            FROM queue_entries
+            WHERE queue_slug = %s AND queue_number = %s
             """,
             (queue_slug, queue_number)
         )
         rows = cur.fetchall()
+        pending_waiting_rows = []
+        completed_rows = []
+        other_rows = []
+
+        def numbered_row_sort_key(row):
+            entry_id, created_at, _status, _admin_status = row
+            entry_number = entry_number_lookup.get(entry_id)
+            return (
+                entry_number is None,
+                entry_number if entry_number is not None else float("inf"),
+                created_at is None,
+                created_at,
+                entry_id,
+            )
+
+        def created_row_sort_key(row):
+            entry_id, created_at, _status, _admin_status = row
+            return (
+                created_at is None,
+                created_at,
+                entry_id,
+            )
+
+        for row in rows:
+            entry_id, created_at, status, admin_status = row
+            status_lower = (status or "waiting").strip().lower()
+            admin_status_lower = (admin_status or "pending").strip().lower()
+
+            if entry_id in active_service_id_set:
+                continue
+            if admin_status_lower == "pending" and status_lower == "waiting":
+                pending_waiting_rows.append(row)
+            elif status_lower == "completed":
+                completed_rows.append(row)
+            else:
+                other_rows.append(row)
+
+        pending_waiting_rows.sort(key=created_row_sort_key)
+        completed_rows.sort(key=numbered_row_sort_key)
+        other_rows.sort(key=numbered_row_sort_key)
+
+        ordered_ids = (
+            active_service_ids
+            + [row[0] for row in pending_waiting_rows]
+            + [row[0] for row in completed_rows]
+            + [row[0] for row in other_rows]
+        )
         return {
-            row[0]: index + 1
-            for index, row in enumerate(rows)
+            entry_id: index + 1
+            for index, entry_id in enumerate(ordered_ids)
         }
     except Exception as e:
         print(f"Error getting queue entry service order: {e}")
@@ -2692,6 +2747,52 @@ def get_next_queue_entry_number(queue_slug, queue_number):
     except Exception as e:
         print(f"Error getting next queue numbering: {e}")
         return 1
+
+
+def get_next_accepted_queue_entry_number(queue_slug, queue_number, cur=None):
+    """Get the next accepted-only queue number for a queue."""
+    if not queue_slug or queue_number is None:
+        return 1
+
+    own_connection = cur is None
+    conn = None
+
+    try:
+        if own_connection:
+            conn = get_db_connection()
+            if conn is None:
+                return 1
+            ensure_queue_entries_table(conn)
+            cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT COALESCE(MAX(accepted_queue_number), 0)
+            FROM queue_entries
+            WHERE queue_slug = %s AND queue_number = %s
+            """,
+            (queue_slug, queue_number)
+        )
+        row = cur.fetchone()
+        stored_max_number = int(row[0]) if row and row[0] is not None else 0
+        current_lookup = get_queue_entry_number_lookup(queue_slug, queue_number, cur=cur)
+        effective_max_number = max(stored_max_number, max(current_lookup.values(), default=0))
+        return effective_max_number + 1
+    except Exception as e:
+        print(f"Error getting next accepted queue numbering: {e}")
+        return 1
+    finally:
+        if own_connection:
+            if cur:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
 def check_existing_entry(queue_slug, queue_number, phone):
     """Check if a user with this phone number already has an entry in this queue."""
@@ -4054,6 +4155,7 @@ def accept_queue_entry(entry_id):
             return auth_error
 
         conn = get_db_connection()
+        ensure_queue_entries_table(conn)
         cur = conn.cursor()
         owner_email = get_current_admin_email()
 
@@ -4061,7 +4163,8 @@ def accept_queue_entry(entry_id):
             return jsonify({"status": "error", "message": "You do not have permission to update this entry."}), 403
 
         cur.execute("""
-            SELECT fullname, email, created_at, status, queue_type, applicant_id, phone, queue_slug, queue_number
+            SELECT fullname, email, created_at, status, queue_type, applicant_id, phone, queue_slug, queue_number,
+                   accepted_queue_number
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -4070,9 +4173,10 @@ def accept_queue_entry(entry_id):
         if not row:
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        full_name, email, created_at, ticket_status, queue_type, applicant_id, phone, queue_slug, queue_number = row
+        full_name, email, created_at, ticket_status, queue_type, applicant_id, phone, queue_slug, queue_number, accepted_queue_number = row
 
         email = resolve_entry_email(cur, current_email=email, applicant_id=applicant_id, phone=phone)
+        resolved_entry_number = accepted_queue_number or get_next_accepted_queue_entry_number(queue_slug, queue_number, cur=cur)
 
         user_name = extract_first_name(full_name)
         application_status = "Accepted"
@@ -4103,9 +4207,11 @@ def accept_queue_entry(entry_id):
         cur.execute("""
             UPDATE queue_entries
             SET admin_status = 'accepted',
-                notification_message = %s
+                accepted_queue_number = %s,
+                notification_message = %s,
+                service_order_offset = 0
             WHERE id = %s
-        """, (notification_message, entry_id))
+        """, (resolved_entry_number, notification_message, entry_id))
 
         conn.commit()
         cur.close()
@@ -4119,6 +4225,7 @@ def accept_queue_entry(entry_id):
             "email": email or "",
             "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
             "queue_type": queue_type or "Document",
+            "entry_number": resolved_entry_number,
             "processing_days": processing_days,
             "processing_time": processing_time,
             "notification_message": notification_message,
@@ -5597,7 +5704,8 @@ def download_ticket(queue_slug, queue_number, entry_id):
         queue_type = stored_queue_type or queue_type
         ticket_ref = reference_number or generate_ticket_reference(queue_slug, entry_id)
         created_at_label = created_at.strftime('%Y-%m-%d %I:%M %p') if created_at else "N/A"
-        display_number = entry_number_lookup.get(entry_id) or queue_number
+        admin_status_lower = (admin_status or "pending").strip().lower()
+        display_number = entry_number_lookup.get(entry_id) if admin_status_lower == "accepted" else None
         ticket_path = url_for('ticket_proof', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
         ticket_url = f"{get_public_base_url()}{ticket_path}"
         app_settings = get_app_settings()

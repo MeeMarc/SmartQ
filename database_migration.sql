@@ -54,3 +54,6 @@ ALTER TABLE qr_history ADD COLUMN IF NOT EXISTS release_type VARCHAR(100);
 ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS processing_method VARCHAR(100);
 ALTER TABLE temp_qr ADD COLUMN IF NOT EXISTS release_type VARCHAR(100);
 
+-- Accepted queue numbering: only approved entries receive a queue number
+ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS accepted_queue_number INTEGER;
+
