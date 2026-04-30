@@ -2639,7 +2639,7 @@ def resequence_accepted_waiting_service_order(queue_slug, queue_number, ordered_
 
 
 def get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=None):
-    """Return the current processing order for scan tracking cards."""
+    """Return the scan-tracking card order: pending first, accepted next, rejected last."""
     if not queue_slug or queue_number is None:
         return {}
 
@@ -2668,8 +2668,9 @@ def get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=None):
         )
         rows = cur.fetchall()
         pending_waiting_rows = []
-        completed_rows = []
+        accepted_other_rows = []
         other_rows = []
+        rejected_rows = []
 
         def numbered_row_sort_key(row):
             entry_id, created_at, _status, _admin_status = row
@@ -2697,22 +2698,26 @@ def get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=None):
 
             if entry_id in active_service_id_set:
                 continue
-            if admin_status_lower == "pending" and status_lower == "waiting":
+            if admin_status_lower == "rejected":
+                rejected_rows.append(row)
+            elif admin_status_lower == "pending" and status_lower == "waiting":
                 pending_waiting_rows.append(row)
-            elif status_lower == "completed":
-                completed_rows.append(row)
+            elif admin_status_lower == "accepted":
+                accepted_other_rows.append(row)
             else:
                 other_rows.append(row)
 
         pending_waiting_rows.sort(key=created_row_sort_key)
-        completed_rows.sort(key=numbered_row_sort_key)
+        accepted_other_rows.sort(key=numbered_row_sort_key)
         other_rows.sort(key=numbered_row_sort_key)
+        rejected_rows.sort(key=created_row_sort_key)
 
         ordered_ids = (
-            active_service_ids
-            + [row[0] for row in pending_waiting_rows]
-            + [row[0] for row in completed_rows]
+            [row[0] for row in pending_waiting_rows]
+            + active_service_ids
+            + [row[0] for row in accepted_other_rows]
             + [row[0] for row in other_rows]
+            + [row[0] for row in rejected_rows]
         )
         return {
             entry_id: index + 1
