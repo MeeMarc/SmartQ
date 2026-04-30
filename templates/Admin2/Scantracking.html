@@ -1491,6 +1491,7 @@ function rejectEntry(entryId, triggerButton = null) {
     }
 
     const ACCEPTED_QUEUE_LOCK_TITLE = "Only the top priority accepted applicant can be processed first.";
+    const PENDING_DECISION_LOCK_TITLE = "Only the top priority pending applicant can be accepted or rejected first.";
 
     function isInactiveQueueStatus(statusLower) {
       return ["completed", "cancelled", "rescheduled"].includes(statusLower);
@@ -1498,6 +1499,10 @@ function rejectEntry(entryId, triggerButton = null) {
 
     function isAcceptedQueueHead(user) {
       return user?.is_active_service_head === true || Number(user?.active_service_position) === 1;
+    }
+
+    function isPendingDecisionHead(user) {
+      return user?.is_pending_decision_head === true || Number(user?.pending_decision_position) === 1;
     }
 
     function disabledAttrs(disabled, message = ACCEPTED_QUEUE_LOCK_TITLE) {
@@ -1556,13 +1561,14 @@ function rejectEntry(entryId, triggerButton = null) {
           }
         }
 
-        const showAdminActions =
-          decisionStatus === "pending" &&
-          !isInactiveStatus;
-
         const entryId = (user.id ?? "").toString().trim();
         const applicantId = (user.applicant_id ?? "").toString().trim();
         const recipientEmail = (user.email ?? "").toString().trim();
+        const showAdminActions =
+          decisionStatus === "pending" &&
+          !isInactiveStatus;
+        const pendingDecisionLocked = showAdminActions && !isPendingDecisionHead(user);
+        const pendingDecisionLockAttrs = disabledAttrs(pendingDecisionLocked, PENDING_DECISION_LOCK_TITLE);
 
         const hasRecipientEmail = isValidEmail(recipientEmail);
 
@@ -1577,6 +1583,9 @@ function rejectEntry(entryId, triggerButton = null) {
         const acceptedQueueLockAttrs = disabledAttrs(acceptedQueueLocked);
 
         if (acceptedQueueLocked) {
+          card.classList.add("scan-card-queue-locked");
+        }
+        if (pendingDecisionLocked) {
           card.classList.add("scan-card-queue-locked");
         }
 
@@ -1616,8 +1625,8 @@ function rejectEntry(entryId, triggerButton = null) {
             ${hasDocuments ? `<button class="view-docs-btn" ${acceptedQueueLockAttrs} onclick="openDocumentsModal(${user.id})">View Docs</button>` : ""}
 
             ${showAdminActions ? `
-              <button class="accept-btn" onclick="acceptEntry(${user.id}, this)">Accept</button>
-              <button class="reject-btn" onclick="rejectEntry(${user.id}, this)">Reject</button>
+              <button class="accept-btn" ${pendingDecisionLockAttrs} onclick="acceptEntry(${user.id}, this)">Accept</button>
+              <button class="reject-btn" ${pendingDecisionLockAttrs} onclick="rejectEntry(${user.id}, this)">Reject</button>
             ` : ""}
 
             ${canMarkDone ? `<button class="done-btn" ${acceptedQueueLockAttrs} onclick="markAsDone(${user.id}, this)">Done</button>` : ""}

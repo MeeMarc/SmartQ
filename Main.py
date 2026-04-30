@@ -2626,6 +2626,66 @@ def is_active_service_queue_head(entry_id, queue_slug, queue_number, cur=None):
     return bool(active_queue_ids and active_queue_ids[0] == entry_id)
 
 
+def get_pending_decision_queue_ids(queue_slug, queue_number, cur=None):
+    """Return pending waiting entry IDs in the order admins should review them."""
+    if not queue_slug or queue_number is None:
+        return []
+
+    own_connection = cur is None
+    conn = None
+
+    try:
+        if own_connection:
+            conn = get_db_connection()
+            if conn is None:
+                return []
+            ensure_queue_entries_table(conn)
+            cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT id
+            FROM queue_entries
+            WHERE queue_slug = %s
+              AND queue_number = %s
+              AND LOWER(COALESCE(NULLIF(admin_status, ''), 'pending')) = 'pending'
+              AND LOWER(COALESCE(NULLIF(status, ''), 'waiting')) = 'waiting'
+            ORDER BY
+              CASE WHEN created_at IS NULL THEN 1 ELSE 0 END,
+              created_at ASC,
+              id ASC
+            """,
+            (queue_slug, queue_number)
+        )
+        return [row[0] for row in cur.fetchall()]
+    except Exception as e:
+        print(f"Error getting pending decision queue ids: {e}")
+        return []
+    finally:
+        if own_connection:
+            if cur:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+
+def is_pending_decision_queue_head(entry_id, queue_slug, queue_number, cur=None):
+    """Return True only for the pending waiting entry currently first for review."""
+    try:
+        entry_id = int(entry_id)
+    except (TypeError, ValueError):
+        return False
+
+    pending_queue_ids = get_pending_decision_queue_ids(queue_slug, queue_number, cur=cur)
+    return bool(pending_queue_ids and pending_queue_ids[0] == entry_id)
+
+
 def resequence_accepted_waiting_service_order(queue_slug, queue_number, ordered_entry_ids, cur):
     """Persist a new live service order for accepted waiting entries."""
     if cur is None or not queue_slug or queue_number is None:
@@ -3818,6 +3878,12 @@ def get_qr_scans(qr_id):
             for index, active_entry_id in enumerate(active_service_ids)
         }
         active_service_head_id = active_service_ids[0] if active_service_ids else None
+        pending_decision_ids = get_pending_decision_queue_ids(queue_slug, queue_number, cur=cur)
+        pending_decision_position_lookup = {
+            pending_entry_id: index + 1
+            for index, pending_entry_id in enumerate(pending_decision_ids)
+        }
+        pending_decision_head_id = pending_decision_ids[0] if pending_decision_ids else None
 
         cur.execute("""
             SELECT id, fullname, phone, email, purpose, status, admin_status, created_at, reference_number,
@@ -3874,6 +3940,8 @@ def get_qr_scans(qr_id):
                 "service_position": service_order_lookup.get(row[0]),
                 "active_service_position": active_service_position_lookup.get(row[0]),
                 "is_active_service_head": bool(active_service_head_id and row[0] == active_service_head_id),
+                "pending_decision_position": pending_decision_position_lookup.get(row[0]),
+                "is_pending_decision_head": bool(pending_decision_head_id and row[0] == pending_decision_head_id),
                 "processing_days": queue_processing_days,
                 "queue_processing_method": queue_processing_method,
                 "queue_release_type": queue_release_type
@@ -4266,8 +4334,8 @@ def accept_queue_entry(entry_id):
             return jsonify({"status": "error", "message": "You do not have permission to update this entry."}), 403
 
         cur.execute("""
-            SELECT fullname, email, created_at, status, queue_type, applicant_id, phone, queue_slug, queue_number,
-                   accepted_queue_number
+            SELECT fullname, email, created_at, status, admin_status, queue_type, applicant_id, phone, queue_slug,
+                   queue_number, accepted_queue_number
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -4276,9 +4344,24 @@ def accept_queue_entry(entry_id):
         if not row:
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        full_name, email, created_at, ticket_status, queue_type, applicant_id, phone, queue_slug, queue_number, accepted_queue_number = row
+        full_name, email, created_at, ticket_status, admin_status, queue_type, applicant_id, phone, queue_slug, queue_number, accepted_queue_number = row
 
         lock_queue_acceptance_sequence(cur, queue_slug, queue_number)
+
+        ticket_status_lower = (ticket_status or "waiting").strip().lower()
+        admin_status_lower = (admin_status or "pending").strip().lower()
+        if (
+            admin_status_lower != "pending"
+            or ticket_status_lower != "waiting"
+            or not is_pending_decision_queue_head(entry_id, queue_slug, queue_number, cur=cur)
+        ):
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({
+                "status": "error",
+                "message": "Only the top priority pending applicant can be accepted first."
+            }), 409
 
         if accepted_queue_number is None:
             cur.execute(
@@ -4378,7 +4461,7 @@ def reject_queue_entry(entry_id):
             return jsonify({"status": "error", "message": "You do not have permission to update this entry."}), 403
 
         cur.execute("""
-            SELECT fullname, email, created_at, status, queue_type, applicant_id, phone, queue_slug, queue_number
+            SELECT fullname, email, created_at, status, admin_status, queue_type, applicant_id, phone, queue_slug, queue_number
             FROM queue_entries
             WHERE id = %s
         """, (entry_id,))
@@ -4387,7 +4470,24 @@ def reject_queue_entry(entry_id):
         if not row:
             return jsonify({"status": "error", "message": "Entry not found"}), 404
 
-        full_name, email, created_at, ticket_status, queue_type, applicant_id, phone, queue_slug, queue_number = row
+        full_name, email, created_at, ticket_status, admin_status, queue_type, applicant_id, phone, queue_slug, queue_number = row
+        lock_queue_acceptance_sequence(cur, queue_slug, queue_number)
+
+        ticket_status_lower = (ticket_status or "waiting").strip().lower()
+        admin_status_lower = (admin_status or "pending").strip().lower()
+        if (
+            admin_status_lower != "pending"
+            or ticket_status_lower != "waiting"
+            or not is_pending_decision_queue_head(entry_id, queue_slug, queue_number, cur=cur)
+        ):
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({
+                "status": "error",
+                "message": "Only the top priority pending applicant can be rejected first."
+            }), 409
+
         email = resolve_entry_email(
             cur,
             current_email=email,
