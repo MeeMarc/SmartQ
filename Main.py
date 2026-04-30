@@ -269,7 +269,7 @@ def build_ticket_download_image(
             "fill": (255, 248, 221, 255),
             "outline": (232, 181, 63, 255),
             "title": "Application Pending Review",
-            "message": f"Estimated processing time: {processing_time_label}" if processing_time_label else (notification_message or "Please wait while your application is being reviewed."),
+            "message": notification_message or "Please wait while your application is being reviewed. Your queue number will appear once your application is approved.",
             "text": (145, 100, 19, 255),
         },
     }

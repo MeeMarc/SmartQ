@@ -19,9 +19,15 @@
     {% if entry.admin_status == 'accepted' and entry_number %}
     <div class="number">Numbering #{{ entry_number }}</div>
     {% elif entry.admin_status == 'rejected' %}
-    <p style="margin: 12px 0 0; font-weight: 600; color: #b42318;">Queue number was not assigned because the application was rejected.</p>
+    <div class="queue-number-notice queue-number-notice-rejected">
+      <span class="queue-number-notice-icon" aria-hidden="true">#</span>
+      <p>Queue number was not assigned because the application was rejected.</p>
+    </div>
     {% else %}
-    <p style="margin: 12px 0 0; font-weight: 600; color: #856404;">Queue number will appear once your application is approved.</p>
+    <div class="queue-number-notice queue-number-notice-pending" role="status" aria-live="polite">
+      <span class="queue-number-notice-icon" aria-hidden="true">#</span>
+      <p>Queue number will appear once your application is approved.</p>
+    </div>
     {% endif %}
     <p>You are registered for <strong>{{ queue_type }}</strong>.</p>
     {% if queue_purpose %}
@@ -44,7 +50,7 @@
           <strong>Application Pending Review</strong>
         {% endif %}
       </p>
-      {% if queue_processing_time_label and entry.admin_status == 'pending' %}
+      {% if queue_processing_time_label and entry.admin_status == 'accepted' %}
       <p class="processing-days-note" style="color: {% if entry.admin_status == 'accepted' %}#155724{% else %}#856404{% endif %};">
         Estimated processing time: <strong>{{ queue_processing_time_label }}</strong>
       </p>
