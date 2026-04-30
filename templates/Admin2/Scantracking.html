@@ -1020,13 +1020,34 @@ function rejectEntry(entryId, triggerButton = null) {
       if (e.target === documentsModal) closeDocumentsModal();
     });
 
-    function openNotificationModal(qrId) {
+    function openNotificationModal(qrId, selectedEntryId = null) {
       notificationModal.style.display = "flex";
       notificationModal.style.alignItems = "center";
       notificationModal.style.justifyContent = "center";
       document.getElementById("notificationQRId").value = qrId;
       document.getElementById("notificationMessage").value = "";
       populateEntryCheckboxes();
+
+      if (selectedEntryId) {
+        toggleNotifyMode('selected');
+        const checkbox = document.querySelector(`.entry-checkbox[value="${selectedEntryId}"]`);
+        if (checkbox) {
+          checkbox.checked = true;
+          checkbox.scrollIntoView({ block: "nearest" });
+        }
+        updateSelectAllState();
+      } else {
+        toggleNotifyMode('all');
+      }
+    }
+
+    function openEntryNotificationModal(entryId, triggerButton = null) {
+      if (triggerButton?.disabled) return;
+      if (!currentQRId) {
+        showAlert("Please select a QR before sending a notification.", "error");
+        return;
+      }
+      openNotificationModal(currentQRId, entryId);
     }
 
     function closeNotificationModal() {
@@ -1549,7 +1570,8 @@ function rejectEntry(entryId, triggerButton = null) {
         const notificationMessage = (user.notification_message || "").toString().trim();
         const hasNotification = !!notificationMessage;
         const isCompleted = statusLower === "completed";
-        const canShowNotification = hasNotification && !isCompleted;
+        const canSendEntryNotification = decisionStatus === "rejected" && !isCompleted && !!entryId;
+        const canShowNotification = hasNotification && !isCompleted && !canSendEntryNotification;
         const isAcceptedActiveApplicant = decisionStatus === "accepted" && !isInactiveStatus;
         const acceptedQueueLocked = isAcceptedActiveApplicant && !isAcceptedQueueHead(user);
         const acceptedQueueLockAttrs = disabledAttrs(acceptedQueueLocked);
@@ -1559,7 +1581,7 @@ function rejectEntry(entryId, triggerButton = null) {
         }
 
         const canMarkDone =
-          decisionStatus !== "pending" &&
+          decisionStatus === "accepted" &&
           !isInactiveStatus;
 
         const releaseType = (user.queue_release_type || "Digital Copy").toString().trim().toLowerCase();
@@ -1603,6 +1625,12 @@ function rejectEntry(entryId, triggerButton = null) {
             ${canShowNotification ? `
               <button class="send-doc-btn notification-toggle-btn" type="button" aria-expanded="false" ${acceptedQueueLockAttrs}>
                 Show Notification
+              </button>
+            ` : ""}
+
+            ${canSendEntryNotification ? `
+              <button class="scan-action-btn scan-action-btn-notify" type="button" onclick="openEntryNotificationModal(${user.id}, this)">
+                Send Notification
               </button>
             ` : ""}
 

@@ -4073,6 +4073,15 @@ def update_queue_status():
         current_status_lower = (current_status or "waiting").strip().lower()
         admin_status_lower = (admin_status or "pending").strip().lower()
 
+        if new_status == "completed" and admin_status_lower != "accepted":
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({
+                "status": "error",
+                "message": "Only accepted applicants can be completed."
+            }), 400
+
         if (
             new_status == "completed"
             and admin_status_lower == "accepted"
