@@ -271,21 +271,7 @@
       if (!value || value === "N/A") {
         return "N/A";
       }
-      try {
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) {
-          return value;
-        }
-        return date.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-      } catch (_) {
-        return value;
-      }
+      return value;
     }
 
     function extractQueueNumberFromLink(link) {
@@ -556,9 +542,10 @@
           if (data.error) throw new Error(data.error);
 
           const now = new Date();
-          const formattedDate = now.toLocaleDateString('en-US', {
+          const formattedDate = now.toLocaleString('en-US', {
             year: 'numeric', month: 'long', day: 'numeric',
-            hour: '2-digit', minute: '2-digit'
+            hour: '2-digit', minute: '2-digit',
+            timeZone: 'Asia/Manila'
           });
 
           const newQR = {

@@ -274,7 +274,8 @@
         month: "long",
         day: "numeric",
         hour: "2-digit",
-        minute: "2-digit"
+        minute: "2-digit",
+        timeZone: "Asia/Manila"
       });
 
       const resolvedStatus = applicationStatus || payload.application_status || payload.ticket_status || payload.status || "Waiting";
@@ -405,7 +406,8 @@
         month: "long",
         day: "numeric",
         hour: "2-digit",
-        minute: "2-digit"
+        minute: "2-digit",
+        timeZone: "Asia/Manila"
       });
       const resolvedEmail = (payload.email || "").toString().trim();
       const resolvedStatus = (payload.application_status || "Accepted").toString().trim();
@@ -642,7 +644,7 @@ function buildAcceptRejectParams(payload, statusOverride, messageOverride, proce
   const user_name = extractFirstName(payload.user_name || payload.fullname || payload.name || "Applicant");
   const created_at =
     (payload.created_at || "").toString().trim() ||
-    new Date().toLocaleString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    new Date().toLocaleString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Manila" });
 
   const application_status = (statusOverride || payload.application_status || "Accepted").toString().trim();
 
@@ -883,18 +885,7 @@ function rejectEntry(entryId, triggerButton = null) {
 
             let formattedDate = 'N/A';
             if (qr.created_at && qr.created_at !== 'N/A') {
-              try {
-                const date = new Date(qr.created_at);
-                formattedDate = date.toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-              } catch (e) {
-                formattedDate = qr.created_at;
-              }
+              formattedDate = qr.created_at;
             }
 
             box.innerHTML = `

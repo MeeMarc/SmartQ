@@ -10,7 +10,8 @@ from threading import Lock
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response, send_from_directory, send_file
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 import psycopg2
@@ -33,6 +34,11 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-insecure-secret")  # for flash messages
 app.permanent_session_lifetime = timedelta(days=30)  # 30 days for "Remember Me"
 QUEUE_ENTRIES_SCHEMA_MIGRATED = False
+APP_TIMEZONE_NAME = os.getenv("APP_TIMEZONE", "Asia/Manila")
+try:
+    APP_TIMEZONE = ZoneInfo(APP_TIMEZONE_NAME)
+except Exception:
+    APP_TIMEZONE = timezone(timedelta(hours=8))
 PASSWORD_RESET_CODE_TTL_MINUTES = 10
 PASSWORD_RESET_MAX_VERIFY_ATTEMPTS = 5
 PASSWORD_RESET_MAX_SENDS_PER_WINDOW = 3
@@ -69,6 +75,28 @@ def get_public_base_url():
         return env_base.rstrip('/')
     # Fallback to current request host
     return request.host_url.rstrip('/')
+
+
+def utc_now_naive():
+    """Return the current UTC time as a naive datetime for DB comparisons."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def to_app_timezone(value):
+    """Treat naive DB datetimes as UTC and convert them to the app timezone."""
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(APP_TIMEZONE)
+
+
+def format_app_datetime(value, fmt="%Y-%m-%d %I:%M %p", default="N/A"):
+    """Format a datetime in the app timezone for display."""
+    localized = to_app_timezone(value)
+    if localized is None:
+        return default
+    return localized.strftime(fmt)
 
 
 def load_ticket_font(size, bold=False):
@@ -923,7 +951,7 @@ def forgot_password_send_code():
             conn.close()
             return jsonify({"status": "error", "message": "No admin account was found for that email address."}), 404
 
-        window_start = datetime.utcnow() - timedelta(minutes=PASSWORD_RESET_SEND_WINDOW_MINUTES)
+        window_start = utc_now_naive() - timedelta(minutes=PASSWORD_RESET_SEND_WINDOW_MINUTES)
         cur.execute(
             """
             SELECT COUNT(*)
@@ -943,7 +971,7 @@ def forgot_password_send_code():
             }), 429
 
         reset_code = generate_password_reset_code()
-        expires_at = datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_CODE_TTL_MINUTES)
+        expires_at = utc_now_naive() + timedelta(minutes=PASSWORD_RESET_CODE_TTL_MINUTES)
 
         cur.execute(
             """
@@ -1031,7 +1059,7 @@ def forgot_password_verify_code():
             return jsonify({"status": "error", "message": "No active reset request was found. Please request a new code."}), 404
 
         request_id, code_hash, _, expires_at, verified_at, consumed_at, verify_attempts = request_row
-        now = datetime.utcnow()
+        now = utc_now_naive()
 
         if consumed_at is not None:
             cur.close()
@@ -1134,7 +1162,7 @@ def forgot_password_reset():
             return jsonify({"status": "error", "message": "No verified reset request was found. Please start again."}), 404
 
         request_id, _, session_token_hash, expires_at, verified_at, consumed_at, _ = request_row
-        now = datetime.utcnow()
+        now = utc_now_naive()
         if consumed_at is not None:
             cur.close()
             conn.close()
@@ -3227,7 +3255,7 @@ def temp_qr_data():
                 "queue_purpose": row[2],
                 "queue_link": row[3],
                 "created_by": row[4],
-                "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S") if row[5] else "N/A",
+                "created_at": format_app_datetime(row[5], "%B %d, %Y %I:%M %p"),
                 "avg_service_time": row[6],
                 "processing_method": normalize_processing_method(row[7]) or "Online",
                 "release_type": normalize_release_type(row[8]) or "Digital Copy"
@@ -3311,7 +3339,7 @@ def qr_history_data():
                     "queue_purpose": row[2] or "N/A",
                     "queue_link": row[3] or "#",
                     "created_by": row[4] or "Unknown",
-                    "created_at": row[5].strftime("%Y-%m-%d %H:%M:%S") if row[5] else "N/A",
+                    "created_at": format_app_datetime(row[5], "%B %d, %Y %I:%M %p"),
                     "avg_service_time": row[6],
                     "morning_start": str(row[7]) if row[7] else None,
                     "morning_end": str(row[8]) if row[8] else None,
@@ -3805,7 +3833,7 @@ def get_qr_scans(qr_id):
                 "purpose": row[4] or "",
                 "status": row[5] or "waiting",
                 "admin_status": (row[6] or "pending").lower(),
-                "scanned_at": row[7].strftime('%Y-%m-%d %I:%M %p') if row[7] else "",
+                "scanned_at": format_app_datetime(row[7], '%Y-%m-%d %I:%M %p', default=""),
                 "reference_number": row[8] or "",
                 "id_doc_url": id_doc_url,
                 "req_doc_url": req_doc_url,
@@ -3929,7 +3957,7 @@ def download_scans(qr_id):
                 purpose or "",
                 status or "",
                 admin_status or "",
-                created_at.strftime('%Y-%m-%d %H:%M:%S') if created_at else "",
+                format_app_datetime(created_at, '%Y-%m-%d %H:%M:%S'),
                 ref_no or "",
                 applicant_id or "",
             ])
@@ -4238,7 +4266,7 @@ def accept_queue_entry(entry_id):
             "user_name": user_name,
             "fullname": full_name or "",
             "email": email or "",
-            "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
+            "created_at": format_app_datetime(created_at, '%B %d, %Y'),
             "queue_type": queue_type or "Document",
             "entry_number": resolved_entry_number,
             "processing_days": processing_days,
@@ -4315,7 +4343,7 @@ def reject_queue_entry(entry_id):
             "user_name": user_name,
             "fullname": full_name or "",
             "email": email or "",
-            "created_at": created_at.strftime('%B %d, %Y') if created_at else "",
+            "created_at": format_app_datetime(created_at, '%B %d, %Y'),
             "queue_type": queue_type or "Document",
             "processing_days": processing_days,
             "processing_time": processing_time,
@@ -4629,8 +4657,7 @@ def can_reschedule(entry_id, queue_type):
             return True, None
         
         # Check if 24 hours have passed
-        from datetime import datetime, timedelta
-        now = datetime.now()
+        now = utc_now_naive()
         time_diff = now - last_rescheduled_at
         
         if time_diff < timedelta(hours=24):
@@ -4812,8 +4839,8 @@ def debug_queue_entries(queue_slug, queue_number):
                 "status": row[7],
                 "reschedule_status": row[8],
                 "rescheduled_to_queue_number": row[9],
-                "created_at": str(row[10]) if row[10] else None,
-                "last_rescheduled_at": str(row[11]) if row[11] else None
+                "created_at": format_app_datetime(row[10], "%B %d, %Y %I:%M %p", default=None),
+                "last_rescheduled_at": format_app_datetime(row[11], "%B %d, %Y %I:%M %p", default=None)
             })
         
         cur.close()
@@ -5660,6 +5687,7 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             queue_processing_days=queue_processing_days,
             queue_processing_time_label=queue_processing_time_label,
             entry_number=entry_number_lookup.get(entry["id"]),
+            entry_created_at_label=format_app_datetime(entry["created_at"], '%Y-%m-%d %I:%M %p'),
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
             ticket_reference=ticket_reference,
@@ -5715,7 +5743,7 @@ def download_ticket(queue_slug, queue_number, entry_id):
         fullname, created_at, stored_queue_type, entry_status, reference_number, admin_status, notification_message = entry
         queue_type = stored_queue_type or queue_type
         ticket_ref = reference_number or generate_ticket_reference(queue_slug, entry_id)
-        created_at_label = created_at.strftime('%Y-%m-%d %I:%M %p') if created_at else "N/A"
+        created_at_label = format_app_datetime(created_at, '%Y-%m-%d %I:%M %p')
         admin_status_lower = (admin_status or "pending").strip().lower()
         display_number = entry_number_lookup.get(entry_id) if admin_status_lower == "accepted" else None
         ticket_path = url_for('ticket_proof', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)

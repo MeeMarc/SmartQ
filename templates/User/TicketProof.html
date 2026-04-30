@@ -31,7 +31,7 @@
     <p class="queue-name">Ticket Holder: <strong>{{ entry.fullname }}</strong></p>
     <p>Ticket Reference: <strong>{{ ticket_reference }}</strong></p>
     <p class="status-display">Status: <span class="status-badge status-{{ entry.status|default('waiting') }}">{{ entry.status|default('waiting')|capitalize }}</span></p>
-    <p>Applied: <strong>{{ entry.created_at.strftime('%Y-%m-%d %I:%M %p') if entry.created_at else 'N/A' }}</strong></p>
+    <p>Applied: <strong>{{ entry_created_at_label|default('N/A', true) }}</strong></p>
 
     {% if entry.admin_status %}
     <div style="margin: 15px 0; padding: 12px; border-radius: 8px; {% if entry.admin_status == 'accepted' %}background: #d4edda; border: 2px solid #28a745;{% elif entry.admin_status == 'rejected' %}background: #f8d7da; border: 2px solid #dc3545;{% else %}background: #fff3cd; border: 2px solid #ffc107;{% endif %}">
