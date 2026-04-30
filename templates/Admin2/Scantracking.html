@@ -808,6 +808,8 @@ function rejectEntry(entryId, triggerButton = null) {
 }
     // Mark entry as done
     function markAsDone(entryId, buttonElement) {
+      if (buttonElement?.disabled) return;
+
       showConfirmation(
         'Mark as Complete',
         'Are you sure you want to mark this user as served/completed?',
@@ -1467,6 +1469,20 @@ function rejectEntry(entryId, triggerButton = null) {
       return s;
     }
 
+    const ACCEPTED_QUEUE_LOCK_TITLE = "Only the top priority accepted applicant can be processed first.";
+
+    function isInactiveQueueStatus(statusLower) {
+      return ["completed", "cancelled", "rescheduled"].includes(statusLower);
+    }
+
+    function isAcceptedQueueHead(user) {
+      return user?.is_active_service_head === true || Number(user?.active_service_position) === 1;
+    }
+
+    function disabledAttrs(disabled, message = ACCEPTED_QUEUE_LOCK_TITLE) {
+      return disabled ? `disabled aria-disabled="true" title="${message}"` : "";
+    }
+
     function renderScans(scans) {
       const scanList = document.getElementById("scanList");
       if (!scanList) return;
@@ -1493,6 +1509,7 @@ function rejectEntry(entryId, triggerButton = null) {
         const scannedAt = user.scanned_at ? ` • ${user.scanned_at}` : "";
 
         const statusLower = (user.status || "").toString().trim().toLowerCase();
+        const isInactiveStatus = isInactiveQueueStatus(statusLower);
 
         const decisionStatus = normalizeDecisionStatus(user.admin_status ?? user.application_status);
         let displayStatusText = "Pending";
@@ -1520,7 +1537,7 @@ function rejectEntry(entryId, triggerButton = null) {
 
         const showAdminActions =
           decisionStatus === "pending" &&
-          !["completed", "cancelled", "rescheduled"].includes(statusLower);
+          !isInactiveStatus;
 
         const entryId = (user.id ?? "").toString().trim();
         const applicantId = (user.applicant_id ?? "").toString().trim();
@@ -1533,10 +1550,17 @@ function rejectEntry(entryId, triggerButton = null) {
         const hasNotification = !!notificationMessage;
         const isCompleted = statusLower === "completed";
         const canShowNotification = hasNotification && !isCompleted;
+        const isAcceptedActiveApplicant = decisionStatus === "accepted" && !isInactiveStatus;
+        const acceptedQueueLocked = isAcceptedActiveApplicant && !isAcceptedQueueHead(user);
+        const acceptedQueueLockAttrs = disabledAttrs(acceptedQueueLocked);
+
+        if (acceptedQueueLocked) {
+          card.classList.add("scan-card-queue-locked");
+        }
 
         const canMarkDone =
           decisionStatus !== "pending" &&
-          !["completed", "cancelled", "rescheduled"].includes(statusLower);
+          !isInactiveStatus;
 
         const releaseType = (user.queue_release_type || "Digital Copy").toString().trim().toLowerCase();
         const isDigitalRelease = releaseType === "digital copy";
@@ -1547,10 +1571,14 @@ function rejectEntry(entryId, triggerButton = null) {
           !!entryId &&
           hasRecipientEmail &&
           !["completed", "rescheduled"].includes(statusLower);
-        const disableSendDocument = isCancelled;
+        const disableSendDocument = isCancelled || acceptedQueueLocked;
+        const sendDocumentDisabledAttrs = disabledAttrs(
+          disableSendDocument,
+          isCancelled ? "Cannot send documents for cancelled applications." : ACCEPTED_QUEUE_LOCK_TITLE
+        );
         const canSkip =
           decisionStatus === "accepted" &&
-          !["completed", "cancelled", "rescheduled"].includes(statusLower);
+          !isInactiveStatus;
 
         card.innerHTML = `
       <div>
@@ -1563,24 +1591,24 @@ function rejectEntry(entryId, triggerButton = null) {
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <span class="status-badge ${displayStatusClass}">${displayStatusText}</span>
 
-            ${hasDocuments ? `<button class="view-docs-btn" onclick="openDocumentsModal(${user.id})">View Docs</button>` : ""}
+            ${hasDocuments ? `<button class="view-docs-btn" ${acceptedQueueLockAttrs} onclick="openDocumentsModal(${user.id})">View Docs</button>` : ""}
 
             ${showAdminActions ? `
               <button class="accept-btn" onclick="acceptEntry(${user.id}, this)">Accept</button>
               <button class="reject-btn" onclick="rejectEntry(${user.id}, this)">Reject</button>
             ` : ""}
 
-            ${canMarkDone ? `<button class="done-btn" onclick="markAsDone(${user.id}, this)">Done</button>` : ""}
+            ${canMarkDone ? `<button class="done-btn" ${acceptedQueueLockAttrs} onclick="markAsDone(${user.id}, this)">Done</button>` : ""}
 
             ${canShowNotification ? `
-              <button class="send-doc-btn notification-toggle-btn" type="button" aria-expanded="false">
+              <button class="send-doc-btn notification-toggle-btn" type="button" aria-expanded="false" ${acceptedQueueLockAttrs}>
                 Show Notification
               </button>
             ` : ""}
 
             ${canShowSendDocument ? `
                 <button class="send-doc-btn"
-                        ${disableSendDocument ? 'disabled title="Cannot send documents for cancelled applications."' : ""}
+                        ${sendDocumentDisabledAttrs}
                         data-entry-id="${entryId}"
                         data-applicant-id="${applicantId}"
                         data-fullname="${user.fullname || ""}"
@@ -1591,7 +1619,7 @@ function rejectEntry(entryId, triggerButton = null) {
               ` : ""
             }
 
-            ${canSkip ? `<button class="skip-btn" onclick="skipEntry(${user.id}, this)">Skip</button>` : ""}
+            ${canSkip ? `<button class="skip-btn" ${acceptedQueueLockAttrs} onclick="skipEntry(${user.id}, this)">Skip</button>` : ""}
           </div>
         </div>
 

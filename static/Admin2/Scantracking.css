@@ -275,6 +275,10 @@
   box-shadow: 0 4px 10px rgba(0, 51, 102, 0.1);
 }
 
+.scan-card-queue-locked {
+  border-left: 4px solid #97a9bf;
+}
+
 .scan-card strong {
   color: #003366;
 }

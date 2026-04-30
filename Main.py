@@ -1647,7 +1647,13 @@ def upload_document():
                 "status": entry_status
             }), 403
 
-        # âœ… Email required
+        # Only the first accepted waiting applicant can be served.
+        if not is_active_service_queue_head(entry_id, queue_slug, queue_number, cur=cur):
+            return jsonify({
+                "error": "Only the top priority accepted applicant can be processed first."
+            }), 409
+
+        # Email required
         if not is_valid_email(recipient_email):
             return jsonify({"error": "Recipient email is missing or invalid for this entry"}), 400
 
@@ -2607,6 +2613,17 @@ def get_active_service_queue_ids(queue_slug, queue_number, cur=None):
                     conn.close()
                 except Exception:
                     pass
+
+
+def is_active_service_queue_head(entry_id, queue_slug, queue_number, cur=None):
+    """Return True only for the accepted waiting entry currently first in service order."""
+    try:
+        entry_id = int(entry_id)
+    except (TypeError, ValueError):
+        return False
+
+    active_queue_ids = get_active_service_queue_ids(queue_slug, queue_number, cur=cur)
+    return bool(active_queue_ids and active_queue_ids[0] == entry_id)
 
 
 def resequence_accepted_waiting_service_order(queue_slug, queue_number, ordered_entry_ids, cur):
@@ -3795,6 +3812,12 @@ def get_qr_scans(qr_id):
         queue_processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
         entry_number_lookup = get_queue_entry_number_lookup(queue_slug, queue_number, cur=cur)
         service_order_lookup = get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=cur)
+        active_service_ids = get_active_service_queue_ids(queue_slug, queue_number, cur=cur)
+        active_service_position_lookup = {
+            active_entry_id: index + 1
+            for index, active_entry_id in enumerate(active_service_ids)
+        }
+        active_service_head_id = active_service_ids[0] if active_service_ids else None
 
         cur.execute("""
             SELECT id, fullname, phone, email, purpose, status, admin_status, created_at, reference_number,
@@ -3849,6 +3872,8 @@ def get_qr_scans(qr_id):
                 "queue_type": row[14] or "Document",
                 "entry_number": entry_number_lookup.get(row[0]),
                 "service_position": service_order_lookup.get(row[0]),
+                "active_service_position": active_service_position_lookup.get(row[0]),
+                "is_active_service_head": bool(active_service_head_id and row[0] == active_service_head_id),
                 "processing_days": queue_processing_days,
                 "queue_processing_method": queue_processing_method,
                 "queue_release_type": queue_release_type
@@ -4004,12 +4029,18 @@ def update_queue_status():
         if auth_error:
             return auth_error
 
-        data = request.get_json()
-        entry_id = data.get('entry_id')
-        new_status = data.get('status', 'completed')
-        
-        if not entry_id:
+        data = request.get_json() or {}
+        entry_id_raw = data.get('entry_id')
+        new_status = (data.get('status') or 'completed').strip().lower()
+
+        if not entry_id_raw:
             return jsonify({"status": "error", "message": "Entry ID is required"}), 400
+        try:
+            entry_id = int(entry_id_raw)
+        except (TypeError, ValueError):
+            return jsonify({"status": "error", "message": "Entry ID is invalid"}), 400
+        if not new_status:
+            return jsonify({"status": "error", "message": "Status is required"}), 400
         
         conn = get_db_connection()
         if conn is None:
@@ -4023,15 +4054,43 @@ def update_queue_status():
             return jsonify({"status": "error", "message": "You do not have permission to update this entry."}), 403
         
         cur.execute(
-            "UPDATE queue_entries SET status = %s WHERE id = %s",
-            (new_status, entry_id)
+            """
+            SELECT status, admin_status, queue_slug, queue_number
+            FROM queue_entries
+            WHERE id = %s
+            """,
+            (entry_id,)
         )
-        
-        if cur.rowcount == 0:
+        row = cur.fetchone()
+
+        if not row:
             conn.rollback()
             cur.close()
             conn.close()
             return jsonify({"status": "error", "message": "Entry not found"}), 404
+
+        current_status, admin_status, queue_slug, queue_number = row
+        current_status_lower = (current_status or "waiting").strip().lower()
+        admin_status_lower = (admin_status or "pending").strip().lower()
+
+        if (
+            new_status == "completed"
+            and admin_status_lower == "accepted"
+            and current_status_lower == "waiting"
+            and not is_active_service_queue_head(entry_id, queue_slug, queue_number, cur=cur)
+        ):
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({
+                "status": "error",
+                "message": "Only the top priority accepted applicant can be completed first."
+            }), 409
+
+        cur.execute(
+            "UPDATE queue_entries SET status = %s WHERE id = %s",
+            (new_status, entry_id)
+        )
         
         conn.commit()
         cur.close()
@@ -4101,6 +4160,11 @@ def skip_queue_entry(entry_id):
                 "status": "error",
                 "message": "This entry is not currently in the active accepted queue."
             }), 400
+        if active_queue_ids[0] != entry_id:
+            return jsonify({
+                "status": "error",
+                "message": "Only the top priority accepted applicant can be skipped first."
+            }), 409
 
         previous_position = active_queue_ids.index(entry_id) + 1
         target_position = min(previous_position + 3, len(active_queue_ids))
