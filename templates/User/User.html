@@ -219,7 +219,7 @@
     <!-- Applicant identification & uploads (shown/hidden by queue config) -->
     {% if queue_require_student_id|default(true) %}
     <div class="form-row" id="row-applicant-id">
-      <label for="applicant_id">ID Number (Student/Client Number): <span style="color: red;">*</span></label>
+      <label for="applicant_id">ID Number (Student/ID Number): <span style="color: red;">*</span></label>
       <input type="text" id="applicant_id" name="applicant_id" placeholder="e.g. 202600123" required>
     </div>
     {% else %}
