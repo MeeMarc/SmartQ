@@ -23,10 +23,12 @@ import base64
 import time
 import json
 import secrets
+import zipfile
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageDraw, ImageFont
+from xml.sax.saxutils import escape as xml_escape
 
 load_dotenv()  # Load variables from .env if present (local dev)
 
@@ -97,6 +99,258 @@ def format_app_datetime(value, fmt="%Y-%m-%d %I:%M %p", default="N/A"):
     if localized is None:
         return default
     return localized.strftime(fmt)
+
+
+def normalize_review_status(value):
+    """Normalize admin review decisions for consistent UI/export filtering."""
+    raw = (value or "").strip().lower()
+    if raw in ("accepted", "accept", "approved", "approve"):
+        return "accepted"
+    if raw in ("rejected", "reject", "declined", "deny", "denied"):
+        return "rejected"
+    return "pending"
+
+
+def build_formal_review_message(admin_status, entry_number=None, processing_time_label=None):
+    """Build the formal review guidance shown to applicants."""
+    review_status = normalize_review_status(admin_status)
+    if review_status == "accepted":
+        sections = ["Your application has been approved after administrative review."]
+        if entry_number:
+            sections.append(f"Your queue number is #{entry_number}.")
+        if processing_time_label:
+            sections.append(f"Estimated processing time: {processing_time_label}.")
+        sections.append(
+            "Please keep your ticket reference and monitor your email for the next instructions regarding document processing and release."
+        )
+        return "\n\n".join(sections)
+
+    if review_status == "rejected":
+        return (
+            "After administrative review, your application could not be approved at this time.\n\n"
+            "Please review the submitted information and documentary requirements, correct any incomplete or inaccurate details, and submit a new request when ready. You may contact the office if you need further clarification."
+        )
+
+    return "Your application is currently under review. Your queue number will appear once the application has been approved."
+
+
+def normalize_review_notification_message(notification_message, admin_status, entry_number=None, processing_time_label=None):
+    """Keep custom messages, but upgrade legacy default approval/rejection text to the formal guide."""
+    message = (notification_message or "").strip()
+    review_status = normalize_review_status(admin_status)
+    if not message:
+        return build_formal_review_message(review_status, entry_number, processing_time_label)
+
+    normalized_message = message.lower()
+    if review_status == "accepted":
+        legacy_markers = (
+            "we are pleased to inform you that your application form has been approved by our administrator",
+            "please check your email regularly for further instructions and updates regarding your requested document",
+            "estimated document processing duration:",
+        )
+        if any(marker in normalized_message for marker in legacy_markers):
+            return build_formal_review_message(review_status, entry_number, processing_time_label)
+    elif review_status == "rejected":
+        if "we regret to inform you that your application form has not been approved by our administrator at this time" in normalized_message:
+            return build_formal_review_message(review_status, entry_number, processing_time_label)
+
+    return message
+
+
+def excel_column_name(index):
+    """Convert a 1-based column index to an Excel column name."""
+    column_name = ""
+    current = max(1, int(index))
+    while current:
+        current, remainder = divmod(current - 1, 26)
+        column_name = chr(65 + remainder) + column_name
+    return column_name
+
+
+def build_scan_report_workbook_bytes(title, subtitle, metadata_rows, headers, data_rows, sheet_name="Scan Report"):
+    """Build a styled XLSX workbook without external dependencies."""
+    headers = list(headers or [])
+    data_rows = [list(row or []) for row in (data_rows or [])]
+    column_count = max(len(headers), max((len(row) for row in data_rows), default=0), 2)
+    last_column = excel_column_name(column_count)
+    merge_refs = [f"A1:{last_column}1", f"A2:{last_column}2"]
+    sheet_rows = []
+
+    def make_cell(ref, value, style_id=0):
+        safe_value = xml_escape("" if value is None else str(value))
+        return (
+            f'<c r="{ref}" s="{style_id}" t="inlineStr">'
+            f'<is><t xml:space="preserve">{safe_value}</t></is></c>'
+        )
+
+    sheet_rows.append(
+        f'<row r="1" ht="28" customHeight="1">{make_cell("A1", title, 1)}</row>'
+    )
+    sheet_rows.append(
+        f'<row r="2" ht="22" customHeight="1">{make_cell("A2", subtitle, 2)}</row>'
+    )
+
+    current_row = 4
+    for label, value in metadata_rows:
+        label_cell = make_cell(f"A{current_row}", label, 3)
+        value_cell = make_cell(f"B{current_row}", value, 4)
+        sheet_rows.append(f'<row r="{current_row}">{label_cell}{value_cell}</row>')
+        if column_count >= 2:
+            merge_refs.append(f"B{current_row}:{last_column}{current_row}")
+        current_row += 1
+
+    sheet_rows.append(f'<row r="{current_row}"></row>')
+    header_row = current_row + 1
+    header_cells = [
+        make_cell(f"{excel_column_name(col_index)}{header_row}", header, 5)
+        for col_index, header in enumerate(headers, start=1)
+    ]
+    sheet_rows.append(
+        f'<row r="{header_row}" ht="24" customHeight="1">{"".join(header_cells)}</row>'
+    )
+
+    data_start_row = header_row + 1
+    for row_offset, row_values in enumerate(data_rows):
+        row_number = data_start_row + row_offset
+        row_cells = [
+            make_cell(f"{excel_column_name(col_index)}{row_number}", value, 0)
+            for col_index, value in enumerate(row_values, start=1)
+        ]
+        sheet_rows.append(f'<row r="{row_number}">{"".join(row_cells)}</row>')
+
+    last_row = max(header_row, data_start_row + len(data_rows) - 1)
+    col_widths = [28, 18, 30, 28, 16, 16, 14, 24, 22, 20]
+    cols_xml = []
+    for index in range(1, column_count + 1):
+        width = col_widths[index - 1] if index <= len(col_widths) else 18
+        cols_xml.append(
+            f'<col min="{index}" max="{index}" width="{width}" customWidth="1"/>'
+        )
+
+    merge_cells_xml = "".join(f'<mergeCell ref="{ref}"/>' for ref in merge_refs)
+    workbook_created = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    safe_sheet_name = xml_escape((sheet_name or "Scan Report")[:31])
+
+    worksheet_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <dimension ref="A1:{last_column}{last_row}"/>
+  <sheetViews>
+    <sheetView workbookViewId="0">
+      <pane ySplit="{header_row}" topLeftCell="A{header_row + 1}" activePane="bottomLeft" state="frozen"/>
+      <selection pane="bottomLeft" activeCell="A{header_row + 1}" sqref="A{header_row + 1}"/>
+    </sheetView>
+  </sheetViews>
+  <sheetFormatPr defaultRowHeight="18"/>
+  <cols>{''.join(cols_xml)}</cols>
+  <sheetData>{''.join(sheet_rows)}</sheetData>
+  <mergeCells count="{len(merge_refs)}">{merge_cells_xml}</mergeCells>
+  <autoFilter ref="A{header_row}:{last_column}{last_row}"/>
+  <pageMargins left="0.4" right="0.4" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>
+</worksheet>'''
+
+    styles_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="5">
+    <font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/></font>
+    <font><b/><sz val="16"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>
+    <font><sz val="11"/><color rgb="FF17324D"/><name val="Calibri"/><family val="2"/></font>
+    <font><b/><sz val="11"/><color rgb="FF17324D"/><name val="Calibri"/><family val="2"/></font>
+    <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>
+  </fonts>
+  <fills count="6">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF0B4F8A"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFDCEAF7"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF1380A1"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFEAF3FA"/><bgColor indexed="64"/></patternFill></fill>
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border>
+      <left style="thin"><color rgb="FFD7E1EC"/></left>
+      <right style="thin"><color rgb="FFD7E1EC"/></right>
+      <top style="thin"><color rgb="FFD7E1EC"/></top>
+      <bottom style="thin"><color rgb="FFD7E1EC"/></bottom>
+      <diagonal/>
+    </border>
+  </borders>
+  <cellStyleXfs count="1">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+  </cellStyleXfs>
+  <cellXfs count="6">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="4" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+  </cellXfs>
+  <cellStyles count="1">
+    <cellStyle name="Normal" xfId="0" builtinId="0"/>
+  </cellStyles>
+</styleSheet>'''
+
+    workbook_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="{safe_sheet_name}" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>'''
+
+    content_types_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>'''
+
+    rels_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>'''
+
+    workbook_rels_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>'''
+
+    app_props_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Application>SmartQ</Application>
+  <HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>1</vt:i4></vt:variant></vt:vector></HeadingPairs>
+  <TitlesOfParts><vt:vector size="1" baseType="lpstr"><vt:lpstr>{safe_sheet_name}</vt:lpstr></vt:vector></TitlesOfParts>
+</Properties>'''
+
+    core_props_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title>{xml_escape(title)}</dc:title>
+  <dc:creator>SmartQ</dc:creator>
+  <cp:lastModifiedBy>SmartQ</cp:lastModifiedBy>
+  <dcterms:created xsi:type="dcterms:W3CDTF">{workbook_created}</dcterms:created>
+  <dcterms:modified xsi:type="dcterms:W3CDTF">{workbook_created}</dcterms:modified>
+</cp:coreProperties>'''
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as workbook_zip:
+        workbook_zip.writestr("[Content_Types].xml", content_types_xml)
+        workbook_zip.writestr("_rels/.rels", rels_xml)
+        workbook_zip.writestr("docProps/app.xml", app_props_xml)
+        workbook_zip.writestr("docProps/core.xml", core_props_xml)
+        workbook_zip.writestr("xl/workbook.xml", workbook_xml)
+        workbook_zip.writestr("xl/_rels/workbook.xml.rels", workbook_rels_xml)
+        workbook_zip.writestr("xl/styles.xml", styles_xml)
+        workbook_zip.writestr("xl/worksheets/sheet1.xml", worksheet_xml)
+
+    buffer.seek(0)
+    return buffer.getvalue()
 
 
 def load_ticket_font(size, bold=False):
@@ -255,14 +509,14 @@ def build_ticket_download_image(
             "fill": (234, 251, 240, 255),
             "outline": (86, 195, 122, 255),
             "title": "Application Approved",
-            "message": notification_message or "Your application is approved and ready for verification.",
+            "message": notification_message or "Your application has been approved after administrative review. Please retain your ticket reference and wait for the next processing or release instructions.",
             "text": (34, 111, 64, 255),
         },
         "rejected": {
             "fill": (255, 239, 241, 255),
             "outline": (234, 105, 121, 255),
             "title": "Application Rejected",
-            "message": notification_message or "Please contact the office for the next steps on your application.",
+            "message": notification_message or "After administrative review, your application could not be approved at this time. Please review the submitted information and documentary requirements before filing a new request.",
             "text": (143, 42, 55, 255),
         },
         "pending": {
@@ -3870,6 +4124,7 @@ def get_qr_scans(qr_id):
         queue_processing_method = queue_mode.get("processing_method", "Online")
         queue_release_type = queue_mode.get("release_type", "Digital Copy")
         queue_processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
+        queue_processing_time_label = format_processing_time_label(queue_processing_days)
         entry_number_lookup = get_queue_entry_number_lookup(queue_slug, queue_number, cur=cur)
         service_order_lookup = get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=cur)
         active_service_ids = get_active_service_queue_ids(queue_slug, queue_number, cur=cur)
@@ -3919,6 +4174,14 @@ def get_qr_scans(qr_id):
             req_doc_url = doc_urls.get("req_doc")
             signature_url = doc_urls.get("signature")
 
+            entry_number = entry_number_lookup.get(row[0])
+            resolved_notification_message = normalize_review_notification_message(
+                row[13] or "",
+                row[6] or "pending",
+                entry_number=entry_number,
+                processing_time_label=queue_processing_time_label,
+            )
+
             scans.append({
                 "id": row[0],
                 "fullname": row[1] or "Unknown",
@@ -3934,9 +4197,9 @@ def get_qr_scans(qr_id):
                 "signature_url": signature_url,
                 "has_documents": bool(id_doc_url or req_doc_url or signature_url),
                 "applicant_id": row[12] or "",
-                "notification_message": row[13] or "",
+                "notification_message": resolved_notification_message,
                 "queue_type": row[14] or "Document",
-                "entry_number": entry_number_lookup.get(row[0]),
+                "entry_number": entry_number,
                 "service_position": service_order_lookup.get(row[0]),
                 "active_service_position": active_service_position_lookup.get(row[0]),
                 "is_active_service_head": bool(active_service_head_id and row[0] == active_service_head_id),
@@ -3968,7 +4231,7 @@ def get_qr_scans(qr_id):
 
 @app.route('/download_scans/<int:qr_id>', methods=['GET'])
 def download_scans(qr_id):
-    """Download all scans for a specific QR as a CSV file (physical proof of who scanned)."""
+    """Download a styled Excel report for a specific QR scan list."""
     conn = None
     cur = None
     try:
@@ -3997,7 +4260,19 @@ def download_scans(qr_id):
         queue_number = int(match.group(2))
 
         ensure_queue_entries_table(conn)
+        queue_mode = get_queue_mode(queue_slug, queue_number, cur=cur, ensure_columns=False)
+        entry_number_lookup = get_queue_entry_number_lookup(queue_slug, queue_number, cur=cur)
         service_order_lookup = get_queue_entry_service_order_lookup(queue_slug, queue_number, cur=cur)
+        decision_filter = (request.args.get("decision_filter") or "all").strip().lower()
+        if decision_filter not in {"all", "accepted", "rejected", "pending"}:
+            decision_filter = "all"
+        decision_filter_labels = {
+            "all": "All Users",
+            "accepted": "Accepted Users",
+            "rejected": "Rejected Users",
+            "pending": "Pending Users",
+        }
+        report_scope_label = decision_filter_labels[decision_filter]
 
         # Fetch entries for this queue
         cur.execute(
@@ -4010,15 +4285,12 @@ def download_scans(qr_id):
         )
         rows = cur.fetchall()
         rows.sort(key=lambda row: service_order_lookup.get(row[0], float("inf")))
+        filtered_rows = [
+            row for row in rows
+            if decision_filter == "all" or normalize_review_status(row[6]) == decision_filter
+        ]
 
-        # Build CSV content
-        import csv
-        import io as _io
-
-        output = _io.StringIO()
-        writer = csv.writer(output)
-
-        # Include organization and office branding at the top of the CSV
+        # Gather export branding and report metadata.
         try:
             branding = get_app_settings(owner_email=owner_email, allow_global_fallback=True) or {}
             org_name = (branding.get("organization_name") or "").strip()
@@ -4026,57 +4298,72 @@ def download_scans(qr_id):
         except Exception:
             org_name = ""
             office_name = ""
-
-        if org_name:
-            writer.writerow([f"Company: {org_name}"])
-        if office_name:
-            writer.writerow([f"Office: {office_name}"])
-        # blank line before columns
-        writer.writerow([])
-
-        writer.writerow([
+        queue_display_name = queue_slug.replace("-", " ").title()
+        generated_at_label = format_app_datetime(utc_now_naive(), "%B %d, %Y %I:%M %p")
+        service_mode_label = (
+            f"{queue_mode.get('processing_method', 'Online')} / "
+            f"{queue_mode.get('release_type', 'Digital Copy')}"
+        )
+        metadata_rows = [
+            ("Company", org_name or "N/A"),
+            ("Office", office_name or "N/A"),
+            ("Queue", f"{queue_display_name} #{queue_number}"),
+            ("QR ID", str(qr_id)),
+            ("Report Scope", report_scope_label),
+            ("Service Mode", service_mode_label),
+            ("Generated At", generated_at_label),
+            ("Total Entries", str(len(filtered_rows))),
+        ]
+        headers = [
             "Full Name",
             "Phone",
             "Email",
             "Purpose",
             "Queue Status",
-            "Admin Status",
+            "Review Status",
+            "Queue Number",
             "Scanned At",
             "Reference Number",
             "ID Number",
-        ])
-
-        for r in rows:
-            _, fullname, phone, email, purpose, status, admin_status, created_at, ref_no, applicant_id = r
-            writer.writerow([
+        ]
+        data_rows = []
+        for row in filtered_rows:
+            entry_id, fullname, phone, email, purpose, status, admin_status, created_at, ref_no, applicant_id = row
+            review_status = normalize_review_status(admin_status)
+            queue_number_label = entry_number_lookup.get(entry_id) if review_status == "accepted" else ""
+            data_rows.append([
                 fullname or "",
                 phone or "",
                 email or "",
                 purpose or "",
-                status or "",
-                admin_status or "",
-                format_app_datetime(created_at, '%Y-%m-%d %H:%M:%S'),
+                (status or "waiting").strip().capitalize(),
+                review_status.capitalize(),
+                queue_number_label or "",
+                format_app_datetime(created_at, "%B %d, %Y %I:%M %p"),
                 ref_no or "",
                 applicant_id or "",
             ])
 
-        csv_data = output.getvalue()
-        output.close()
-
-        from flask import Response
-        filename = f"scans_qr_{qr_id}.csv"
-        return Response(
-            csv_data,
-            mimetype="text/csv",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            },
+        workbook_bytes = build_scan_report_workbook_bytes(
+            title="Scan Tracking Report",
+            subtitle=f"{report_scope_label} for {queue_display_name} #{queue_number}",
+            metadata_rows=metadata_rows,
+            headers=headers,
+            data_rows=data_rows,
+            sheet_name=report_scope_label,
+        )
+        filename = f"scans_qr_{qr_id}_{decision_filter}_users.xlsx"
+        return send_file(
+            io.BytesIO(workbook_bytes),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name=filename,
         )
     except Exception as e:
-        print(f"Error generating scans CSV: {e}")
+        print(f"Error generating scans report: {e}")
         import traceback
         traceback.print_exc()
-        return "Error generating CSV", 500
+        return "Error generating report", 500
     finally:
         if cur:
             try:
@@ -4387,8 +4674,8 @@ def accept_queue_entry(entry_id):
         processing_time = auto_processing_time or ""
 
         default_message = (
-            "We are pleased to inform you that your application form has been approved by our administrator.\n\n"
-            "Please check your email regularly for further instructions and updates regarding your requested document."
+            "Your application has been approved after administrative review.\n\n"
+            "Please keep your ticket reference and monitor your email for the next instructions regarding document processing and release."
         )
 
         base_message = default_message
@@ -4500,8 +4787,8 @@ def reject_queue_entry(entry_id):
         processing_time = format_processing_time_label(processing_days)
 
         notification_message = provided_notification_message or (
-            "We regret to inform you that your application form has not been approved by our administrator at this time.\n\n"
-            "Please review your submitted information and ensure that all requirements are complete and accurate before submitting a new request."
+            "After administrative review, your application could not be approved at this time.\n\n"
+            "Please review the submitted information and documentary requirements, correct any incomplete or inaccurate details, and submit a new request when ready. You may contact the office if you need further clarification."
         )
 
         cur.execute("""
@@ -5450,6 +5737,13 @@ def queue_waiting(queue_slug, queue_number, entry_id):
 
         queue_type = entry["queue_type"] or queue_type
         queue_purpose = entry["queue_purpose"] or queue_purpose
+        entry_number = entry_number_lookup.get(entry["id"])
+        entry["notification_message"] = normalize_review_notification_message(
+            entry["notification_message"],
+            entry["admin_status"],
+            entry_number=entry_number,
+            processing_time_label=queue_processing_time_label,
+        )
         ticket_reference = entry["reference_number"] or generate_ticket_reference(queue_slug, entry["id"])
         ticket_qr_url = None
         ticket_proof_url = None
@@ -5498,7 +5792,7 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             queue_release_type=queue_mode_hints["release_type"],
             queue_processing_days=queue_processing_days,
             queue_processing_time_label=queue_processing_time_label,
-            entry_number=entry_number_lookup.get(entry["id"]),
+            entry_number=entry_number,
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
             ticket_reference=ticket_reference,
@@ -5853,6 +6147,13 @@ def ticket_proof(queue_slug, queue_number, entry_id):
         queue_type = row[1] or queue_type
         queue_purpose = row[2] or queue_purpose
         ticket_reference = row[6] or generate_ticket_reference(queue_slug, entry_id)
+        entry_number = entry_number_lookup.get(entry["id"])
+        entry["notification_message"] = normalize_review_notification_message(
+            entry["notification_message"],
+            entry["admin_status"],
+            entry_number=entry_number,
+            processing_time_label=queue_processing_time_label,
+        )
 
         return render_template(
             "User/TicketProof.html",
@@ -5864,7 +6165,7 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             queue_release_type=queue_mode_hints["release_type"],
             queue_processing_days=queue_processing_days,
             queue_processing_time_label=queue_processing_time_label,
-            entry_number=entry_number_lookup.get(entry["id"]),
+            entry_number=entry_number,
             entry_created_at_label=format_app_datetime(entry["created_at"], '%Y-%m-%d %I:%M %p'),
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
@@ -5924,6 +6225,12 @@ def download_ticket(queue_slug, queue_number, entry_id):
         created_at_label = format_app_datetime(created_at, '%Y-%m-%d %I:%M %p')
         admin_status_lower = (admin_status or "pending").strip().lower()
         display_number = entry_number_lookup.get(entry_id) if admin_status_lower == "accepted" else None
+        normalized_notification_message = normalize_review_notification_message(
+            notification_message or "",
+            admin_status or "pending",
+            entry_number=display_number,
+            processing_time_label=queue_processing_time_label,
+        )
         ticket_path = url_for('ticket_proof', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
         ticket_url = f"{get_public_base_url()}{ticket_path}"
         app_settings = get_app_settings()
@@ -5937,7 +6244,7 @@ def download_ticket(queue_slug, queue_number, entry_id):
             created_at_label=created_at_label,
             entry_status=entry_status or "waiting",
             admin_status=admin_status or "pending",
-            notification_message=notification_message or "",
+            notification_message=normalized_notification_message,
             processing_time_label=queue_processing_time_label,
             ticket_url=ticket_url,
         )
