@@ -414,7 +414,7 @@
       const statusLower = resolvedStatus.toLowerCase();
       const resolvedProcessingTime = formatProcessingTime(payload.processing_time || payload.processing_days || payload.avg_service_time || "");
       const resolvedEntryNumber = (payload.entry_number || payload.queue_number || "").toString().trim();
-      const acceptedBaseMessage = "Your application has been approved after administrative review.\n\nPlease keep your ticket reference and monitor your email for the next instructions regarding document processing and release.";
+      const acceptedBaseMessage = "We are pleased to inform you that your application form has been approved by our administrator.\n\nPlease check your email regularly for further instructions and updates regarding your requested document.";
       const acceptedMessageParts = [];
       if (resolvedEntryNumber) acceptedMessageParts.push(`Your queue number is #${resolvedEntryNumber}.`);
       if (resolvedProcessingTime) acceptedMessageParts.push(`Estimated processing time: ${resolvedProcessingTime}.`);
@@ -424,7 +424,7 @@
       const defaultMessage = statusLower === "accepted"
         ? acceptedMessage
         : (statusLower === "rejected"
-          ? "After administrative review, your application could not be approved at this time.\n\nPlease review the submitted information and documentary requirements, correct any incomplete or inaccurate details, and submit a new request when ready. You may contact the office if you need further clarification."
+          ? "We regret to inform you that your application form has not been approved by our administrator at this time.\n\nPlease review your submitted information and ensure that all requirements are complete and accurate before submitting a new request."
           : resolvedStatus);
       const resolvedMessage = (payload.status_message || payload.user_message || payload.notification_message || "").toString().trim() || defaultMessage;
       const resolvedQueueType = (payload.queue_type || payload.queueType || "Document").toString().trim() || "Document";
@@ -754,8 +754,8 @@ function rejectEntry(entryId, triggerButton = null) {
   if (triggerButton?.disabled) return;
 
   const DEFAULT_MSG =
-    "After administrative review, your application could not be approved at this time.\n\n" +
-    "Please review the submitted information and documentary requirements, correct any incomplete or inaccurate details, and submit a new request when ready. You may contact the office if you need further clarification.";
+    "We regret to inform you that your application form has not been approved by our administrator at this time.\n\n" +
+    "Please review your submitted information and ensure that all requirements are complete and accurate before submitting a new request.";
 
   showConfirmation("Reject Entry", "Are you sure you want to reject this entry?", async () => {
     const restoreTriggerButton = setButtonBusyState(triggerButton, "Rejecting...");
@@ -1422,15 +1422,7 @@ function rejectEntry(entryId, triggerButton = null) {
               <h3 class="scan-controls-title">Scans for QR #${normalizedQrId}${queueModeLabel ? ` <span style="font-size:0.9rem; color:#666; font-weight:500;">(${queueModeLabel})</span>` : ""}</h3>
               <div class="scan-controls-actions">
                 <button onclick="openNotificationModal(${normalizedQrId})" class="scan-action-btn scan-action-btn-notify">Send Notification</button>
-                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                  <select id="scanDownloadFilter" style="min-width:190px; padding:11px 14px; border:1px solid rgba(14, 77, 122, 0.18); border-radius:12px; font-size:0.95rem; color:#17324d; background:#fff;">
-                    <option value="all">Download All Users</option>
-                    <option value="accepted">Download Accepted Users</option>
-                    <option value="rejected">Download Rejected Users</option>
-                    <option value="pending">Download Pending Users</option>
-                  </select>
-                  <button onclick="downloadScans(${normalizedQrId})" class="scan-action-btn scan-action-btn-download">Download Report</button>
-                </div>
+                <button onclick="downloadScans(${normalizedQrId})" class="scan-action-btn scan-action-btn-download">Download Scans</button>
               </div>
             </div>
             <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
@@ -1485,8 +1477,7 @@ function rejectEntry(entryId, triggerButton = null) {
         showAlert("Invalid QR ID for download.", "error");
         return;
       }
-      const decisionFilter = (document.getElementById("scanDownloadFilter")?.value || "all").toLowerCase();
-      window.location.href = `/download_scans/${normalizedQrId}?decision_filter=${encodeURIComponent(decisionFilter)}`;
+      window.location.href = `/download_scans/${normalizedQrId}`;
     }
 
     function normalizeDecisionStatus(raw) {
