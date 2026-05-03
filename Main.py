@@ -222,6 +222,16 @@ def draw_ticket_info_icon(draw, box, kind, accent, accent_soft):
         draw.line((x1 + 18, y1 + 42, x2 - 18, y1 + 42), fill=accent, width=3)
 
 
+def build_ticket_guide_message(admin_status):
+    """Return a short ticket-facing guide without changing the email message."""
+    resolved_admin_status = (admin_status or "pending").strip().lower()
+    if resolved_admin_status == "accepted":
+        return "Guide: Keep this ticket and check your email for the next instructions."
+    if resolved_admin_status == "rejected":
+        return "Guide: Review your submitted details and contact the office if needed."
+    return "Guide: Wait for the review result. Your queue number will appear after approval."
+
+
 def build_ticket_download_image(
     app_name,
     display_number,
@@ -231,7 +241,7 @@ def build_ticket_download_image(
     created_at_label,
     entry_status,
     admin_status,
-    notification_message,
+    ticket_guide_message,
     processing_time_label,
     ticket_url,
 ):
@@ -249,31 +259,32 @@ def build_ticket_download_image(
     text_secondary = (109, 116, 142, 255)
     divider = (228, 226, 238, 255)
     success = (74, 200, 136, 255)
+    resolved_admin_status = (admin_status or "pending").strip().lower()
+    resolved_ticket_guide = (ticket_guide_message or build_ticket_guide_message(resolved_admin_status)).strip()
 
     status_styles = {
         "accepted": {
             "fill": (234, 251, 240, 255),
             "outline": (86, 195, 122, 255),
             "title": "Application Approved",
-            "message": notification_message or "Your application is approved and ready for verification.",
+            "message": resolved_ticket_guide,
             "text": (34, 111, 64, 255),
         },
         "rejected": {
             "fill": (255, 239, 241, 255),
             "outline": (234, 105, 121, 255),
             "title": "Application Rejected",
-            "message": notification_message or "Please contact the office for the next steps on your application.",
+            "message": resolved_ticket_guide,
             "text": (143, 42, 55, 255),
         },
         "pending": {
             "fill": (255, 248, 221, 255),
             "outline": (232, 181, 63, 255),
             "title": "Application Pending Review",
-            "message": notification_message or "Please wait while your application is being reviewed. Your queue number will appear once your application is approved.",
+            "message": resolved_ticket_guide,
             "text": (145, 100, 19, 255),
         },
     }
-    resolved_admin_status = (admin_status or "pending").strip().lower()
     status_style = status_styles.get(resolved_admin_status, status_styles["pending"])
     display_queue_type = str(queue_type or "N/A")
     if display_number:
@@ -5495,6 +5506,7 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             entry_number=entry_number,
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
+            ticket_status_message=build_ticket_guide_message(entry["admin_status"]),
             ticket_reference=ticket_reference,
             ticket_qr_url=ticket_qr_url,
             ticket_proof_url=ticket_proof_url,
@@ -5863,6 +5875,7 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             entry_created_at_label=format_app_datetime(entry["created_at"], '%Y-%m-%d %I:%M %p'),
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
+            ticket_status_message=build_ticket_guide_message(entry["admin_status"]),
             ticket_reference=ticket_reference,
         )
     except Exception as e:
@@ -5932,7 +5945,7 @@ def download_ticket(queue_slug, queue_number, entry_id):
             created_at_label=created_at_label,
             entry_status=entry_status or "waiting",
             admin_status=admin_status or "pending",
-            notification_message=notification_message or "",
+            ticket_guide_message=build_ticket_guide_message(admin_status),
             processing_time_label=queue_processing_time_label,
             ticket_url=ticket_url,
         )

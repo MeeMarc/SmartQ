@@ -79,9 +79,9 @@
         Estimated processing time: <strong>{{ queue_processing_time_label }}</strong>
       </p>
       {% endif %}
-      {% if entry.notification_message %}
+      {% if ticket_status_message %}
       <p style="margin: 8px 0 0 0; color: {% if entry.admin_status == 'accepted' %}#155724{% elif entry.admin_status == 'rejected' %}#721c24{% else %}#856404{% endif %};">
-        {{ entry.notification_message }}
+        {{ ticket_status_message }}
       </p>
       {% endif %}
     </div>
