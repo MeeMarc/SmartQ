@@ -414,13 +414,23 @@
       const statusLower = resolvedStatus.toLowerCase();
       const resolvedProcessingTime = formatProcessingTime(payload.processing_time || payload.processing_days || payload.avg_service_time || "");
       const resolvedEntryNumber = (payload.entry_number || payload.queue_number || "").toString().trim();
-      const acceptedBaseMessage = "We are pleased to inform you that your application form has been approved by our administrator.\n\nPlease check your email regularly for further instructions and updates regarding your requested document.";
-      const acceptedMessageParts = [];
-      if (resolvedEntryNumber) acceptedMessageParts.push(`Your queue number is #${resolvedEntryNumber}.`);
-      if (resolvedProcessingTime) acceptedMessageParts.push(`Estimated processing time: ${resolvedProcessingTime}.`);
-      const acceptedMessage = acceptedMessageParts.length
-        ? `${acceptedBaseMessage}\n\n${acceptedMessageParts.join("\n\n")}`
-        : acceptedBaseMessage;
+      const resolvedReleaseType = (payload.queue_release_type || payload.release_type || "Digital Copy").toString().trim().toLowerCase();
+      const isPhysicalClaim = resolvedReleaseType === "physical claim";
+      const acceptedMessageParts = [
+        "We are pleased to inform you that your application form has been approved by our administrator."
+      ];
+      if (isPhysicalClaim && resolvedEntryNumber) {
+        acceptedMessageParts.push(`Your queue number is #${resolvedEntryNumber}.`);
+      }
+      if (resolvedProcessingTime) {
+        acceptedMessageParts.push(`Estimated Document Processing Duration: ${resolvedProcessingTime} Business Days.`);
+      }
+      acceptedMessageParts.push(
+        isPhysicalClaim
+          ? "Please wait for further claiming instructions and present your queue number at the office window when claiming your requested document."
+          : "Please check your email regularly, as the administrator will send your requested document there once it is ready."
+      );
+      const acceptedMessage = acceptedMessageParts.join("\n\n");
       const defaultMessage = statusLower === "accepted"
         ? acceptedMessage
         : (statusLower === "rejected"

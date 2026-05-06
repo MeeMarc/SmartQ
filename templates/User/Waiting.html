@@ -38,14 +38,14 @@
         🎉 Ticket Confirmed!
       {% endif %}
     </h3>
-    {% if entry.admin_status == 'accepted' and entry_number %}
+    {% if show_ticket_numbering and entry.admin_status == 'accepted' and entry_number %}
     <div class="number">Numbering #{{ entry_number }}</div>
-    {% elif entry.admin_status == 'rejected' %}
+    {% elif show_ticket_numbering and entry.admin_status == 'rejected' %}
     <div class="queue-number-notice queue-number-notice-rejected">
       <span class="queue-number-notice-icon" aria-hidden="true">#</span>
       <p>Queue number was not assigned because the application was rejected.</p>
     </div>
-    {% else %}
+    {% elif show_ticket_numbering %}
     <div class="queue-number-notice queue-number-notice-pending" role="status" aria-live="polite">
       <span class="queue-number-notice-icon" aria-hidden="true">#</span>
       <p>Queue number will appear once your application is approved.</p>

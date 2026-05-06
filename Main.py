@@ -222,14 +222,45 @@ def draw_ticket_info_icon(draw, box, kind, accent, accent_soft):
         draw.line((x1 + 18, y1 + 42, x2 - 18, y1 + 42), fill=accent, width=3)
 
 
-def build_ticket_guide_message(admin_status):
+def build_ticket_guide_message(admin_status, release_type="Digital Copy"):
     """Return a short ticket-facing guide without changing the email message."""
     resolved_admin_status = (admin_status or "pending").strip().lower()
+    resolved_release_type = normalize_release_type(release_type) or "Digital Copy"
+
     if resolved_admin_status == "accepted":
-        return "Guide: Keep this ticket and check your email for the next instructions."
+        if resolved_release_type == "Physical Claim":
+            return "Guide: Keep this ticket and wait for the office claiming instructions."
+        return "Guide: Check your email regularly. The admin will send your document there."
+
     if resolved_admin_status == "rejected":
         return "Guide: Review your submitted details and contact the office if needed."
-    return "Guide: Wait for the review result. Your queue number will appear after approval."
+
+    if resolved_release_type == "Physical Claim":
+        return "Guide: Wait for approval and keep this ticket for claiming."
+    return "Guide: Wait for approval and monitor your email for updates."
+
+
+def build_acceptance_notification_message(release_type, processing_time="", queue_number=None):
+    """Build the accepted email/message body based on the configured release format."""
+    resolved_release_type = normalize_release_type(release_type) or "Digital Copy"
+    base_message = "We are pleased to inform you that your application form has been approved by our administrator."
+    processing_line = f"Estimated Document Processing Duration: {processing_time} Business Days." if processing_time else ""
+
+    if resolved_release_type == "Physical Claim":
+        queue_number_line = f"Your queue number is #{queue_number}." if queue_number else ""
+        closing_line = (
+            "Please wait for further claiming instructions and present your queue number at the office window "
+            "when claiming your requested document."
+        )
+        message_parts = [base_message, queue_number_line, processing_line, closing_line]
+    else:
+        closing_line = (
+            "Please check your email regularly, as the administrator will send your requested document there "
+            "once it is ready."
+        )
+        message_parts = [base_message, processing_line, closing_line]
+
+    return "\n\n".join(part for part in message_parts if part)
 
 
 def build_ticket_download_image(
@@ -242,6 +273,7 @@ def build_ticket_download_image(
     entry_status,
     admin_status,
     ticket_guide_message,
+    show_numbering,
     processing_time_label,
     ticket_url,
 ):
@@ -260,7 +292,10 @@ def build_ticket_download_image(
     divider = (228, 226, 238, 255)
     success = (74, 200, 136, 255)
     resolved_admin_status = (admin_status or "pending").strip().lower()
-    resolved_ticket_guide = (ticket_guide_message or build_ticket_guide_message(resolved_admin_status)).strip()
+    resolved_ticket_guide = (
+        ticket_guide_message
+        or build_ticket_guide_message(resolved_admin_status, "Physical Claim" if show_numbering else "Digital Copy")
+    ).strip()
 
     status_styles = {
         "accepted": {
@@ -287,16 +322,19 @@ def build_ticket_download_image(
     }
     status_style = status_styles.get(resolved_admin_status, status_styles["pending"])
     display_queue_type = str(queue_type or "N/A")
-    if display_number:
+    if show_numbering and display_number:
         display_number = str(display_number)
         number_heading = f"Numbering #{display_number}"
         detail_number_label = display_number
-    elif resolved_admin_status == "rejected":
+    elif show_numbering and resolved_admin_status == "rejected":
         number_heading = "Not Assigned"
         detail_number_label = "Not Assigned"
-    else:
+    elif show_numbering:
         number_heading = "Pending Approval"
         detail_number_label = "Pending Approval"
+    else:
+        number_heading = "Digital Release"
+        detail_number_label = "Not Required"
 
     small_bold_font = load_ticket_font(24, bold=True)
     title_font = load_ticket_font(42, bold=True)
@@ -376,10 +414,11 @@ def build_ticket_download_image(
 
     detail_rows = [
         ("Service Type", display_queue_type),
-        ("Queue Number", detail_number_label),
         ("Ticket ID", ticket_reference or "N/A"),
         ("Registered", created_at_label or "N/A"),
     ]
+    if show_numbering:
+        detail_rows.insert(1, ("Queue Number", detail_number_label))
 
     row_heights = []
     detail_label_width = 240
@@ -4382,6 +4421,9 @@ def accept_queue_entry(entry_id):
 
         email = resolve_entry_email(cur, current_email=email, applicant_id=applicant_id, phone=phone)
         resolved_entry_number = accepted_queue_number or get_next_accepted_queue_entry_number(queue_slug, queue_number, cur=cur)
+        queue_mode = get_queue_mode(queue_slug, queue_number, cur=cur)
+        queue_release_type = normalize_release_type(queue_mode.get("release_type")) or "Digital Copy"
+        show_ticket_numbering = queue_release_type == "Physical Claim"
 
         user_name = extract_first_name(full_name)
         application_status = "Accepted"
@@ -4390,28 +4432,13 @@ def accept_queue_entry(entry_id):
         auto_processing_time = normalize_processing_time(format_processing_time_label(processing_days))
         processing_time = auto_processing_time or ""
 
-        default_message = (
-            "We are pleased to inform you that your application form has been approved by our administrator.\n\n"
-            "Please check your email regularly for further instructions and updates regarding your requested document."
+        notification_message = build_acceptance_notification_message(
+            queue_release_type,
+            processing_time=processing_time,
+            queue_number=resolved_entry_number if show_ticket_numbering else None,
         )
 
-        base_message = default_message
-        queue_number_line = f"Your queue number is #{resolved_entry_number}." if resolved_entry_number else ""
-
         # âœ… number only (no "days")
-        processing_line = f"Estimated Document Processing Duration: {processing_time} Business Days." if processing_time else ""
-        message_lines = [line for line in (queue_number_line, processing_line) if line]
-
-        if message_lines:
-            details_block = "\n\n".join(message_lines)
-            if "\n\n" in base_message:
-                first_part, rest = base_message.split("\n\n", 1)
-                notification_message = f"{first_part}\n\n{details_block}\n\n{rest}"
-            else:
-                notification_message = f"{base_message}\n\n{details_block}"
-        else:
-            notification_message = base_message
-
         cur.execute("""
             UPDATE queue_entries
             SET admin_status = 'accepted',
@@ -4437,6 +4464,8 @@ def accept_queue_entry(entry_id):
             "processing_days": processing_days,
             "processing_time": processing_time,
             "notification_message": notification_message,
+            "queue_release_type": queue_release_type,
+            "show_ticket_numbering": show_ticket_numbering,
             "application_status": application_status,
             "ticket_status": application_status,
             "admin_status": "accepted"
@@ -5504,9 +5533,10 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             queue_processing_days=queue_processing_days,
             queue_processing_time_label=queue_processing_time_label,
             entry_number=entry_number,
+            show_ticket_numbering=queue_mode_hints["release_type"] == "Physical Claim",
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
-            ticket_status_message=build_ticket_guide_message(entry["admin_status"]),
+            ticket_status_message=build_ticket_guide_message(entry["admin_status"], queue_mode_hints["release_type"]),
             ticket_reference=ticket_reference,
             ticket_qr_url=ticket_qr_url,
             ticket_proof_url=ticket_proof_url,
@@ -5861,7 +5891,7 @@ def ticket_proof(queue_slug, queue_number, entry_id):
         ticket_reference = row[6] or generate_ticket_reference(queue_slug, entry_id)
         entry_number = entry_number_lookup.get(entry["id"])
 
-        return render_template(
+        response = make_response(render_template(
             "User/TicketProof.html",
             queue_slug=queue_slug,
             queue_number=queue_number,
@@ -5872,12 +5902,17 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             queue_processing_days=queue_processing_days,
             queue_processing_time_label=queue_processing_time_label,
             entry_number=entry_number,
+            show_ticket_numbering=queue_mode_hints["release_type"] == "Physical Claim",
             entry_created_at_label=format_app_datetime(entry["created_at"], '%Y-%m-%d %I:%M %p'),
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
-            ticket_status_message=build_ticket_guide_message(entry["admin_status"]),
+            ticket_status_message=build_ticket_guide_message(entry["admin_status"], queue_mode_hints["release_type"]),
             ticket_reference=ticket_reference,
-        )
+        ))
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
     except Exception as e:
         print(f"Error loading ticket proof: {e}")
         return "Unable to load ticket proof.", 500
@@ -5931,7 +5966,10 @@ def download_ticket(queue_slug, queue_number, entry_id):
         ticket_ref = reference_number or generate_ticket_reference(queue_slug, entry_id)
         created_at_label = format_app_datetime(created_at, '%Y-%m-%d %I:%M %p')
         admin_status_lower = (admin_status or "pending").strip().lower()
-        display_number = entry_number_lookup.get(entry_id) if admin_status_lower == "accepted" else None
+        queue_mode = get_queue_mode(queue_slug, queue_number, cur=cur)
+        queue_release_type = normalize_release_type(queue_mode.get("release_type")) or "Digital Copy"
+        show_ticket_numbering = queue_release_type == "Physical Claim"
+        display_number = entry_number_lookup.get(entry_id) if admin_status_lower == "accepted" and show_ticket_numbering else None
         ticket_path = url_for('ticket_proof', queue_slug=queue_slug, queue_number=queue_number, entry_id=entry_id)
         ticket_url = f"{get_public_base_url()}{ticket_path}"
         app_settings = get_app_settings()
@@ -5945,7 +5983,8 @@ def download_ticket(queue_slug, queue_number, entry_id):
             created_at_label=created_at_label,
             entry_status=entry_status or "waiting",
             admin_status=admin_status or "pending",
-            ticket_guide_message=build_ticket_guide_message(admin_status),
+            ticket_guide_message=build_ticket_guide_message(admin_status, queue_release_type),
+            show_numbering=show_ticket_numbering,
             processing_time_label=queue_processing_time_label,
             ticket_url=ticket_url,
         )
