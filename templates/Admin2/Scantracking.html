@@ -427,7 +427,9 @@
       }
       acceptedMessageParts.push(
         isPhysicalClaim
-          ? "Please wait for further claiming instructions and present your queue number at the office window when claiming your requested document."
+          ? (resolvedProcessingTime
+            ? `After ${resolvedProcessingTime} Business Days, please present your ticket and claim your requested document.`
+            : "After the processing period, please present your ticket and claim your requested document.")
           : "Please check your email regularly, as the administrator will send your requested document there once it is ready."
       );
       const acceptedMessage = acceptedMessageParts.join("\n\n");

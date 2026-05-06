@@ -222,14 +222,19 @@ def draw_ticket_info_icon(draw, box, kind, accent, accent_soft):
         draw.line((x1 + 18, y1 + 42, x2 - 18, y1 + 42), fill=accent, width=3)
 
 
-def build_ticket_guide_message(admin_status, release_type="Digital Copy"):
+def build_ticket_guide_message(admin_status, release_type="Digital Copy", processing_time_label=""):
     """Return a short ticket-facing guide without changing the email message."""
     resolved_admin_status = (admin_status or "pending").strip().lower()
     resolved_release_type = normalize_release_type(release_type) or "Digital Copy"
+    resolved_processing_time = (processing_time_label or "").strip()
 
     if resolved_admin_status == "accepted":
         if resolved_release_type == "Physical Claim":
-            return "Guide: Keep this ticket and wait for the office claiming instructions."
+            if resolved_processing_time:
+                return (
+                    f"Guide: After {resolved_processing_time}, present this ticket and claim your requested document."
+                )
+            return "Guide: After the processing period, present this ticket and claim your requested document."
         return "Guide: Check your email regularly. The admin will send your document there."
 
     if resolved_admin_status == "rejected":
@@ -248,10 +253,14 @@ def build_acceptance_notification_message(release_type, processing_time="", queu
 
     if resolved_release_type == "Physical Claim":
         queue_number_line = f"Your queue number is #{queue_number}." if queue_number else ""
-        closing_line = (
-            "Please wait for further claiming instructions and present your queue number at the office window "
-            "when claiming your requested document."
-        )
+        if processing_time:
+            closing_line = (
+                f"After {processing_time} Business Days, please present your ticket and claim your requested document."
+            )
+        else:
+            closing_line = (
+                "After the processing period, please present your ticket and claim your requested document."
+            )
         message_parts = [base_message, queue_number_line, processing_line, closing_line]
     else:
         closing_line = (
@@ -294,7 +303,11 @@ def build_ticket_download_image(
     resolved_admin_status = (admin_status or "pending").strip().lower()
     resolved_ticket_guide = (
         ticket_guide_message
-        or build_ticket_guide_message(resolved_admin_status, "Physical Claim" if show_numbering else "Digital Copy")
+        or build_ticket_guide_message(
+            resolved_admin_status,
+            "Physical Claim" if show_numbering else "Digital Copy",
+            processing_time_label,
+        )
     ).strip()
 
     status_styles = {
@@ -5536,7 +5549,11 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             show_ticket_numbering=queue_mode_hints["release_type"] == "Physical Claim",
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
-            ticket_status_message=build_ticket_guide_message(entry["admin_status"], queue_mode_hints["release_type"]),
+            ticket_status_message=build_ticket_guide_message(
+                entry["admin_status"],
+                queue_mode_hints["release_type"],
+                queue_processing_time_label,
+            ),
             ticket_reference=ticket_reference,
             ticket_qr_url=ticket_qr_url,
             ticket_proof_url=ticket_proof_url,
@@ -5906,12 +5923,17 @@ def ticket_proof(queue_slug, queue_number, entry_id):
             entry_created_at_label=format_app_datetime(entry["created_at"], '%Y-%m-%d %I:%M %p'),
             queue_flow_hint=queue_mode_hints["waiting_hint"],
             entry=entry,
-            ticket_status_message=build_ticket_guide_message(entry["admin_status"], queue_mode_hints["release_type"]),
+            ticket_status_message=build_ticket_guide_message(
+                entry["admin_status"],
+                queue_mode_hints["release_type"],
+                queue_processing_time_label,
+            ),
             ticket_reference=ticket_reference,
         ))
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+        response.headers["Refresh"] = "30"
         return response
     except Exception as e:
         print(f"Error loading ticket proof: {e}")
@@ -5983,7 +6005,7 @@ def download_ticket(queue_slug, queue_number, entry_id):
             created_at_label=created_at_label,
             entry_status=entry_status or "waiting",
             admin_status=admin_status or "pending",
-            ticket_guide_message=build_ticket_guide_message(admin_status, queue_release_type),
+            ticket_guide_message=build_ticket_guide_message(admin_status, queue_release_type, queue_processing_time_label),
             show_numbering=show_ticket_numbering,
             processing_time_label=queue_processing_time_label,
             ticket_url=ticket_url,
