@@ -5535,7 +5535,7 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             for r in history_rows
         ]
 
-        return render_template(
+        response = make_response(render_template(
             "User/Waiting.html",
             queue_type=queue_type,
             queue_purpose=queue_purpose,
@@ -5558,7 +5558,12 @@ def queue_waiting(queue_slug, queue_number, entry_id):
             ticket_qr_url=ticket_qr_url,
             ticket_proof_url=ticket_proof_url,
             recent_entries=recent_entries,
-        )
+        ))
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        response.headers["Refresh"] = "30"
+        return response
     except Exception as e:
         print(f"Error loading waiting page: {e}")
         import traceback

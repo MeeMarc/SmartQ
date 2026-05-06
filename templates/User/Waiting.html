@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="30">
   <title>{{ queue_type|default('Queue Status', true) }} | {{ app_settings.app_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='Waiting.css') }}">
 </head>
@@ -167,11 +168,40 @@
 
   <!-- ======= JAVASCRIPT ======= -->
 <script>
-  const TICKET_AUTO_REFRESH_MS = 10 * 60 * 1000;
+  const TICKET_AUTO_REFRESH_MS = 30 * 1000;
+  const waitingPageLoadedAt = Date.now();
+  let waitingRefreshTimeoutId = null;
 
-  setInterval(() => {
-    window.location.reload();
-  }, TICKET_AUTO_REFRESH_MS);
+  const refreshWaitingPage = () => {
+    const refreshUrl = new URL(window.location.href);
+    refreshUrl.searchParams.set("_refresh", Date.now().toString());
+    window.location.replace(refreshUrl.toString());
+  };
+
+  const scheduleWaitingRefresh = (delay = TICKET_AUTO_REFRESH_MS) => {
+    window.clearTimeout(waitingRefreshTimeoutId);
+    waitingRefreshTimeoutId = window.setTimeout(refreshWaitingPage, Math.max(0, delay));
+  };
+
+  scheduleWaitingRefresh();
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+
+    const elapsed = Date.now() - waitingPageLoadedAt;
+    if (elapsed >= TICKET_AUTO_REFRESH_MS) {
+      refreshWaitingPage();
+      return;
+    }
+
+    scheduleWaitingRefresh(TICKET_AUTO_REFRESH_MS - elapsed);
+  });
+
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) {
+      refreshWaitingPage();
+    }
+  });
 
   // === HAMBURGER MENU TOGGLE ===
   const menuToggle = document.getElementById("menu-toggle");
