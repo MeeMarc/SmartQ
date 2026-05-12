@@ -103,7 +103,7 @@
         <label for="candidateEmail">Email: <span style="color: red;">*</span></label>
         <input type="email" id="candidateEmail" placeholder="you@example.com" required>
 
-        <button type="submit">Submit</button>
+        <button type="submit">Add Candidate</button>
       </form>
     </div>
   </div>
@@ -192,6 +192,7 @@
     const qrDetailContainer = document.getElementById("qrDetailContainer");
     const modal = document.getElementById("candidateModal");
     const candidateForm = document.getElementById("candidateForm");
+    const candidateSubmitBtn = candidateForm?.querySelector('button[type="submit"]');
     const modalQRLink = document.getElementById("modalQRLink");
     const documentsModal = document.getElementById("documentsModal");
     const notificationModal = document.getElementById("notificationModal");
@@ -204,6 +205,7 @@
     let currentScans = [];
     let currentQRId = null;
     let qrMetaById = {};
+    let isCandidateSubmitPending = false;
 
     const EMAILJS_CONFIG_STATUS = {
       PUBLIC_KEY: "9_GwJVQlMs7RR2TeE",
@@ -520,6 +522,7 @@
       const messageEl = document.getElementById('alertMessage');
       const iconEl = document.getElementById('alertIcon');
       const okBtn = document.getElementById('alertOk');
+      const newOkBtn = okBtn.cloneNode(true);
 
       messageEl.textContent = message;
 
@@ -534,11 +537,29 @@
         iconEl.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
       }
 
+      okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+      newOkBtn.type = 'button';
       modal.style.display = 'flex';
 
-      okBtn.onclick = () => {
+      const closeAlert = (event) => {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
         modal.style.display = 'none';
+        newOkBtn.blur();
       };
+
+      newOkBtn.onclick = closeAlert;
+      modal.onclick = (event) => {
+        if (event.target === modal) {
+          closeAlert(event);
+        }
+      };
+
+      window.setTimeout(() => {
+        newOkBtn.focus();
+      }, 0);
     }
 
 
@@ -1330,6 +1351,7 @@ function rejectEntry(entryId, triggerButton = null) {
 
     candidateForm.addEventListener("submit", function (e) {
       e.preventDefault();
+      if (isCandidateSubmitPending) return;
 
       const lastname = document.getElementById("lastname").value.trim();
       const firstname = document.getElementById("firstname").value.trim();
@@ -1363,24 +1385,33 @@ function rejectEntry(entryId, triggerButton = null) {
         link: modalQRLink.value
       };
 
-      fetch("/add_candidate_modal", {
+      isCandidateSubmitPending = true;
+      const restoreSubmitButton = setButtonBusyState(candidateSubmitBtn, "Adding Candidate...");
+
+      fetchJsonSafe("/add_candidate_modal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
       })
-        .then(res => res.json())
-        .then(resp => {
-          if (resp.status === "success") {
-            showAlert("Candidate added successfully!", "success");
-            closeModal();
-            if (currentQRId) viewScans(currentQRId);
-          } else {
-            showAlert("Error: " + resp.message, "error");
-          }
+        .then(() => {
+          showAlert("Candidate added successfully!", "success");
+          closeModal();
+          if (currentQRId) viewScans(currentQRId);
         })
         .catch(err => {
           console.error(err);
-          showAlert("Failed to add candidate. Please try again.", "error");
+          const rawMessage = (err?.message || "").trim();
+          const normalizedMessage = rawMessage.toLowerCase();
+          if (normalizedMessage.includes("already exists in this queue")) {
+            showAlert("This phone number is already being used in this queue.", "warning");
+            document.getElementById("phone").focus();
+            return;
+          }
+          showAlert(rawMessage || "Failed to add candidate. Please try again.", "error");
+        })
+        .finally(() => {
+          isCandidateSubmitPending = false;
+          restoreSubmitButton();
         });
     });
 
