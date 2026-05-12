@@ -1431,7 +1431,7 @@ function rejectEntry(entryId, triggerButton = null) {
         body: JSON.stringify(data)
       })
         .then(() => {
-          showAlert("Candidate added successfully!", "success");
+          showAlert("Candidate added and automatically accepted!", "success");
           closeModal();
           if (currentQRId) viewScans(currentQRId);
         })

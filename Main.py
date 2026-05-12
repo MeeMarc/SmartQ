@@ -5261,14 +5261,30 @@ def add_candidate_modal():
             conn.close()
             return jsonify({"status": "error", "message": "A user with this phone number already exists in this queue."}), 400
         
-        # Insert into queue_entries
+        lock_queue_acceptance_sequence(cur, queue_slug, queue_number)
+
+        queue_mode = get_queue_mode(queue_slug, queue_number, cur=cur)
+        queue_release_type = normalize_release_type(queue_mode.get("release_type")) or "Digital Copy"
+        show_ticket_numbering = queue_release_type == "Physical Claim"
+        processing_days = get_queue_processing_days(queue_slug, queue_number, cur=cur)
+        auto_processing_time = normalize_processing_time(format_processing_time_label(processing_days))
+        processing_time = auto_processing_time or ""
+        accepted_queue_number = get_next_accepted_queue_entry_number(queue_slug, queue_number, cur=cur)
+        notification_message = build_acceptance_notification_message(
+            queue_release_type,
+            processing_time=processing_time,
+            queue_number=accepted_queue_number if show_ticket_numbering else None,
+        )
+
+        # Insert into queue_entries as already accepted when added by admin
         cur.execute(
             """
             INSERT INTO queue_entries (
                 queue_slug, queue_number, queue_type, queue_purpose,
-                fullname, phone, email, purpose, status, admin_status
+                fullname, phone, email, purpose, status, admin_status,
+                accepted_queue_number, notification_message, service_order_offset
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'waiting', 'pending')
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'waiting', 'accepted', %s, %s, 0)
             RETURNING id
             """,
             (
@@ -5280,6 +5296,8 @@ def add_candidate_modal():
                 phone,
                 email,
                 "Added via Admin Panel",  # Purpose field
+                accepted_queue_number,
+                notification_message,
             )
         )
         
@@ -5300,7 +5318,15 @@ def add_candidate_modal():
         cur.close()
         conn.close()
         
-        return jsonify({"status": "success", "qr_id": qr_id, "entry_id": entry_id})
+        return jsonify({
+            "status": "success",
+            "qr_id": qr_id,
+            "entry_id": entry_id,
+            "admin_status": "accepted",
+            "entry_number": accepted_queue_number,
+            "notification_message": notification_message,
+            "queue_release_type": queue_release_type,
+        })
     except Exception as e:
         print(f"Error adding candidate: {e}")
         import traceback
