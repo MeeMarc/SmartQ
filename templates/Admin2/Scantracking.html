@@ -103,6 +103,7 @@
         <label for="candidateEmail">Email: <span style="color: red;">*</span></label>
         <input type="email" id="candidateEmail" placeholder="you@example.com" required>
 
+        <p id="candidateSubmitStatus" style="display: none; margin-top: 10px; color: #0b5ed7; font-size: 0.9rem; font-weight: 600;">Adding candidate, please wait...</p>
         <button type="submit">Add Candidate</button>
       </form>
     </div>
@@ -193,6 +194,7 @@
     const modal = document.getElementById("candidateModal");
     const candidateForm = document.getElementById("candidateForm");
     const candidateSubmitBtn = candidateForm?.querySelector('button[type="submit"]');
+    const candidateSubmitStatus = document.getElementById("candidateSubmitStatus");
     const modalQRLink = document.getElementById("modalQRLink");
     const documentsModal = document.getElementById("documentsModal");
     const notificationModal = document.getElementById("notificationModal");
@@ -206,6 +208,37 @@
     let currentQRId = null;
     let qrMetaById = {};
     let isCandidateSubmitPending = false;
+
+    function setCandidateModalBusy(isBusy) {
+      const interactiveFields = candidateForm
+        ? Array.from(candidateForm.querySelectorAll('input:not([type="hidden"]), button[type="submit"]'))
+        : [];
+
+      interactiveFields.forEach((field) => {
+        field.disabled = isBusy;
+      });
+
+      if (candidateSubmitBtn) {
+        if (!candidateSubmitBtn.dataset.originalText) {
+          candidateSubmitBtn.dataset.originalText = candidateSubmitBtn.textContent.trim();
+        }
+
+        candidateSubmitBtn.textContent = isBusy
+          ? "Adding Candidate..."
+          : (candidateSubmitBtn.dataset.originalText || "Add Candidate");
+
+        if (isBusy) {
+          candidateSubmitBtn.setAttribute("aria-busy", "true");
+          candidateSubmitBtn.blur();
+        } else {
+          candidateSubmitBtn.removeAttribute("aria-busy");
+        }
+      }
+
+      if (candidateSubmitStatus) {
+        candidateSubmitStatus.style.display = isBusy ? "block" : "none";
+      }
+    }
 
     const EMAILJS_CONFIG_STATUS = {
       PUBLIC_KEY: "9_GwJVQlMs7RR2TeE",
@@ -954,10 +987,14 @@ function rejectEntry(entryId, triggerButton = null) {
 
     // Modal functions
     function openModal(link) {
+      isCandidateSubmitPending = false;
+      setCandidateModalBusy(false);
       modal.style.display = "flex";
       modalQRLink.value = link;
     }
     function closeModal() {
+      isCandidateSubmitPending = false;
+      setCandidateModalBusy(false);
       modal.style.display = "none";
       candidateForm.reset();
     }
@@ -1386,7 +1423,7 @@ function rejectEntry(entryId, triggerButton = null) {
       };
 
       isCandidateSubmitPending = true;
-      const restoreSubmitButton = setButtonBusyState(candidateSubmitBtn, "Adding Candidate...");
+      setCandidateModalBusy(true);
 
       fetchJsonSafe("/add_candidate_modal", {
         method: "POST",
@@ -1404,14 +1441,13 @@ function rejectEntry(entryId, triggerButton = null) {
           const normalizedMessage = rawMessage.toLowerCase();
           if (normalizedMessage.includes("already exists in this queue")) {
             showAlert("This phone number is already being used in this queue.", "warning");
-            document.getElementById("phone").focus();
             return;
           }
           showAlert(rawMessage || "Failed to add candidate. Please try again.", "error");
         })
         .finally(() => {
           isCandidateSubmitPending = false;
-          restoreSubmitButton();
+          setCandidateModalBusy(false);
         });
     });
 
